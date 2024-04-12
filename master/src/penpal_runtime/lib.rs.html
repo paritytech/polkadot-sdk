@@ -1074,10 +1074,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#925" id="925">925</a>
 <a href="#926" id="926">926</a>
 <a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1152,18 +1148,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>xcm_config::XcmOriginToTransactDispatchOrigin;
+<span class="kw">use </span>xcm_config::{ForeignAssetsAssetId, XcmOriginToTransactDispatchOrigin};
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
-<span class="comment">// Polkadot imports
-</span><span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-
+<span class="kw">use </span>parachains_common::{AccountId, Signature};
+<span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-
-<span class="comment">// XCM Imports
-</span><span class="kw">use </span>parachains_common::{AccountId, Signature};
 <span class="kw">use </span>xcm::latest::prelude::{AssetId <span class="kw">as </span>AssetLocationId, BodyId};
 
 <span class="doccomment">/// Balance of an account.
@@ -1554,8 +1546,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_assets::Config&lt;ForeignAssetsInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
-	<span class="kw">type </span>AssetId = xcm::v3::Location;
-	<span class="kw">type </span>AssetIdParameter = xcm::v3::Location;
+	<span class="kw">type </span>AssetId = ForeignAssetsAssetId;
+	<span class="kw">type </span>AssetIdParameter = ForeignAssetsAssetId;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>CreateOrigin = AsEnsureOriginWithArg&lt;EnsureSigned&lt;AccountId&gt;&gt;;
 	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;AccountId&gt;;

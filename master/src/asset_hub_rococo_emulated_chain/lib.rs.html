@@ -206,6 +206,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -230,7 +232,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
-	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_foreign_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain, impls::Parachain,
+	xcm_emulator::decl_test_parachains,
 };
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
 
@@ -264,6 +267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(AssetHubRococo);
 <span class="macro">impl_assets_helpers_for_system_parachain!</span>(AssetHubRococo, Rococo);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(AssetHubRococo);
+<span class="macro">impl_foreign_assets_helpers_for_parachain!</span>(AssetHubRococo, xcm::v3::Location);
 <span class="macro">impl_xcm_helpers_for_parachain!</span>(AssetHubRococo);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -1066,6 +1066,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#917" id="917">917</a>
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1106,9 +1114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 <span class="kw">pub use </span>xcm::{
-	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmVersion},
-	v3,
-	v4::Error <span class="kw">as </span>XcmError,
+	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion},
 	DoubleEncoded,
 };
 
@@ -1764,81 +1770,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>impl_assets_helpers_for_parachain {
-	( <span class="macro-nonterminal">$chain</span>:ident) =&gt; {
+	(<span class="macro-nonterminal">$chain</span>:ident) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
 			<span class="kw">impl</span>&lt;<span class="macro-nonterminal">N</span>: <span class="macro-nonterminal">$crate::impls::Network</span>&gt; <span class="macro-nonterminal">$chain</span>&lt;N&gt; {
-				<span class="doccomment">/// Create foreign assets using sudo `ForeignAssets::force_create()`
-				</span><span class="kw">pub fn </span>force_create_foreign_asset(
-					id: <span class="macro-nonterminal">$crate::impls::v3::Location</span>,
-					owner: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
-					is_sufficient: bool,
-					min_balance: u128,
-					prefund_accounts: Vec&lt;(<span class="macro-nonterminal">$crate::impls::AccountId</span>, u128)&gt;,
-				) {
-					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls::Inspect</span>;
-					<span class="kw">let </span>sudo_origin = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::root();
-					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
-						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(
-							&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::force_create(
-								sudo_origin,
-								id.clone(),
-								owner.clone().into(),
-								is_sufficient,
-								min_balance,
-							)
-						);
-						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::asset_exists(id.clone()));
-						<span class="kw">type </span>RuntimeEvent&lt;N&gt; = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
-						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
-							<span class="macro-nonterminal">Self</span>,
-							<span class="macro">vec!</span>[
-								RuntimeEvent::&lt;N&gt;::ForeignAssets(
-									<span class="macro-nonterminal">$crate::impls::pallet_assets::Event::ForceCreated </span>{
-										asset_id,
-										..
-									}
-								) =&gt; { asset_id: <span class="kw-2">*</span>asset_id == id, },
-							]
-						);
-					});
-					<span class="kw">for </span>(beneficiary, amount) <span class="kw">in </span>prefund_accounts.into_iter() {
-						<span class="kw">let </span>signed_origin =
-							&lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::signed(owner.clone());
-						<span class="self">Self</span>::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
-					}
-				}
-
-				<span class="doccomment">/// Mint assets making use of the ForeignAssets pallet-assets instance
-				</span><span class="kw">pub fn </span>mint_foreign_asset(
-					signed_origin: &lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin,
-					id: <span class="macro-nonterminal">$crate::impls::v3::Location</span>,
-					beneficiary: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
-					amount_to_mint: u128,
-				) {
-					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
-						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::mint(
-							signed_origin,
-							id.clone().into(),
-							beneficiary.clone().into(),
-							amount_to_mint
-						));
-
-						<span class="kw">type </span>RuntimeEvent&lt;N&gt; = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
-
-						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
-							<span class="macro-nonterminal">Self</span>,
-							<span class="macro">vec!</span>[
-								RuntimeEvent::&lt;N&gt;::ForeignAssets(
-									<span class="macro-nonterminal">$crate::impls::pallet_assets::Event::Issued </span>{ asset_id, owner, amount }
-								) =&gt; {
-									asset_id: <span class="kw-2">*</span>asset_id == id,
-									owner: <span class="kw-2">*</span>owner == beneficiary.clone().into(),
-									amount: <span class="kw-2">*</span>amount == amount_to_mint,
-								},
-							]
-						);
-					});
-				}
 				<span class="doccomment">/// Create assets using sudo `Assets::force_create()`
 				</span><span class="kw">pub fn </span>force_create_asset(
 					id: u32,
@@ -1931,10 +1865,92 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.encode()
 					.into()
 				}
+			}
+		}
+	};
+}
+
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>impl_foreign_assets_helpers_for_parachain {
+	(<span class="macro-nonterminal">$chain</span>:ident, <span class="macro-nonterminal">$asset_id_type</span>:ty) =&gt; {
+		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
+			<span class="kw">impl</span>&lt;<span class="macro-nonterminal">N</span>: <span class="macro-nonterminal">$crate::impls::Network</span>&gt; <span class="macro-nonterminal">$chain</span>&lt;N&gt; {
+				<span class="doccomment">/// Create foreign assets using sudo `ForeignAssets::force_create()`
+				</span><span class="kw">pub fn </span>force_create_foreign_asset(
+					id: <span class="macro-nonterminal">$asset_id_type</span>,
+					owner: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
+					is_sufficient: bool,
+					min_balance: u128,
+					prefund_accounts: Vec&lt;(<span class="macro-nonterminal">$crate::impls::AccountId</span>, u128)&gt;,
+				) {
+					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls::Inspect</span>;
+					<span class="kw">let </span>sudo_origin = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::root();
+					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
+						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(
+							&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::force_create(
+								sudo_origin,
+								id.clone(),
+								owner.clone().into(),
+								is_sufficient,
+								min_balance,
+							)
+						);
+						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::asset_exists(id.clone()));
+						<span class="kw">type </span>RuntimeEvent&lt;N&gt; = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
+						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
+							<span class="macro-nonterminal">Self</span>,
+							<span class="macro">vec!</span>[
+								RuntimeEvent::&lt;N&gt;::ForeignAssets(
+									<span class="macro-nonterminal">$crate::impls::pallet_assets::Event::ForceCreated </span>{
+										asset_id,
+										..
+									}
+								) =&gt; { asset_id: <span class="kw-2">*</span>asset_id == id, },
+							]
+						);
+					});
+					<span class="kw">for </span>(beneficiary, amount) <span class="kw">in </span>prefund_accounts.into_iter() {
+						<span class="kw">let </span>signed_origin =
+							&lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::signed(owner.clone());
+						<span class="self">Self</span>::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
+					}
+				}
+
+				<span class="doccomment">/// Mint assets making use of the ForeignAssets pallet-assets instance
+				</span><span class="kw">pub fn </span>mint_foreign_asset(
+					signed_origin: &lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin,
+					id: <span class="macro-nonterminal">$asset_id_type</span>,
+					beneficiary: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
+					amount_to_mint: u128,
+				) {
+					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
+						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::mint(
+							signed_origin,
+							id.clone().into(),
+							beneficiary.clone().into(),
+							amount_to_mint
+						));
+
+						<span class="kw">type </span>RuntimeEvent&lt;N&gt; = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
+
+						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
+							<span class="macro-nonterminal">Self</span>,
+							<span class="macro">vec!</span>[
+								RuntimeEvent::&lt;N&gt;::ForeignAssets(
+									<span class="macro-nonterminal">$crate::impls::pallet_assets::Event::Issued </span>{ asset_id, owner, amount }
+								) =&gt; {
+									asset_id: <span class="kw-2">*</span>asset_id == id,
+									owner: <span class="kw-2">*</span>owner == beneficiary.clone().into(),
+									amount: <span class="kw-2">*</span>amount == amount_to_mint,
+								},
+							]
+						);
+					});
+				}
 
 				<span class="doccomment">/// Returns the encoded call for `create` from the foreign assets pallet
 				</span><span class="kw">pub fn </span>create_foreign_asset_call(
-					asset_id: <span class="macro-nonterminal">$crate::impls::v3::Location</span>,
+					asset_id: <span class="macro-nonterminal">$asset_id_type</span>,
 					min_balance: <span class="macro-nonterminal">$crate::impls::Balance</span>,
 					admin: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
 				) -&gt; <span class="macro-nonterminal">$crate::impls::DoubleEncoded</span>&lt;()&gt; {

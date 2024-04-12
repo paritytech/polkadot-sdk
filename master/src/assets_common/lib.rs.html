@@ -535,6 +535,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -563,36 +572,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::matching::{LocalLocationPattern, ParentLocation};
 <span class="kw">use </span>frame_support::traits::{Equals, EverythingBut};
 <span class="kw">use </span>parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
+<span class="kw">use </span>sp_runtime::traits::TryConvertInto;
+<span class="kw">use </span>xcm::latest::Location;
 <span class="kw">use </span>xcm_builder::{
-	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
+	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
-<span class="kw">use </span>xcm_executor::traits::JustTry;
 
 <span class="doccomment">/// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
-</span><span class="kw">pub type </span>AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt; =
+</span><span class="kw">pub type </span>AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation, L = Location&gt; =
 	AsPrefixedGeneralIndex&lt;
 		TrustBackedAssetsPalletLocation,
 		AssetIdForTrustBackedAssets,
-		JustTry,
-		xcm::v3::Location,
+		TryConvertInto,
+		L,
 	&gt;;
-
-<span class="kw">pub type </span>AssetIdForTrustBackedAssetsConvertLatest&lt;TrustBackedAssetsPalletLocation&gt; =
-	AsPrefixedGeneralIndex&lt;TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry&gt;;
 
 <span class="doccomment">/// `Location` vs `CollectionId` converter for `Uniques`
 </span><span class="kw">pub type </span>CollectionIdForUniquesConvert&lt;UniquesPalletLocation&gt; =
-	AsPrefixedGeneralIndex&lt;UniquesPalletLocation, CollectionId, JustTry&gt;;
+	AsPrefixedGeneralIndex&lt;UniquesPalletLocation, CollectionId, TryConvertInto&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-</span><span class="kw">pub type </span>TrustBackedAssetsConvertedConcreteId&lt;TrustBackedAssetsPalletLocation, Balance&gt; =
-	MatchedConvertedConcreteId&lt;
-		AssetIdForTrustBackedAssets,
-		Balance,
-		StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
-		AssetIdForTrustBackedAssetsConvertLatest&lt;TrustBackedAssetsPalletLocation&gt;,
-		JustTry,
-	&gt;;
+</span><span class="kw">pub type </span>TrustBackedAssetsConvertedConcreteId&lt;
+	TrustBackedAssetsPalletLocation,
+	Balance,
+	L = Location,
+&gt; = MatchedConvertedConcreteId&lt;
+	AssetIdForTrustBackedAssets,
+	Balance,
+	StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
+	AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation, L&gt;,
+	TryConvertInto,
+&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `Uniques`
 </span><span class="kw">pub type </span>UniquesConvertedConcreteId&lt;UniquesPalletLocation&gt; = MatchedConvertedConcreteId&lt;
@@ -602,27 +612,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// junction within the pallet itself.
 	</span>StartsWith&lt;UniquesPalletLocation&gt;,
 	CollectionIdForUniquesConvert&lt;UniquesPalletLocation&gt;,
-	JustTry,
+	TryConvertInto,
 &gt;;
 
-<span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
-</span><span class="kw">pub type </span>LocationConvertedConcreteId&lt;LocationFilter, Balance&gt; = MatchedConvertedConcreteId&lt;
-	xcm::v3::Location,
+<span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`,
+/// it is a similar implementation to `TrustBackedAssetsConvertedConcreteId`,
+/// but it converts `AssetId` to `xcm::v*::Location` type instead of `AssetIdForTrustBackedAssets =
+/// u32`
+</span><span class="kw">pub type </span>TrustBackedAssetsAsLocation&lt;
+	TrustBackedAssetsPalletLocation,
 	Balance,
-	LocationFilter,
-	V4V3LocationConverter,
-	JustTry,
+	L,
+	LocationConverter = WithLatestLocationConverter&lt;L&gt;,
+&gt; = MatchedConvertedConcreteId&lt;
+	L,
+	Balance,
+	StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
+	LocationConverter,
+	TryConvertInto,
 &gt;;
-
-<span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-</span><span class="kw">pub type </span>TrustBackedAssetsAsLocation&lt;TrustBackedAssetsPalletLocation, Balance&gt; =
-	MatchedConvertedConcreteId&lt;
-		xcm::v3::Location,
-		Balance,
-		StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
-		V4V3LocationConverter,
-		JustTry,
-	&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.
@@ -632,26 +640,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - all local Locations
 ///
 /// `AdditionalLocationExclusionFilter` can customize additional excluded Locations
-</span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId&lt;AdditionalLocationExclusionFilter, Balance&gt; =
-	LocationConvertedConcreteId&lt;
-		EverythingBut&lt;(
-			<span class="comment">// Excludes relay/parent chain currency
-			</span>Equals&lt;ParentLocation&gt;,
-			<span class="comment">// Here we rely on fact that something like this works:
-			// assert!(Location::new(1,
-			// [Parachain(100)]).starts_with(&amp;Location::parent()));
-			// assert!([Parachain(100)].into().starts_with(&amp;Here));
-			</span>StartsWith&lt;LocalLocationPattern&gt;,
-			<span class="comment">// Here we can exclude more stuff or leave it as `()`
-			</span>AdditionalLocationExclusionFilter,
-		)&gt;,
-		Balance,
-	&gt;;
+</span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId&lt;
+	AdditionalLocationExclusionFilter,
+	Balance,
+	AssetId,
+	LocationToAssetIdConverter = WithLatestLocationConverter&lt;AssetId&gt;,
+	BalanceConverter = TryConvertInto,
+&gt; = MatchedConvertedConcreteId&lt;
+	AssetId,
+	Balance,
+	EverythingBut&lt;(
+		<span class="comment">// Excludes relay/parent chain currency
+		</span>Equals&lt;ParentLocation&gt;,
+		<span class="comment">// Here we rely on fact that something like this works:
+		// assert!(Location::new(1,
+		// [Parachain(100)]).starts_with(&amp;Location::parent()));
+		// assert!([Parachain(100)].into().starts_with(&amp;Here));
+		</span>StartsWith&lt;LocalLocationPattern&gt;,
+		<span class="comment">// Here we can exclude more stuff or leave it as `()`
+		</span>AdditionalLocationExclusionFilter,
+	)&gt;,
+	LocationToAssetIdConverter,
+	BalanceConverter,
+&gt;;
 
 <span class="kw">type </span>AssetIdForPoolAssets = u32;
 <span class="doccomment">/// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
 </span><span class="kw">pub type </span>AssetIdForPoolAssetsConvert&lt;PoolAssetsPalletLocation&gt; =
-	AsPrefixedGeneralIndex&lt;PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry&gt;;
+	AsPrefixedGeneralIndex&lt;PoolAssetsPalletLocation, AssetIdForPoolAssets, TryConvertInto&gt;;
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `PoolAssets`
 </span><span class="kw">pub type </span>PoolAssetsConvertedConcreteId&lt;PoolAssetsPalletLocation, Balance&gt; =
 	MatchedConvertedConcreteId&lt;
@@ -659,7 +675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Balance,
 		StartsWith&lt;PoolAssetsPalletLocation&gt;,
 		AssetIdForPoolAssetsConvert&lt;PoolAssetsPalletLocation&gt;,
-		JustTry,
+		TryConvertInto,
 	&gt;;
 
 <span class="attr">#[cfg(test)]
@@ -667,7 +683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
 	<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>xcm_builder::StartsWithExplicitGlobalConsensus;
+	<span class="kw">use </span>xcm_builder::{StartsWithExplicitGlobalConsensus, WithLatestLocationConverter};
 	<span class="kw">use </span>xcm_executor::traits::{Error <span class="kw">as </span>MatchError, MatchesFungibles};
 
 	<span class="attr">#[test]
@@ -680,14 +696,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Location::new(<span class="number">5</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(local_asset_id.into())]);
 
 		<span class="macro">assert_eq!</span>(
-			AssetIdForTrustBackedAssetsConvertLatest::&lt;TrustBackedAssetsPalletLocation&gt;::convert_back(
+			AssetIdForTrustBackedAssetsConvert::&lt;TrustBackedAssetsPalletLocation&gt;::convert_back(
 				<span class="kw-2">&amp;</span>local_asset_id
 			)
 			.unwrap(),
 			expected_reverse_ref
 		);
 		<span class="macro">assert_eq!</span>(
-			AssetIdForTrustBackedAssetsConvertLatest::&lt;TrustBackedAssetsPalletLocation&gt;::convert(
+			AssetIdForTrustBackedAssetsConvert::&lt;TrustBackedAssetsPalletLocation&gt;::convert(
 				<span class="kw-2">&amp;</span>expected_reverse_ref
 			)
 			.unwrap(),
@@ -700,7 +716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">frame_support::parameter_types! </span>{
 			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location = Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>)]);
 		}
-		<span class="comment">// setup convert
+		<span class="comment">// set up a converter
 		</span><span class="kw">type </span>TrustBackedAssetsConvert =
 			TrustBackedAssetsConvertedConcreteId&lt;TrustBackedAssetsPalletLocation, u128&gt;;
 
@@ -783,19 +799,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>location_converted_concrete_id_converter_works() {
+	</span><span class="kw">fn </span>foreign_assets_converted_concrete_id_converter_works() {
 		<span class="macro">frame_support::parameter_types! </span>{
 			<span class="kw">pub </span>Parachain100Pattern: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">100</span>)]);
 			<span class="kw">pub </span>UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>]);
 		}
 
-		<span class="comment">// setup convert
+		<span class="comment">// set up a converter which uses `xcm::v3::Location` under the hood
 		</span><span class="kw">type </span>Convert = ForeignAssetsConvertedConcreteId&lt;
 			(
 				StartsWith&lt;Parachain100Pattern&gt;,
 				StartsWithExplicitGlobalConsensus&lt;UniversalLocationNetworkId&gt;,
 			),
 			u128,
+			xcm::v3::Location,
+			WithLatestLocationConverter&lt;xcm::v3::Location&gt;,
 		&gt;;
 
 		<span class="kw">let </span>test_data = <span class="macro">vec!</span>[

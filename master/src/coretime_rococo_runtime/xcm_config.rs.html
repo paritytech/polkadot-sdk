@@ -547,7 +547,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 
 <span class="doccomment">/// Means for transacting the native currency on this chain.
-</span><span class="kw">pub type </span>CurrencyTransactor = FungibleAdapter&lt;
+</span><span class="kw">pub type </span>FungibleTransactor = FungibleAdapter&lt;
 	<span class="comment">// Use this currency:
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
@@ -576,7 +576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 &gt;;
 
 <span class="doccomment">/// Means for transacting assets on this chain.
-</span><span class="kw">pub type </span>AssetTransactors = (CurrencyTransactor, RegionTransactor);
+</span><span class="kw">pub type </span>AssetTransactors = (FungibleTransactor, RegionTransactor);
 
 <span class="doccomment">/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with XCM&#39;s `Transact`. There is an `OriginKind` that can

@@ -239,6 +239,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -267,7 +270,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain,
+	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
+	impl_xcm_helpers_for_parachain,
 	impls::{NetworkId, Parachain},
 	xcm_emulator::decl_test_parachains,
 };
@@ -328,7 +332,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalA);
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalB);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalA);
+<span class="macro">impl_foreign_assets_helpers_for_parachain!</span>(PenpalA, xcm::latest::Location);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalB);
+<span class="macro">impl_foreign_assets_helpers_for_parachain!</span>(PenpalB, xcm::latest::Location);
 <span class="macro">impl_xcm_helpers_for_parachain!</span>(PenpalA);
 <span class="macro">impl_xcm_helpers_for_parachain!</span>(PenpalB);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -282,6 +282,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -314,7 +316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub use </span>asset_conversion::ConvertedConcreteAssetId;
 <span class="kw">pub use </span>asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 
 <span class="kw">mod </span>barriers;
@@ -365,7 +367,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">mod </span>matches_location;
-<span class="kw">pub use </span>matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
+<span class="kw">pub use </span>matches_location::{
+	StartsWith, StartsWithExplicitGlobalConsensus, WithLatestLocationConverter,
+};
 
 <span class="kw">mod </span>matches_token;
 <span class="kw">pub use </span>matches_token::IsConcrete;

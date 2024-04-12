@@ -240,18 +240,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -271,8 +259,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>frame_support::parameter_types;
 <span class="kw">use </span>sp_core::{sr25519, storage::Storage};
 
-<span class="comment">// Polkadot
-</span><span class="kw">use </span>xcm::v3::Location;
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
@@ -333,19 +319,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: <span class="macro">vec!</span>[
 				<span class="comment">// Relay Native asset representation
-				</span>(
-					Location::try_from(RelayLocation::get()).unwrap(),
-					PenpalAssetOwner::get(),
-					<span class="bool-val">true</span>,
-					ED,
-				),
+				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
 				<span class="comment">// Sufficient AssetHub asset representation
-				</span>(
-					Location::try_from(LocalReservableFromAssetHub::get()).unwrap(),
-					PenpalAssetOwner::get(),
-					<span class="bool-val">true</span>,
-					ED,
-				),
+				</span>(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
 			],
 			..Default::default()
 		},

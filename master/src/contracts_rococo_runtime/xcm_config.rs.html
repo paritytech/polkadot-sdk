@@ -523,7 +523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 
 <span class="doccomment">/// Means for transacting the native currency on this chain.
-</span><span class="kw">pub type </span>CurrencyTransactor = FungibleAdapter&lt;
+</span><span class="kw">pub type </span>FungibleTransactor = FungibleAdapter&lt;
 	<span class="comment">// Use this currency:
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
@@ -616,7 +616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="kw">type </span>XcmSender = XcmRouter;
-	<span class="kw">type </span>AssetTransactor = CurrencyTransactor;
+	<span class="kw">type </span>AssetTransactor = FungibleTransactor;
 	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>IsReserve = NativeAsset;
 	<span class="kw">type </span>IsTeleporter = TrustedTeleporter;

@@ -1064,6 +1064,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#915" id="915">915</a>
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1148,8 +1151,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>UniquesPalletLocation: Location =
 		PalletInstance(&lt;Uniques <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
-	<span class="kw">pub </span>PoolAssetsPalletLocationV3: xcm::v3::Location =
-		xcm::v3::Junction::PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 	<span class="kw">pub const </span>GovernanceLocation: Location = Location::parent();
 	<span class="kw">pub </span>StakingPot: AccountId = CollatorSelection::account_id();
@@ -1245,6 +1246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>StartsWithExplicitGlobalConsensus&lt;UniversalLocationNetworkId&gt;,
 	),
 	Balance,
+	xcm::v3::Location,
 &gt;;
 
 <span class="doccomment">/// Means for transacting foreign assets from different global consensus.
@@ -1647,7 +1649,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			WeightToFee,
 			<span class="kw">crate</span>::NativeAndAssets,
 			(
-				TrustBackedAssetsAsLocation&lt;TrustBackedAssetsPalletLocation, Balance&gt;,
+				TrustBackedAssetsAsLocation&lt;
+					TrustBackedAssetsPalletLocation,
+					Balance,
+					xcm::v3::Location,
+				&gt;,
 				ForeignAssetsConvertedConcreteId,
 			),
 			ResolveAssetTo&lt;StakingPot, <span class="kw">crate</span>::NativeAndAssets&gt;,

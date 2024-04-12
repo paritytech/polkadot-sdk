@@ -2594,6 +2594,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2445" id="2445">2445</a>
 <a href="#2446" id="2446">2446</a>
 <a href="#2447" id="2447">2447</a>
+<a href="#2448" id="2448">2448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3791,6 +3792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest&lt;Runtime&gt;;
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">type </span>LeafData = pallet_beefy_mmr::Pallet&lt;Runtime&gt;;
+	<span class="kw">type </span>BlockHashProvider = pallet_mmr::DefaultBlockHashProvider&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
