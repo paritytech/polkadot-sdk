@@ -982,8 +982,8 @@ fn leases_can_be_renewed() {
 	});
 }
 
-// We understand that this should panic for leases that expire within `region_length` timeslices
-// after calling `start_sales`.
+// We understand that this does not work as intended for leases that expire within `region_length`
+// timeslices after calling `start_sales`.
 #[test]
 fn short_leases_cannot_be_renewed() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
