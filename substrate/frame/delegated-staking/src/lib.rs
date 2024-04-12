@@ -275,11 +275,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// Existing `agent` cannot register again.
-			ensure!(!Self::is_agent(&who), Error::<T>::NotAllowed);
-
-			// A delegator cannot become an `agent`.
-			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
+			// Existing `agent` cannot register again and a delegator cannot become an `agent`.
+			ensure!(!Self::is_agent(&who) && !Self::is_delegator(&who), Error::<T>::NotAllowed);
 
 			// They cannot be already a direct staker in the staking pallet.
 			ensure!(!Self::is_direct_staker(&who), Error::<T>::AlreadyStaking);
