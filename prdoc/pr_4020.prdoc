@@ -13,18 +13,34 @@ doc:
       During benchmark execution developers can either choose to throw an error, log a warning, or ignore if the weight exceeds the limit. Default behaviour is 
       warning. This can be configured by passing an argument to `--sanity-check` flag in the benchmarking CLI.
 
-      Note: This introduces a breaking change for `frame_benchmarking::Benchmark` runtime API. `benchmark_metadata` function now returns new struct `BenchmarkInfo` 
-      that encapsulates exhaustive benchmarks related information. To ensure backwards compatibility, `BenchmarkInfo` can be created from previous 
+      Note: This introduces a breaking change for `frame_benchmarking::Benchmark` runtime API. `benchmark_metadata` function now returns new struct `RuntimeBenchmarkInfo` 
+      that encapsulates exhaustive benchmarks related information. To ensure backwards compatibility, `RuntimeBenchmarkInfo` can be created from previous 
       return type: `(Vec<BenchmarkList>, Vec<StorageInfo>)`.
 
-      The easiest way to migrate is to replace is to change return type and convert the tuple to `BenchmarkInfo`:
+      It is strongly recommended to use weight sanity check to ensure your benchmarks are within the weight limit:
 
       ```
       --- a/path/to/runtime.rs
       +++ b/path/to/runtime.rs
       @@ -1,3 +1,4 @@
       -fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>) {
-      +fn benchmark_metadata(extra: bool) -> frame_benchmarking::BenchmarkInfo {
+      +fn benchmark_metadata(extra: bool) -> frame_benchmarking::RuntimeBenchmarkInfo {
+          /// ...
+          +let max_extrinsic_weight = RuntimeBlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
+          +let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
+          -(list, storage_info)
+          +RuntimeBenchmarkInfo {list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
+      }
+      ```
+
+      If you choose to ignore it, the easiest way to migrate is to change the return type by converting previous tuple to `RuntimeBenchmarkInfo`:
+
+      ```
+      --- a/path/to/runtime.rs
+      +++ b/path/to/runtime.rs
+      @@ -1,3 +1,4 @@
+      -fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>) {
+      +fn benchmark_metadata(extra: bool) -> frame_benchmarking::RuntimeBenchmarkInfo {
           /// ...
           let mut list = Vec::<BenchmarkList>::new();
           list_benchmarks!(list, extra);
@@ -36,20 +52,11 @@ doc:
       }
       ```
 
-      However, it is strongly recommended to use weight sanity check to ensure your benchmarks are within the weight limit:
-
+      Once the node is compiled with `runtime-benchmarks` feature, you can pass the `--sanity-check` flag to the benchmarking CLI or `ombi-bencher`:
+      
       ```
-      --- a/path/to/runtime.rs
-      +++ b/path/to/runtime.rs
-      @@ -1,3 +1,4 @@
-      -fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>) {
-      +fn benchmark_metadata(extra: bool) -> frame_benchmarking::BenchmarkInfo {
-          /// ...
-          +let max_extrinsic_weight = RuntimeBlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
-          +let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
-          -(list, storage_info)
-          +BenchmarkInfo {list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
-      }
+      ./target/release/node benchmark pallet --sanity-check warning
+      frame-omni-bencher v1 benchmark pallet --sanity-check error
       ```
 
 crates:

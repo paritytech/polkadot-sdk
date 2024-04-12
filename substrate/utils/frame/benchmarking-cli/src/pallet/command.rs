@@ -34,8 +34,6 @@ use sc_chain_spec::json_patch::merge as json_merge;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, RuntimeVersion, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_service::Configuration;
-use serde::Serialize;
 use sp_core::{
 	blake2_64,
 	offchain::{
@@ -59,16 +57,6 @@ use std::{
 	time,
 };
 
-/// The inclusive range of a component.
-#[derive(Serialize, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct ComponentRange {
-	/// Name of the component.
-	pub(crate) name: String,
-	/// Minimal valid value of the component.
-	min: u32,
-	/// Maximal valid value of the component.
-	pub(crate) max: u32,
-}
 const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
 /// How the PoV size of a storage item should be estimated.
@@ -217,20 +205,6 @@ impl PalletCmd {
 			})
 		});
 
-		if let Some(json_input) = &self.json_input {
-			let raw_data = match std::fs::read(json_input) {
-				Ok(raw_data) => raw_data,
-				Err(error) =>
-					return Err(format!("Failed to read {:?}: {}", json_input, error).into()),
-			};
-			let batches: Vec<BenchmarkBatchSplitResults> = match serde_json::from_slice(&raw_data) {
-				Ok(batches) => batches,
-				Err(error) =>
-					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
-			};
-			return self.output_from_results(&batches)
-		}
-
 		let (genesis_storage, genesis_changes) =
 			self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
 		let mut changes = genesis_changes.clone();
@@ -274,9 +248,7 @@ impl PalletCmd {
 		.with_runtime_cache_size(2)
 		.build();
 
-		let state = &state_without_tracking;
-
-		let runtime_version_raw = Self::exec_state_machine(
+		let runtime_version: RuntimeVersion = Self::exec_state_machine(
 			StateMachine::new(
 				state,
 				&mut changes,
@@ -290,9 +262,6 @@ impl PalletCmd {
 			ERROR_RUNTIME_VERSION_NOT_FOUND,
 		)?;
 
-		let runtime_version = <RuntimeVersion as Decode>::decode(&mut &runtime_version_raw[..])
-			.map_err(|e| format!("Failed to decode runtime version: {:?}", e))?;
-
 		// Get the version of `Benchmark` runtime API.
 		let (_, version) = runtime_version
 			.apis
@@ -300,31 +269,38 @@ impl PalletCmd {
 			.find(|(name, _)| name == &blake2_64(b"Benchmark"))
 			.ok_or("Benchmark API not found in runtime version apis")?;
 
-		// Get Benchmark List
-		let benchmarks_metadata = Self::exec_state_machine(
-			StateMachine::new(
-				state,
-				&mut changes,
-				&executor,
-				"Benchmark_benchmark_metadata",
-				&(self.extra).encode(),
-				&mut Self::build_extensions(executor.clone()),
-				&runtime_code,
-				CallContext::Offchain,
-			),
-			ERROR_METADATA_NOT_FOUND,
-		)?;
-
 		let RuntimeBenchmarkInfo { list, storage_info, max_extrinsic_weight, db_weight } = {
 			if *version == 1 {
-				<(Vec<BenchmarkList>, Vec<StorageInfo>) as Decode>::decode(
-					&mut &benchmarks_metadata[..],
-				)
-				.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?
-				.into()
+				// This ensures that we don't run sanity checks on API v1.
+				let old_benchmark_data: (Vec<BenchmarkList>, Vec<StorageInfo>) =
+					Self::exec_state_machine(
+						StateMachine::new(
+							state,
+							&mut changes,
+							&executor,
+							"Benchmark_benchmark_metadata",
+							&(self.extra).encode(),
+							&mut Self::build_extensions(executor.clone()),
+							&runtime_code,
+							CallContext::Offchain,
+						),
+						ERROR_METADATA_NOT_FOUND,
+					)?;
+				old_benchmark_data.into()
 			} else {
-				<RuntimeBenchmarkInfo as Decode>::decode(&mut &benchmarks_metadata[..])
-					.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?
+				Self::exec_state_machine(
+					StateMachine::new(
+						state,
+						&mut changes,
+						&executor,
+						"Benchmark_benchmark_metadata",
+						&(self.extra).encode(),
+						&mut Self::build_extensions(executor.clone()),
+						&runtime_code,
+						CallContext::Offchain,
+					),
+					ERROR_METADATA_NOT_FOUND,
+				)?
 			}
 		};
 
@@ -850,7 +826,7 @@ impl PalletCmd {
 		let pov_analysis_choice: AnalysisChoice =
 			self.output_pov_analysis.clone().try_into().map_err(writer::io_error)?;
 
-		// // Organize results by pallet into a JSON map
+		// Organize results by pallet into a JSON map
 		let all_results = writer::map_results(
 			&batches,
 			&storage_info,
@@ -888,8 +864,7 @@ impl PalletCmd {
 		max_extrinsic_weight: Option<Weight>,
 		db_weight: Option<RuntimeDbWeight>,
 	) -> Result<()> {
-		let mut component_ranges =
-			HashMap::<(Vec<u8>, Vec<u8>), HashMap<String, (u32, u32)>>::new();
+		let mut component_ranges = HashMap::<(String, String), HashMap<String, (u32, u32)>>::new();
 		for batch in batches {
 			let range = component_ranges
 				.entry((

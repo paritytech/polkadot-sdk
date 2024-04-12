@@ -338,7 +338,7 @@ quick-benchmarks-omni:
     WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
   script:
     - time cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
-    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet --repeat 1 --sanity-weight-check ignore
+    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet --sanity-weight-check ignore
 
 test-frame-examples-compile-to-wasm:
   # into one job
