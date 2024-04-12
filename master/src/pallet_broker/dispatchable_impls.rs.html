@@ -626,6 +626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
 <a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -709,7 +710,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			last_timeslice: <span class="self">Self</span>::current_timeslice(),
 		};
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-		<span class="kw">let </span>new_sale = SaleInfoRecord {
+		<span class="comment">// Imaginary old sale for bootstrapping the first actual sale:
+		</span><span class="kw">let </span>old_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
 			price,
@@ -722,7 +724,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			cores_sold: <span class="number">0</span>,
 		};
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::SalesStarted { price, core_count });
-		<span class="self">Self</span>::rotate_sale(new_sale, <span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>status);
+		<span class="self">Self</span>::rotate_sale(old_sale, <span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>status);
 		Status::&lt;T&gt;::put(<span class="kw-2">&amp;</span>status);
 		<span class="prelude-val">Ok</span>(())
 	}

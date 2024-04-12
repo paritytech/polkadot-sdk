@@ -2584,6 +2584,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2435" id="2435">2435</a>
 <a href="#2436" id="2436">2436</a>
 <a href="#2437" id="2437">2437</a>
+<a href="#2438" id="2438">2438</a>
+<a href="#2439" id="2439">2439</a>
+<a href="#2440" id="2440">2440</a>
+<a href="#2441" id="2441">2441</a>
+<a href="#2442" id="2442">2442</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3536,11 +3541,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>parachains_dmp::Config <span class="kw">for </span>Runtime {}
 
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (<span class="number">51200</span>, <span class="number">500</span>);
+}
+
 <span class="kw">impl </span>parachains_hrmp::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ChannelManager = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_hrmp::WeightInfo&lt;Runtime&gt;;
 }
 
