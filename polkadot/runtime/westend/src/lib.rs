@@ -1853,6 +1853,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt<Hash>> {
+			#[allow(deprecated)]
 			parachains_runtime_api_impl::candidate_pending_availability::<Runtime>(para_id)
 		}
 
@@ -1965,6 +1966,10 @@ sp_api::impl_runtime_apis! {
 
 		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+		}
+
+		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
+			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 	}
 
