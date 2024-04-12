@@ -90,7 +90,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::Get;
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 use sp_std::boxed::Box;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -669,7 +669,7 @@ pub mod pallet {
 		///
 		/// This is a helper function for `update_pool_rewards` and should not be called directly.
 		fn reward_per_token(pool_info: &PoolInfoFor<T>) -> Result<T::Balance, DispatchError> {
-			if pool_info.total_tokens_staked.eq(&0u32.into()) {
+			if pool_info.total_tokens_staked.is_zero() {
 				return Ok(pool_info.reward_per_token_stored)
 			}
 
