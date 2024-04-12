@@ -1288,7 +1288,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			return None
 		};
 
-		// We don't disable more than the threshold
+		// We don't disable more than the limit
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
 			return None
 		}
