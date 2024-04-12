@@ -59,7 +59,7 @@ mod sys {
 
 		pub fn caller_is_root() -> ReturnCode;
 
-		pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn clear_storage(key_ptr: *const u8);
 
 		pub fn code_hash(
 			account_id_ptr: *const u8,
@@ -67,7 +67,7 @@ mod sys {
 			output_len_ptr: *mut u32,
 		) -> ReturnCode;
 
-		pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn contains_storage(key_ptr: *const u8) -> ReturnCode;
 
 		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
 
@@ -599,7 +599,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn clear_storage(key: &[u8]) {
-		unsafe { sys::clear_storage(key.as_ptr(), key.len() as u32) };
+		unsafe { sys::clear_storage(key.as_ptr()) };
 	}
 
 	fn clear_storage_v1(key: &[u8]) -> Option<u32> {
@@ -656,7 +656,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn contains_storage(key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::contains_storage(key.as_ptr(), key.len() as u32) };
+		let ret_code = unsafe { sys::contains_storage(key.as_ptr()) };
 		ret_code.into()
 	}
 
