@@ -40,7 +40,7 @@ pub trait Randomness<Output, BlockNumber> {
 	/// Get the basic random seed.
 	///
 	/// In general you won't want to use this, but rather `Self::random` which allows
-	/// you to give a subject for the random result and whose value will eb
+	/// you to give a subject for the random result and whose value will be
 	/// independently low-influence random from any other such seeds.
 	///
 	/// NOTE: The returned seed should only be used to distinguish commitments made before
