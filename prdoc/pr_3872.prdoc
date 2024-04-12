@@ -38,7 +38,9 @@ crates:
     bump: major
   - name: pallet-xcm
     bump: minor
-  - name: xcm-executor
+  - name: staging-xcm-executor
+    bump: minor
+  - name: staging-xcm-builder
     bump: minor
   - name: rococo-runtime
     bump: minor
