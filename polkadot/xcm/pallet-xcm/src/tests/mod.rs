@@ -1274,10 +1274,7 @@ fn record_xcm_works() {
 		let message = Xcm::<RuntimeCall>::builder()
 			.withdraw_asset((Here, SEND_AMOUNT))
 			.buy_execution((Here, SEND_AMOUNT), Unlimited)
-			.deposit_asset(
-				AllCounted(1),
-				Junction::AccountId32 { network: None, id: BOB.into() },
-			)
+			.deposit_asset(AllCounted(1), Junction::AccountId32 { network: None, id: BOB.into() })
 			.build();
 		// Test default values.
 		assert_eq!(ShouldRecordXcm::<Test>::get(), false);

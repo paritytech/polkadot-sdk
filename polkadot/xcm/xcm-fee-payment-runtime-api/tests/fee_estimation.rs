@@ -23,8 +23,7 @@ use frame_support::{
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::testing::H256;
 use xcm::prelude::*;
-use xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi;
-use xcm_fee_payment_runtime_api::fees::XcmPaymentApi;
+use xcm_fee_payment_runtime_api::{dry_run::XcmDryRunApi, fees::XcmPaymentApi};
 
 mod mock;
 use mock::{
@@ -32,12 +31,12 @@ use mock::{
 	DeliveryFees, ExistentialDeposit, HereLocation, RuntimeCall, RuntimeEvent, TestClient, TestXt,
 };
 
-// Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]` on
-// "AssetHub". He wants to make sure he has enough for fees, so before he calls the `transfer_asset`
-// extrinsic to do the transfer, he decides to use the `XcmDryRunApi` and `XcmPaymentApi` runtime
-// APIs to estimate fees. This uses a teleport because we're dealing with the native token of the
-// chain, which is registered on "AssetHub". The fees are sent as a reserve asset transfer, since they're
-// paid in the relay token.
+// Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
+// on "AssetHub". He wants to make sure he has enough for fees, so before he calls the
+// `transfer_asset` extrinsic to do the transfer, he decides to use the `XcmDryRunApi` and
+// `XcmPaymentApi` runtime APIs to estimate fees. This uses a teleport because we're dealing with
+// the native token of the chain, which is registered on "AssetHub". The fees are sent as a reserve
+// asset transfer, since they're paid in the relay token.
 //
 //                 Teleport Parachain(2000) Token
 //                 Reserve Asset Transfer Relay Token for fees
@@ -57,7 +56,9 @@ fn fee_estimation_for_teleport() {
 				beneficiary: Box::new(VersionedLocation::V4(
 					AccountId32 { id: [0u8; 32], network: None }.into(),
 				)),
-				assets: Box::new(VersionedAssets::V4(vec![(Here, 100u128).into(), (Parent, 20u128).into()].into())),
+				assets: Box::new(VersionedAssets::V4(
+					vec![(Here, 100u128).into(), (Parent, 20u128).into()].into(),
+				)),
 				fee_asset_item: 1, // Fees are paid with the RelayToken
 				weight_limit: Unlimited,
 			}),
@@ -107,7 +108,11 @@ fn fee_estimation_for_teleport() {
 					who: 8660274132218572653,
 					amount: 100
 				}),
-				RuntimeEvent::AssetsPallet(pallet_assets::Event::Burned { asset_id: 1, owner: 1, balance: 20 }),
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::Burned {
+					asset_id: 1,
+					owner: 1,
+					balance: 20
+				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 100 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted {
 					outcome: Outcome::Complete { used: Weight::from_parts(400, 40) },

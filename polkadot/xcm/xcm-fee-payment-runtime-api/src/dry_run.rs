@@ -19,7 +19,7 @@
 //! that need to be paid.
 
 use codec::{Decode, Encode};
-use frame_support::pallet_prelude::{TypeInfo, DispatchResult};
+use frame_support::pallet_prelude::{DispatchResult, TypeInfo};
 use sp_runtime::traits::Block as BlockT;
 use sp_std::vec::Vec;
 use xcm::prelude::*;
