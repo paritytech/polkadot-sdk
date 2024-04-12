@@ -45,6 +45,7 @@ std = [
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-xcm/std",
@@ -57,7 +58,6 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"log/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
