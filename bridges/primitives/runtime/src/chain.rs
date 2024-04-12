@@ -236,6 +236,12 @@ where
 pub trait Parachain: Chain {
 	/// Parachain identifier.
 	const PARACHAIN_ID: u32;
+	/// Maximal size of the parachain header.
+	///
+	/// This isn't a strict limit. The relayer may submit larger headers and the
+	/// pallet will accept the call. The limit is only used to compute whether
+	/// the refund can be made.
+	const MAX_HEADER_SIZE: u32;
 }
 
 impl<T> Parachain for T
@@ -244,6 +250,8 @@ where
 	<T as UnderlyingChainProvider>::Chain: Parachain,
 {
 	const PARACHAIN_ID: u32 = <<T as UnderlyingChainProvider>::Chain as Parachain>::PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 =
+		<<T as UnderlyingChainProvider>::Chain as Parachain>::MAX_HEADER_SIZE;
 }
 
 /// Adapter for `Get<u32>` to access `PARACHAIN_ID` from `trait Parachain`

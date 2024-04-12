@@ -505,6 +505,7 @@ pub mod pallet {
 				}
 
 				// convert from parachain head into stored parachain head data
+				let parachain_head_size = parachain_head.0.len();
 				let parachain_head_data =
 					match T::ParaStoredHeaderDataBuilder::try_build(parachain, &parachain_head) {
 						Some(parachain_head_data) => parachain_head_data,
@@ -521,15 +522,17 @@ pub mod pallet {
 
 				let update_result: Result<_, ()> =
 					ParasInfo::<T, I>::try_mutate(parachain, |stored_best_head| {
-						let is_free = match stored_best_head {
-							Some(ref best_head)
-								if at_relay_block.0.saturating_sub(
-									best_head.best_head_hash.at_relay_block_number,
-								) >= free_headers_interval =>
-								true,
-							Some(_) => false,
-							None => true,
-						};
+						let is_free = parachain_head_size <
+							T::ParaStoredHeaderDataBuilder::max_free_head_size() as usize &&
+							match stored_best_head {
+								Some(ref best_head)
+									if at_relay_block.0.saturating_sub(
+										best_head.best_head_hash.at_relay_block_number,
+									) >= free_headers_interval =>
+									true,
+								Some(_) => false,
+								None => true,
+							};
 						let artifacts = Pallet::<T, I>::update_parachain_head(
 							parachain,
 							stored_best_head.take(),
@@ -582,7 +585,8 @@ pub mod pallet {
 				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free();
 			let pays_fee = if is_free {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
-				pallet_bridge_grandpa::on_free_header_imported::<T, T::BridgesGrandpaPalletInstance>();
+				pallet_bridge_grandpa::on_free_header_imported::<T, T::BridgesGrandpaPalletInstance>(
+				);
 				Pays::No
 			} else {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is paid");
@@ -818,7 +822,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 pub(crate) mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_relay_header, BigParachainHeader, FreeHeadersInterval,
+		run_test, test_relay_header, BigParachain, BigParachainHeader, FreeHeadersInterval,
 		RegularParachainHasher, RegularParachainHeader, RelayBlockHeader,
 		RuntimeEvent as TestEvent, RuntimeOrigin, TestRuntime, UNTRACKED_PARACHAIN_ID,
 	};
@@ -1809,6 +1813,21 @@ pub(crate) mod tests {
 				proof,
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::No);
+			// then we submit new BIG head, proved after `FreeHeadersInterval` => Pays::Yes
+			// then we submit new head, proved after `FreeHeadersInterval` => Pays::No
+			let mut large_head = head_data(2, 100);
+			large_head.0.extend(&[42u8; BigParachain::MAX_HEADER_SIZE as _]);
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, large_head)]);
+			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
+			proceed(relay_block_number, state_root);
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 		})
 	}
 }

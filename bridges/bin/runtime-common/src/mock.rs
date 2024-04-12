@@ -407,6 +407,7 @@ impl Chain for BridgedUnderlyingParachain {
 
 impl Parachain for BridgedUnderlyingParachain {
 	const PARACHAIN_ID: u32 = 42;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 /// The other, bridged chain, used in tests.

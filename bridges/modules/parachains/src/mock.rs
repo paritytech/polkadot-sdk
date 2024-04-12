@@ -70,6 +70,7 @@ impl Chain for Parachain1 {
 
 impl Parachain for Parachain1 {
 	const PARACHAIN_ID: u32 = 1;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 pub struct Parachain2;
@@ -96,6 +97,7 @@ impl Chain for Parachain2 {
 
 impl Parachain for Parachain2 {
 	const PARACHAIN_ID: u32 = 2;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 pub struct Parachain3;
@@ -122,6 +124,7 @@ impl Chain for Parachain3 {
 
 impl Parachain for Parachain3 {
 	const PARACHAIN_ID: u32 = 3;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 // this parachain is using u128 as block number and stored head data size exceeds limit
@@ -149,6 +152,7 @@ impl Chain for BigParachain {
 
 impl Parachain for BigParachain {
 	const PARACHAIN_ID: u32 = 4;
+	const MAX_HEADER_SIZE: u32 = 2_048;
 }
 
 construct_runtime! {
