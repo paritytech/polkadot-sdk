@@ -1419,9 +1419,10 @@ pub mod pallet {
 		///    mint/teleport assets and deposit them to `beneficiary`.
 		///
 		/// Fee payment on the source, destination and all intermediary hops, is specified through
-		/// `fees_id`, but make sure enough of the specified `fees_id` asset is included in the given list
-		/// of `assets`. `fees_id` should be enough to pay for `weight_limit`. If more weight is needed
-		/// than `weight_limit`, then the operation will fail and the sent assets may be at risk.
+		/// `fees_id`, but make sure enough of the specified `fees_id` asset is included in the
+		/// given list of `assets`. `fees_id` should be enough to pay for `weight_limit`. If more
+		/// weight is needed than `weight_limit`, then the operation will fail and the sent assets
+		/// may be at risk.
 		///
 		/// `fees_id` may use different transfer type than rest of `assets` and can be specified
 		/// through `fees_transfer_type`.
