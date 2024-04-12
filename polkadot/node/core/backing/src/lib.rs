@@ -1254,8 +1254,7 @@ async fn seconding_sanity_check<Context>(
 					.find_map(|(candidate, leaves)| {
 						(candidate.candidate_hash() == candidate_hash).then_some(leaves)
 					})
-					.map(|leaves| leaves.into_iter().find(|leaf| leaf == head))
-					.flatten()
+					.and_then(|leaves| leaves.into_iter().find(|leaf| leaf == head))
 					.is_some();
 
 				(is_member_or_potential, head)
