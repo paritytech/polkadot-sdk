@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Runtime API definition for getting xcm fees.
+//! Runtime API definition for getting XCM fees.
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;

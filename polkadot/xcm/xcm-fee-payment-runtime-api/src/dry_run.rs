@@ -24,19 +24,28 @@ use sp_runtime::traits::Block as BlockT;
 use sp_std::vec::Vec;
 use xcm::prelude::*;
 
+/// Effects of dry-running an extrinsic.
 #[derive(Encode, Decode, Debug, TypeInfo)]
 pub struct ExtrinsicDryRunEffects<Event> {
-	pub local_program: VersionedXcm<()>,
-	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
-	pub emitted_events: Vec<Event>,
+	/// The result of executing the extrinsic.
 	pub execution_result: DispatchResult,
+	/// The list of events fired by the extrinsic.
+	pub emitted_events: Vec<Event>,
+	/// The local XCM program that was attempted to be executed, if any.
+	pub local_program: VersionedXcm<()>,
+	/// The list of XCMs that were queued for sending.
+	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
 }
 
+/// Effects of dry-running an XCM program.
 #[derive(Encode, Decode, Debug, TypeInfo)]
 pub struct XcmDryRunEffects<Event> {
-	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
-	pub emitted_events: Vec<Event>,
+	/// The outcome of the XCM program execution.
 	pub execution_result: Outcome,
+	/// List of events fired by the XCM program execution.
+	pub emitted_events: Vec<Event>,
+	/// List of queued messages for sending.
+	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
 }
 
 sp_api::decl_runtime_apis! {
@@ -45,11 +54,30 @@ sp_api::decl_runtime_apis! {
 	/// All calls return a vector of tuples (location, xcm) where each "xcm" is executed in "location".
 	/// If there's local execution, the location will be "Here".
 	/// This vector can be used to calculate both execution and delivery fees.
+	///
+	/// Extrinsics or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
+	/// In those cases, there might still be a valid result, with the execution error inside it.
+	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
 	pub trait XcmDryRunApi<Call, Event: Decode> {
 		/// Dry run extrinsic.
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<Event>, ()>;
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<Event>, Error>;
 
 		/// Dry run XCM program
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects<Event>, ()>;
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects<Event>, Error>;
 	}
+}
+
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+pub enum Error {
+	/// An API call is unsupported.
+	#[codec(index = 0)]
+	Unimplemented,
+
+	/// Converting a versioned data structure from one version to another failed.
+	#[codec(index = 1)]
+	VersionedConversionFailed,
+
+	/// Extrinsic was invalid.
+	#[codec(index = 2)]
+	InvalidExtrinsic,
 }

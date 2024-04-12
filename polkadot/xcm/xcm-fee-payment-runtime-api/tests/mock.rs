@@ -19,7 +19,7 @@
 
 use codec::Encode;
 use frame_support::{
-	assert_ok, construct_runtime, derive_impl, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Everything, Nothing,
 		OriginTrait,
@@ -45,7 +45,8 @@ use xcm_executor::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	XcmDryRunApi, ExtrinsicDryRunEffects, XcmDryRunEffects, XcmPaymentApi, XcmPaymentApiError,
+	XcmDryRunApi, ExtrinsicDryRunEffects, XcmDryRunEffects, XcmDryRunApiError,
+	XcmPaymentApi, XcmPaymentApiError,
 };
 
 construct_runtime! {
@@ -451,11 +452,18 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for RuntimeApi {
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, ()> {
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			// We want to record the XCM that's executed, so we can return it.
 			pallet_xcm::ShouldRecordXcm::<TestRuntime>::put(true);
 			// Asserting only because it's a test.
-			let result = Executive::apply_extrinsic(extrinsic).unwrap(); // TODO: Why is it a double result?
+			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
+					"Applying extrinsic failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::InvalidExtrinsic
+			})?;
 			// Nothing gets committed to storage in runtime APIs, so there's no harm in leaving the flag as true.
 			let local_xcm = pallet_xcm::RecordedXcm::<TestRuntime>::get().unwrap_or(Xcm(Vec::new()));
 			let forwarded_messages = sent_xcm()
@@ -473,9 +481,23 @@ sp_api::mock_impl_runtime_apis! {
 			})
 		}
 
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, max_weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, ()> {
-			let origin_location: Location = origin_location.try_into()?;
-			let xcm: Xcm<RuntimeCall> = xcm.try_into()?;
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, max_weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			let origin_location: Location = origin_location.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Location version conversion failed with error: {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+			let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_xcm",
+					"Xcm version conversion failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
 			let mut hash = fake_message_hash(&xcm);
 			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				origin_location,

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Tests for using both the XCM fee payment API and the transfers API.
+//! Tests for using both the XCM fee payment API and the dry-run API.
 
 use frame_support::{
 	dispatch::DispatchInfo,
@@ -164,7 +164,7 @@ fn fee_estimation_for_teleport() {
 			.unwrap();
 		assert_eq!(delivery_fees, VersionedAssets::V4((Here, 20u128).into()));
 
-		// TODO: This would have to be the runtime API of the destination,
+		// This would have to be the runtime API of the destination,
 		// which we have the location for.
 		// If I had a mock runtime configured for "AssetHub" then I would use the
 		// runtime APIs from that.
@@ -289,9 +289,7 @@ fn dry_run_xcm() {
 	let _ = env_logger::builder().is_test(true).try_init();
 	let who = 1; // AccountId = u64.
 	let transfer_amount = 100u128;
-	// TODO: We need to build the XCM to weigh it and then build the real XCM
-	// that can pay for fees.
-	// There might be a better way.
+	// We need to build the XCM to weigh it and then build the real XCM that can pay for fees.
 	let inner_xcm = Xcm::<()>::builder_unsafe()
 		.buy_execution((Here, 1u128), Unlimited) // We'd need to query the destination chain for fees.
 		.deposit_asset(AllCounted(1), [0u8; 32])
