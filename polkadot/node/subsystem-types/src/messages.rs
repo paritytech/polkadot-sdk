@@ -779,6 +779,9 @@ impl RuntimeApiRequest {
 
 	/// `ClaimQueue`
 	pub const CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `candidates_pending_availability`
+	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
 }
 
 /// A message to the Runtime API subsystem.

@@ -540,7 +540,7 @@ where
 		Request::CandidatesPendingAvailability(para, sender) => query!(
 			CandidatesPendingAvailability,
 			candidates_pending_availability(para),
-			ver = 1,
+			ver = Request::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
 			sender
 		),
 		Request::CandidateEvents(sender) => {
