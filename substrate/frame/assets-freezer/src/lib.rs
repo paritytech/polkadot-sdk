@@ -22,7 +22,7 @@
 //! It implements both
 //! [`fungibles::freeze::Inspect`](frame_support::traits::fungibles::freeze::Inspect) and
 //! [`fungibles::freeze::Mutate`](frame_support::traits::fungibles::freeze::Mutate). The complexity
-//! of the operations is `O(MaxFreezes)`.
+//! of the operations is `O(n)`. where `n` is the variant count of `RuntimeFreezeReason`.
 //!
 //! ## Pallet API
 //!
