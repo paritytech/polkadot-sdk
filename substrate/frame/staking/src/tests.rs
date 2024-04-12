@@ -3515,7 +3515,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
 			assert_eq!(
-				UpToThresholdDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
+				UpToLimitDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
 					Session::validators().len()
 				),
 				1
@@ -7730,7 +7730,7 @@ mod ledger_recovery {
 }
 
 mod byzantine_threshold_disabling_strategy {
-	use crate::{tests::Test, CurrentEra, DisablingStrategy, UpToThresholdDisablingStrategy};
+	use crate::{tests::Test, CurrentEra, DisablingStrategy, UpToLimitDisablingStrategy};
 	use sp_staking::EraIndex;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
@@ -7748,7 +7748,7 @@ mod byzantine_threshold_disabling_strategy {
 			CurrentEra::<Test>::put(2);
 
 			let disable_offender =
-				<UpToThresholdDisablingStrategy as DisablingStrategy<Test>>::decision(
+				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					SLASH_ERA,
 					&initially_disabled,
@@ -7765,7 +7765,7 @@ mod byzantine_threshold_disabling_strategy {
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disable_offender =
-				<UpToThresholdDisablingStrategy as DisablingStrategy<Test>>::decision(
+				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					SLASH_ERA,
 					&initially_disabled,
@@ -7782,7 +7782,7 @@ mod byzantine_threshold_disabling_strategy {
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disable_offender =
-				<UpToThresholdDisablingStrategy as DisablingStrategy<Test>>::decision(
+				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
 					SLASH_ERA,
 					&initially_disabled,

@@ -1256,9 +1256,9 @@ pub trait DisablingStrategy<T: Config> {
 /// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
 /// active set can be disabled in an era.
 /// By default a factor of 3 is used which is the byzantine threshold.
-pub struct UpToThresholdDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
+pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
 
-impl<const DISABLING_LIMIT_FACTOR: usize> UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR> {
+impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR> {
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached no more validators will be disabled.
 	pub fn disable_limit(validators_len: usize) -> usize {
@@ -1273,7 +1273,7 @@ impl<const DISABLING_LIMIT_FACTOR: usize> UpToThresholdDisablingStrategy<DISABLI
 }
 
 impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
-	for UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR>
+	for UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>
 {
 	fn decision(
 		offender_stash: &T::AccountId,

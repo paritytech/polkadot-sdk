@@ -320,8 +320,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = Pools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type DisablingStrategy =
-		pallet_staking::UpToThresholdDisablingStrategy<SLASHING_DISABLING_FACTOR>;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime

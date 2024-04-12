@@ -65,7 +65,7 @@ pub mod v15 {
 	use super::*;
 
 	// The disabling strategy used by staking pallet
-	type DefaultDisablingStrategy = UpToThresholdDisablingStrategy;
+	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
 
 	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
