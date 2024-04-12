@@ -17,28 +17,29 @@
 
 //! # FRAME Staking Rewards Pallet
 //!
-//! Allows rewarding fungible token holders.
+//! Allows accounts to be rewarded for holding `fungible` asset/s, for example LP tokens.
 //!
 //! ## Overview
 //!
-//! Governance can create a new incentive program for a fungible asset by creating a new pool.
+//! A permissioned origin can initiate an incentive program for a fungible asset by creating a new
+//! pool.
 //!
-//! When creating the pool, governance specifies a 'staking asset', 'reward asset', 'reward rate
-//! per block', and an 'expiry block'.
+//! During pool creation, a 'staking asset', 'reward asset', 'reward rate per block', 'expiry
+//! block', and 'admin' are specified. By default, the permissioned origin is the admin.
 //!
-//! Once the pool is created, holders of the 'staking asset' can stake them in this pallet, which
-//! puts a Freeze on the asset.
+//! Once created, holders of the 'staking asset' can 'stake' them in a corresponding pool, which
+//! creates a Freeze on the asset.
 //!
-//! Once staked, the staker begins accumulating the right to claim the 'reward asset' each block,
+//! Once staked, the rewards denominated in 'reward asset' begin accumulating to the staker,
 //! proportional to their share of the total staked tokens in the pool.
 //!
-//! Reward assets pending distribution are held in an account derived from the pallet ID and a
-//! unique pool ID.
+//! Reward assets pending distribution are held in an account unique to each pool.
 //!
-//! Care should be taken to keep pool accounts adequately funded with the reward asset.
+//! Care should be taken by the pool operator to keep pool accounts adequately funded with the
+//! reward asset.
 //!
-//! The pool administator can adjust the reward rate per block, the expiry block, and the admin
-//! after the pool is created.
+//! The pool admin may adjust the pool configuration such as reward rate per block, expiry block,
+//! and admin.
 //!
 //! ## Permissioning
 //!
@@ -46,14 +47,17 @@
 //!
 //! Future iterations of this pallet may allow permissionless creation and management of pools.
 //!
+//! Note: The permissioned origin must return an AccountId. This can be achieved for any Origin by
+//! wrapping it with `EnsureSuccess`.
+//!
 //! ## Implementation Notes
 //!
 //! Internal logic functions such as `update_pool_and_staker_rewards` where deliberately written
-//! without any side-effects like storage interaction.
+//! without storage interaction.
 //!
 //! Storage interaction such as reads and writes are instead all performed in the top level
 //! pallet Call method, which while slightly more verbose, makes it much easier to understand the
-//! code and reason about where side-effects occur in the pallet.
+//! code and reason about how storage reads and writes occur in the pallet.
 //!
 //! ## Rewards Algorithm
 //!
@@ -63,15 +67,13 @@
 //! Rewards are calculated JIT (just-in-time), and all operations are O(1) making the approach
 //! scalable to many pools and stakers.
 //!
-//! The approach is widly used across the Ethereum ecosystem, there is also quite battle tested.
-//!
 //! ### Resources
 //!
-//! - [This YouTube video series](https://www.youtube.com/watch?v=6ZO5aYg1GI8), which walks through
-//!   the math of the algorithm.
+//! - [This video series](https://www.youtube.com/watch?v=6ZO5aYg1GI8), which walks through the math
+//!   of the algorithm.
 //! - [This dev.to article](https://dev.to/heymarkkop/understanding-sushiswaps-masterchef-staking-rewards-1m6f),
 //!   which explains the algorithm of the SushiSwap MasterChef staking. While not identical to the
-//!   Synthetix approach, they are very similar.
+//!   Synthetix approach, they are quite similar.
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 

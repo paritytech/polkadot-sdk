@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Asset Rewards pallet benchmarking.
+//!
+//! Note: these benchmarks assume that Root passes the `PermissionedOrigin` checks.
 
 use super::*;
 use crate::Pallet as AssetRewards;
