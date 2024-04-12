@@ -17,6 +17,7 @@
 
 //! Test environment for Staking Rewards pallet.
 
+use self::benchmarking::BenchmarkHelper;
 use super::*;
 use crate as pallet_staking_rewards;
 use core::default::Default;
@@ -119,6 +120,25 @@ impl EnsureOrigin<RuntimeOrigin> for MockPermissionedOrigin {
 
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
 
+pub struct AssetRewardsBenchmarkHelper;
+impl BenchmarkHelper<NativeOrWithId<u32>, u128> for AssetRewardsBenchmarkHelper {
+	fn to_asset_id(seed: u32) -> NativeOrWithId<u32> {
+		if seed == 0 {
+			NativeOrWithId::<u32>::Native
+		} else {
+			NativeOrWithId::<u32>::WithId(seed)
+		}
+	}
+	fn to_account_id(seed: [u8; 32]) -> u128 {
+		// only 16 bytes fit into u128
+		let bytes = <[u8; 16]>::try_from(&seed[0..16]).unwrap();
+		u128::from_be_bytes(bytes)
+	}
+	fn sufficient_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::Native
+	}
+}
+
 impl Config for MockRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = NativeOrWithId<u32>;
@@ -127,7 +147,7 @@ impl Config for MockRuntime {
 	type PalletId = StakingRewardsPalletId;
 	type PermissionedOrigin = MockPermissionedOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

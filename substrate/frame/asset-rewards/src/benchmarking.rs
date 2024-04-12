@@ -23,7 +23,6 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
 	traits::{
-		fungible::NativeOrWithId,
 		fungibles::{Create, Inspect, Mutate},
 		EnsureOrigin,
 	},
@@ -34,28 +33,12 @@ use sp_std::prelude::*;
 
 /// Benchmark Helper
 pub trait BenchmarkHelper<AssetId, AccountId> {
-	/// Convert a NativeOrWithId to an AssetId
-	fn to_asset_id(seed: NativeOrWithId<u32>) -> AssetId;
-	/// Convert a u32 to an AccountId
-	fn to_account_id(seed: u32) -> AccountId;
+	/// Convert a u32 to an AssetId
+	fn to_asset_id(seed: u32) -> AssetId;
+	/// Convert a [u8; 32] to an AccountId
+	fn to_account_id(seed: [u8; 32]) -> AccountId;
 	/// Return the ID of the asset whos minimum balance is sufficient for an account to exist
 	fn sufficient_asset() -> AssetId;
-}
-
-impl<AssetId, AccountId> BenchmarkHelper<AssetId, AccountId> for ()
-where
-	AssetId: From<NativeOrWithId<u32>>,
-	AccountId: From<u32>,
-{
-	fn to_asset_id(seed: NativeOrWithId<u32>) -> AssetId {
-		seed.into()
-	}
-	fn to_account_id(seed: u32) -> AccountId {
-		seed.into()
-	}
-	fn sufficient_asset() -> AssetId {
-		NativeOrWithId::Native.into()
-	}
 }
 
 /// Create and mint the minimum amount of the sufficient asset.
@@ -103,8 +86,8 @@ mod benchmarks {
 		use super::*;
 
 		let root_acc = T::PermissionedOrigin::ensure_origin(Root.into()).unwrap();
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
 		create_and_mint_asset::<T>(
 			&root_acc,
 			&staked_asset,
@@ -144,9 +127,9 @@ mod benchmarks {
 	fn stake() {
 		use super::*;
 
-		let staker = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let staker = T::BenchmarkHelper::to_account_id([1u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(0);
 		create_and_mint_asset::<T>(
 			&staker,
 			&staked_asset,
@@ -179,9 +162,9 @@ mod benchmarks {
 	fn unstake() {
 		use super::*;
 
-		let staker = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let staker = T::BenchmarkHelper::to_account_id([1u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(0);
 		create_and_mint_asset::<T>(
 			&staker,
 			&staked_asset,
@@ -221,10 +204,9 @@ mod benchmarks {
 		use super::*;
 
 		let block_number_before = frame_system::Pallet::<T>::block_number();
-
-		let staker = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let staker = T::BenchmarkHelper::to_account_id([2u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
 		create_and_mint_asset::<T>(
 			&staker,
 			&staked_asset,
@@ -279,9 +261,9 @@ mod benchmarks {
 	fn set_pool_reward_rate_per_block() {
 		use super::*;
 
-		let acc = T::BenchmarkHelper::to_account_id(1);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let acc = T::BenchmarkHelper::to_account_id([3u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(5);
 		create_and_mint_asset::<T>(
 			&acc,
 			&staked_asset,
@@ -318,9 +300,9 @@ mod benchmarks {
 	fn set_pool_admin() {
 		use super::*;
 
-		let new_admin = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let new_admin = T::BenchmarkHelper::to_account_id([2u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(0);
 		create_and_mint_asset::<T>(
 			&new_admin,
 			&staked_asset,
@@ -351,9 +333,9 @@ mod benchmarks {
 	fn set_pool_expiry_block() {
 		use super::*;
 
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
-		let acc = T::BenchmarkHelper::to_account_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(2);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(5);
+		let acc = T::BenchmarkHelper::to_account_id([5u8; 32]);
 		create_and_mint_asset::<T>(
 			&acc,
 			&staked_asset,
@@ -390,9 +372,9 @@ mod benchmarks {
 	fn deposit_reward_tokens() {
 		use super::*;
 
-		let acc = T::BenchmarkHelper::to_account_id(1);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let acc = T::BenchmarkHelper::to_account_id([3u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(4);
 		create_and_mint_asset::<T>(&acc, &reward_asset, 100_000u32.into());
 		create_and_mint_asset::<T>(&acc, &staked_asset, 100_000u32.into());
 
@@ -422,9 +404,9 @@ mod benchmarks {
 	fn withdraw_reward_tokens() {
 		use super::*;
 
-		let acc = T::BenchmarkHelper::to_account_id(1);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
-		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		let acc = T::BenchmarkHelper::to_account_id([3u8; 32]);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
 		create_and_mint_asset::<T>(&acc, &staked_asset, 10000u32.into());
 		create_and_mint_asset::<T>(&acc, &reward_asset, 10000u32.into());
 

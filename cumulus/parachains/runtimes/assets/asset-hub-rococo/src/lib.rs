@@ -102,6 +102,9 @@ use xcm::latest::prelude::{
 };
 use xcm::latest::prelude::{AssetId, BodyId};
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::PalletInfoAccess;
+
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 impl_opaque_keys! {
@@ -906,28 +909,18 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-use crate::fungible::NativeOrWithId;
-
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::PalletInfoAccess;
-
-#[cfg(feature = "runtime-benchmarks")]
 pub struct PalletAssetRewardsBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location, AccountId>
 	for PalletAssetRewardsBenchmarkHelper
 {
-	fn to_asset_id(seed: NativeOrWithId<u32>) -> xcm::v3::Location {
-		match seed {
-			NativeOrWithId::Native => xcm::v3::Location::here().into(),
-			NativeOrWithId::WithId(id) => xcm::v3::Location::ancestor(id.try_into().unwrap()),
-		}
+	fn to_asset_id(seed: u32) -> xcm::v3::Location {
+		// Any Location is fine for benchmarking.
+		xcm::v3::Location::ancestor(seed.try_into().unwrap())
 	}
-	fn to_account_id(seed: u32) -> AccountId {
-		let mut bytes = [0u8; 32];
-		bytes[0..4].copy_from_slice(&seed.to_be_bytes());
-		bytes.into()
+	fn to_account_id(seed: [u8; 32]) -> AccountId {
+		seed.into()
 	}
 	fn sufficient_asset() -> xcm::v3::Location {
 		xcm::v3::Junction::PalletInstance(<Balances as PalletInfoAccess>::index() as u8).into()

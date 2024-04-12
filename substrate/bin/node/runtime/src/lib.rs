@@ -1742,13 +1742,15 @@ pub struct AssetRewardsBenchmarkHelper;
 impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>, AccountId>
 	for AssetRewardsBenchmarkHelper
 {
-	fn to_asset_id(seed: NativeOrWithId<u32>) -> NativeOrWithId<u32> {
-		seed
+	fn to_asset_id(seed: u32) -> NativeOrWithId<u32> {
+		if seed == 0 {
+			NativeOrWithId::<u32>::Native
+		} else {
+			NativeOrWithId::<u32>::WithId(seed)
+		}
 	}
-	fn to_account_id(seed: u32) -> AccountId {
-		let mut bytes = [0u8; 32]; // Create a 32-byte array filled with zeros
-		bytes[0..4].copy_from_slice(&seed.to_be_bytes()); // Place the u32 value at the beginning (big-endian for this example)
-		bytes.into()
+	fn to_account_id(seed: [u8; 32]) -> AccountId {
+		seed.into()
 	}
 	fn sufficient_asset() -> NativeOrWithId<u32> {
 		NativeOrWithId::<u32>::Native
