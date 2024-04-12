@@ -1132,6 +1132,114 @@ fn find_potential_parents_with_max_depth() {
 	}
 }
 
+#[test]
+fn find_potential_parents_unknown_included() {
+	sp_tracing::try_init_simple();
+
+	const NON_INCLUDED_CHAIN_LEN: usize = 5;
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let relay_parent = relay_hash_from_block_num(10);
+	// Choose different relay parent for alternative chain to get new hashes.
+	let search_relay_parent = relay_hash_from_block_num(11);
+
+	let sproof = sproof_with_best_parent(&client);
+	let included_but_unknown = build_block(&*client, sproof, None, None, Some(relay_parent));
+
+	let relay_chain = Relaychain::new();
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.relay_chain_hash_to_header
+			.insert(search_relay_parent, included_but_unknown.header().clone());
+	}
+
+	// Ignore alternative branch:
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			max_depth: NON_INCLUDED_CHAIN_LEN,
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+
+	assert_eq!(potential_parents.len(), 0);
+}
+
+#[test]
+fn find_potential_parents_unknown_pending() {
+	sp_tracing::try_init_simple();
+
+	const NON_INCLUDED_CHAIN_LEN: usize = 5;
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	// Choose different relay parent for alternative chain to get new hashes.
+	let search_relay_parent = relay_hash_from_block_num(11);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::NetworkInitialSync,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let sproof = sproof_with_parent_by_hash(&client, included_block.header().hash());
+	let pending_but_unknown = build_block(
+		&*client,
+		sproof,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.relay_chain_hash_to_header
+			.insert(search_relay_parent, included_block.header().clone());
+		relay_inner
+			.relay_chain_hash_to_header_pending
+			.insert(search_relay_parent, pending_but_unknown.header().clone());
+	}
+
+	// Ignore alternative branch:
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			max_depth: NON_INCLUDED_CHAIN_LEN,
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+
+	assert_eq!(potential_parents.len(), 1);
+	let expected = included_block;
+	let parent = &potential_parents[0];
+
+	assert_eq!(parent.hash, expected.hash());
+	assert_eq!(&parent.header, expected.header());
+	assert_eq!(parent.depth, 0);
+	assert!(parent.aligned_with_pending);
+}
+
 /// Test where there is an additional block between included and pending block.
 #[test]
 fn find_potential_parents_aligned_with_late_pending() {

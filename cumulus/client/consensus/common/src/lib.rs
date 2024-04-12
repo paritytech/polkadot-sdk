@@ -364,6 +364,32 @@ pub async fn find_potential_parents<B: BlockT>(
 	let included_hash = included_header.hash();
 	let pending_hash = pending_header.as_ref().map(|hdr| hdr.hash());
 
+	match backend.blockchain().header(included_hash) {
+		Ok(None) | Err(_) => {
+			tracing::warn!("Failed to get header for included block at hash {:?}", included_hash);
+			return Ok(Default::default())
+		},
+		_ => {},
+	};
+
+	if let Some(pending_hash) = pending_hash {
+		match backend.blockchain().header(pending_hash) {
+			Ok(None) | Err(_) => {
+				tracing::warn!(
+					"Failed to get header for included block at hash {:?}",
+					included_hash
+				);
+				return Ok(vec![PotentialParent::<B> {
+					hash: included_hash,
+					header: included_header.clone(),
+					depth: 0,
+					aligned_with_pending: true,
+				}])
+			},
+			_ => {},
+		};
+	}
+
 	if params.max_depth == 0 {
 		return Ok(vec![PotentialParent::<B> {
 			hash: included_hash,
