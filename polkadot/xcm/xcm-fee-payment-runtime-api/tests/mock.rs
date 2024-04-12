@@ -455,7 +455,6 @@ sp_api::mock_impl_runtime_apis! {
 		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			// We want to record the XCM that's executed, so we can return it.
 			pallet_xcm::ShouldRecordXcm::<TestRuntime>::put(true);
-			// Asserting only because it's a test.
 			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
 				log::error!(
 					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
