@@ -219,7 +219,7 @@ impl<T: Config> Pallet<T> {
 			// Will the lease expire at the end of the period?
 			let expire = until < region_end;
 			if expire {
-				// last time for this one - make it renewable in this sale.
+				// last time for this one - make it renewable in the next sale.
 				let renewal_id = AllowedRenewalId { core: first_core, when: region_end };
 				let record = AllowedRenewalRecord { price, completion: Complete(schedule) };
 				AllowedRenewals::<T>::insert(renewal_id, &record);
