@@ -877,7 +877,7 @@ async fn get_block_number_under_construction(
 }
 
 /// Requests backable candidates from Prospective Parachains based on
-/// the given ancestors in the fragment tree. The ancestors may not be ordered.
+/// the given ancestors in the fragment chain. The ancestors may not be ordered.
 async fn get_backable_candidates(
 	relay_parent: Hash,
 	para_id: ParaId,

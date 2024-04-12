@@ -246,6 +246,8 @@ struct PerCandidateState {
 }
 
 enum ActiveLeafState {
+	// If prospective-parachains is disabled, one validator may only back one candidate per
+	// paraid.
 	ProspectiveParachainsDisabled { seconded: HashSet<ParaId> },
 	ProspectiveParachainsEnabled { max_candidate_depth: usize, allowed_ancestry_len: usize },
 }
@@ -299,11 +301,11 @@ struct State {
 	///      parachains.
 	///
 	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment trees of active leaves which do.
+	/// never included in the fragment chains of active leaves which do.
 	///
 	/// While it would be technically possible to support such leaves in
-	/// fragment trees, it only benefits the transition period when asynchronous
-	/// backing is being enabled and complicates code complexity.
+	/// fragment chains, it only benefits the transition period when asynchronous
+	/// backing is being enabled and complicates code.
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
 	/// State tracked for all candidates relevant to the implicit view.
 	///
@@ -1716,13 +1718,6 @@ async fn post_import_statement_actions<Context>(
 						candidate_hash,
 					))
 					.await;
-					// Backed candidate potentially unblocks new advertisements,
-					// notify collator protocol.
-					ctx.send_message(CollatorProtocolMessage::Backed {
-						para_id,
-						para_head: backed.candidate().descriptor.para_head,
-					})
-					.await;
 					// Notify statement distribution of backed candidate.
 					ctx.send_message(StatementDistributionMessage::Backed(candidate_hash)).await;
 				} else {
@@ -1946,7 +1941,7 @@ async fn maybe_validate_and_import<Context>(
 	if let Some(summary) = summary {
 		// import_statement already takes care of communicating with the
 		// prospective parachains subsystem. At this point, the candidate
-		// has already been accepted into the fragment trees.
+		// has already been accepted by the subsystem.
 
 		let candidate_hash = summary.candidate;
 

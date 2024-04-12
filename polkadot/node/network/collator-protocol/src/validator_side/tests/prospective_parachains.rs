@@ -1031,14 +1031,6 @@ fn backed_candidate_unblocks_advertisements() {
 			}
 		);
 
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::Backed {
-				para_id: test_state.chain_ids[0],
-				para_head: parent_head_data_hash,
-			},
-		)
-		.await;
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::CandidateBacking(

@@ -1149,13 +1149,6 @@ fn backing_works() {
 		);
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::Backed {
-				para_id: _para_id,
-				para_head,
-			}) if para_id == _para_id && candidate_a_para_head == para_head
-		);
-		assert_matches!(
-			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(StatementDistributionMessage::Backed (
 				candidate_hash
 			)) if candidate_a_hash == candidate_hash
@@ -1362,7 +1355,6 @@ fn concurrent_dependent_candidates() {
 				AllMessages::ProspectiveParachains(
 					ProspectiveParachainsMessage::CandidateBacked(..),
 				) => {},
-				AllMessages::CollatorProtocol(CollatorProtocolMessage::Backed { .. }) => {},
 				AllMessages::StatementDistribution(StatementDistributionMessage::Share(
 					_,
 					statement,

@@ -67,9 +67,9 @@ mod collation;
 mod metrics;
 
 use collation::{
-	fetched_collation_sanity_check, BlockedAdvertisement, CollationEvent, CollationFetchError,
-	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
-	PendingCollationFetch, ProspectiveCandidate,
+	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
+	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
+	ProspectiveCandidate,
 };
 
 #[cfg(test)]
@@ -390,7 +390,7 @@ struct State {
 	/// `active_leaves`, the opposite doesn't hold true.
 	///
 	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment trees of active leaves which do. In
+	/// never included in the fragment chains of active leaves which do. In
 	/// particular, this means that if a given relay parent belongs to implicit
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	implicit_view: ImplicitView,
@@ -422,14 +422,6 @@ struct State {
 
 	/// Span per relay parent.
 	span_per_relay_parent: HashMap<Hash, PerLeafSpan>,
-
-	/// Advertisements that were accepted as valid by collator protocol but rejected by backing.
-	///
-	/// It's only legal to fetch collations that are either built on top of the root
-	/// of some fragment tree or have a parent node which represents backed candidate.
-	/// Otherwise, a validator will keep such advertisement in the memory and re-trigger
-	/// requests to backing on new backed candidates and activations.
-	blocked_advertisements: HashMap<(ParaId, Hash), Vec<BlockedAdvertisement>>,
 
 	/// When a timer in this `FuturesUnordered` triggers, we should dequeue the next request
 	/// attempt in the corresponding `collations_per_relay_parent`.
@@ -954,6 +946,8 @@ enum AdvertisementError {
 	ProtocolMisuse,
 	/// Advertisement is invalid.
 	Invalid(InsertAdvertisementError),
+	/// Seconding not allowed by backing subsystem
+	BlockedByBacking,
 }
 
 impl AdvertisementError {
@@ -963,7 +957,7 @@ impl AdvertisementError {
 			InvalidAssignment => Some(COST_WRONG_PARA),
 			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
 			RelayParentUnknown | UndeclaredCollator | Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
-			UnknownPeer | SecondedLimitReached => None,
+			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
 		}
 	}
 }
@@ -1000,60 +994,6 @@ where
 
 		false
 	})
-}
-
-/// Checks whether any of the advertisements are unblocked and attempts to fetch them.
-async fn request_unblocked_collations<Sender, I>(sender: &mut Sender, state: &mut State, blocked: I)
-where
-	Sender: CollatorProtocolSenderTrait,
-	I: IntoIterator<Item = ((ParaId, Hash), Vec<BlockedAdvertisement>)>,
-{
-	let _timer = state.metrics.time_request_unblocked_collations();
-
-	for (key, mut value) in blocked {
-		let (para_id, para_head) = key;
-		let blocked = std::mem::take(&mut value);
-		for blocked in blocked {
-			let is_seconding_allowed = can_second(
-				sender,
-				para_id,
-				blocked.candidate_relay_parent,
-				blocked.candidate_hash,
-				para_head,
-			)
-			.await;
-
-			if is_seconding_allowed {
-				let result = enqueue_collation(
-					sender,
-					state,
-					blocked.candidate_relay_parent,
-					para_id,
-					blocked.peer_id,
-					blocked.collator_id,
-					Some((blocked.candidate_hash, para_head)),
-				)
-				.await;
-				if let Err(fetch_error) = result {
-					gum::debug!(
-						target: LOG_TARGET,
-						relay_parent = ?blocked.candidate_relay_parent,
-						para_id = ?para_id,
-						peer_id = ?blocked.peer_id,
-						error = %fetch_error,
-						"Failed to request unblocked collation",
-					);
-				}
-			} else {
-				// Keep the advertisement.
-				value.push(blocked);
-			}
-		}
-
-		if !value.is_empty() {
-			state.blocked_advertisements.insert(key, value);
-		}
-	}
 }
 
 async fn handle_advertisement<Sender>(
@@ -1111,10 +1051,10 @@ where
 	}
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		// We need to queue the advertisement if we are not allowed to second it.
+		// Check if backing subsystem allows to second this candidate.
 		//
-		// This is also only important when async backing is enabled.
-		let queue_advertisement = relay_parent_mode.is_enabled() &&
+		// This is also only important when async backing or elastic scaling is enabled.
+		let seconding_not_allowed = relay_parent_mode.is_enabled() &&
 			!can_second(
 				sender,
 				collator_para_id,
@@ -1124,26 +1064,8 @@ where
 			)
 			.await;
 
-		if queue_advertisement {
-			gum::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent,
-				para_id = ?para_id,
-				?candidate_hash,
-				"Seconding is not allowed by backing, queueing advertisement",
-			);
-			state
-				.blocked_advertisements
-				.entry((collator_para_id, parent_head_data_hash))
-				.or_default()
-				.push(BlockedAdvertisement {
-					peer_id,
-					collator_id: collator_id.clone(),
-					candidate_relay_parent: relay_parent,
-					candidate_hash,
-				});
-
-			return Ok(())
+		if seconding_not_allowed {
+			return Err(AdvertisementError::BlockedByBacking)
 		}
 	}
 
@@ -1359,20 +1281,6 @@ where
 			state.span_per_relay_parent.remove(&removed);
 		}
 	}
-	// Remove blocked advertisements that left the view.
-	state.blocked_advertisements.retain(|_, ads| {
-		ads.retain(|ad| state.per_relay_parent.contains_key(&ad.candidate_relay_parent));
-
-		!ads.is_empty()
-	});
-	// Re-trigger previously failed requests again.
-	//
-	// This makes sense for several reasons, one simple example: if a hypothetical depth
-	// for an advertisement initially exceeded the limit and the candidate was included
-	// in a new leaf.
-	let maybe_unblocked = std::mem::take(&mut state.blocked_advertisements);
-	// Could be optimized to only sanity check new leaves.
-	request_unblocked_collations(sender, state, maybe_unblocked).await;
 
 	for (peer_id, peer_data) in state.peer_data.iter_mut() {
 		peer_data.prune_old_advertisements(
@@ -1554,10 +1462,6 @@ async fn process_msg<Context>(
 					"Collation has been seconded, but the relay parent is deactivated",
 				);
 			}
-		},
-		Backed { para_id, para_head } => {
-			let maybe_unblocked = state.blocked_advertisements.remove_entry(&(para_id, para_head));
-			request_unblocked_collations(ctx.sender(), state, maybe_unblocked).await;
 		},
 		Invalid(parent, candidate_receipt) => {
 			let fetched_collation = FetchedCollation::from(&candidate_receipt);
