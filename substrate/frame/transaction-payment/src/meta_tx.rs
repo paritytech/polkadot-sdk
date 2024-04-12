@@ -43,12 +43,12 @@ pub enum TxRelayer<AccountId> {
 /// transaction. It may also include a tip to gain additional priority in the queue.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct MetaTransactionPayment<T: Config>(
+pub struct RelayTransactionPayment<T: Config>(
 	#[codec(compact)] BalanceOf<T>,
 	Option<TxRelayer<T::AccountId>>,
 );
 
-impl<T: Config> MetaTransactionPayment<T>
+impl<T: Config> RelayTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync,
 {
@@ -74,10 +74,10 @@ where
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for MetaTransactionPayment<T> {
+impl<T: Config> sp_std::fmt::Debug for RelayTransactionPayment<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "MetaTransactionPayment<{:?}, {:?}>", self.0, self.1)
+		write!(f, "RelayTransactionPayment<{:?}, {:?}>", self.0, self.1)
 	}
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
@@ -85,8 +85,8 @@ impl<T: Config> sp_std::fmt::Debug for MetaTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for MetaTransactionPayment<T> {
-	const IDENTIFIER: &'static str = "MetaTransactionPayment";
+impl<T: Config> TransactionExtensionBase for RelayTransactionPayment<T> {
+	const IDENTIFIER: &'static str = "RelayTransactionPayment";
 	type Implicit = ();
 
 	fn weight(&self) -> Weight {
@@ -94,7 +94,7 @@ impl<T: Config> TransactionExtensionBase for MetaTransactionPayment<T> {
 	}
 }
 
-impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for MetaTransactionPayment<T>
+impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for RelayTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -248,7 +248,7 @@ impl<AccountId: Clone> SetTxRelayer<AccountId> for Context<AccountId> {
 )]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
-pub struct RelayerSignature<V: Verify>
+pub struct VerifyRelayerSignature<V: Verify>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -257,7 +257,7 @@ where
 	pub relayer: Option<(V, <V::Signer as IdentifyAccount>::AccountId)>,
 }
 
-impl<V: Verify> Default for RelayerSignature<V>
+impl<V: Verify> Default for VerifyRelayerSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -268,7 +268,7 @@ where
 	}
 }
 
-impl<V: Verify> RelayerSignature<V>
+impl<V: Verify> VerifyRelayerSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -282,18 +282,18 @@ where
 	}
 }
 
-impl<V: Verify> TransactionExtensionBase for RelayerSignature<V>
+impl<V: Verify> TransactionExtensionBase for VerifyRelayerSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
-	const IDENTIFIER: &'static str = "RelayerSignature";
+	const IDENTIFIER: &'static str = "VerifyRelayerSignature";
 	type Implicit = ();
 }
 
 impl<Call: Dispatchable, V: Verify, Context> TransactionExtension<Call, Context>
-	for RelayerSignature<V>
+	for VerifyRelayerSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -360,12 +360,12 @@ mod tests {
 		Context<AccountId>,
 	>;
 
-	pub type TxExtension = (RelayerSignature<sp_runtime::MultiSignature>, SignedTxExtension);
+	pub type TxExtension = (VerifyRelayerSignature<sp_runtime::MultiSignature>, SignedTxExtension);
 
 	// The part of `TxExtension` that has to be provided and signed by the transaction relayer,
 	// the user who sponsors the transaction fee.
 	type SignedTxExtension = (
-		frame_support::transaction_extensions::SignedOriginSignature<MultiSignature>,
+		frame_support::transaction_extensions::VerifyAccountSignature<MultiSignature>,
 		MetaTxExtension,
 	);
 
@@ -379,7 +379,7 @@ mod tests {
 		frame_system::CheckMortality<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		MetaTransactionPayment<Runtime>,
+		RelayTransactionPayment<Runtime>,
 	);
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -471,8 +471,8 @@ mod tests {
 					frame_system::Pallet::<Runtime>::account(&alice_account).nonce,
 				),
 				frame_system::CheckWeight::<Runtime>::new(),
-				MetaTransactionPayment::with_relayer(bob_account.clone()),
-				// or can be MetaTransactionPayment::with_any_relayer(),
+				RelayTransactionPayment::with_relayer(bob_account.clone()),
+				// or can be RelayTransactionPayment::with_any_relayer(),
 			);
 
 			let meta_tx_sig = MultiSignature::Sr25519(
@@ -490,7 +490,7 @@ mod tests {
 			let (signer, meta_tx_call, meta_tx_ext, meta_tx_sig) =
 				MetaTx::decode(&mut &meta_tx[..]).unwrap();
 
-			let signed_tx_ext = frame_support::transaction_extensions::SignedOriginSignature::<
+			let signed_tx_ext = frame_support::transaction_extensions::VerifyAccountSignature::<
 				MultiSignature,
 			>::new_with_sign(meta_tx_sig, signer);
 
@@ -506,7 +506,7 @@ mod tests {
 					.using_encoded(|e| bob_keyring.sign(&blake2_256(e))),
 			);
 
-			let tx_ext = RelayerSignature::<MultiSignature>::new_with_relayer(
+			let tx_ext = VerifyRelayerSignature::<MultiSignature>::new_with_relayer(
 				signed_tx_sign,
 				bob_account.clone(),
 			);

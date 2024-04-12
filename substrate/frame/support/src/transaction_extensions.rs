@@ -100,7 +100,7 @@ where
 )]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
-pub struct SignedOriginSignature<V: Verify>
+pub struct VerifyAccountSignature<V: Verify>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -109,7 +109,7 @@ where
 	signature: Option<(V, <V::Signer as IdentifyAccount>::AccountId)>,
 }
 
-impl<V: Verify> Default for SignedOriginSignature<V>
+impl<V: Verify> Default for VerifyAccountSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -120,7 +120,7 @@ where
 	}
 }
 
-impl<V: Verify> SignedOriginSignature<V>
+impl<V: Verify> VerifyAccountSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
@@ -131,18 +131,18 @@ where
 	}
 }
 
-impl<V: Verify> TransactionExtensionBase for SignedOriginSignature<V>
+impl<V: Verify> TransactionExtensionBase for VerifyAccountSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
-	const IDENTIFIER: &'static str = "SignedOriginSignature";
+	const IDENTIFIER: &'static str = "VerifyAccountSignature";
 	type Implicit = ();
 }
 
 impl<V: Verify, Call: Dispatchable + Encode, Context> TransactionExtension<Call, Context>
-	for SignedOriginSignature<V>
+	for VerifyAccountSignature<V>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
