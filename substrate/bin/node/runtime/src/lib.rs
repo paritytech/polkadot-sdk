@@ -1782,6 +1782,7 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
 	type PermissionedOrigin = AssetRewardsPermissionedOrigin;
+	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
