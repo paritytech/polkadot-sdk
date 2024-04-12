@@ -439,6 +439,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -729,6 +734,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="doccomment">/// Claim queue
 		</span><span class="attr">#[api_version(<span class="number">11</span>)]
 		</span><span class="kw">fn </span>claim_queue() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ppp::Id&gt;&gt;;
+
+		<span class="comment">/***** Added in v11 *****/
+		</span><span class="doccomment">/// Elastic scaling support
+		</span><span class="attr">#[api_version(<span class="number">11</span>)]
+		</span><span class="kw">fn </span>candidates_pending_availability(para_id: ppp::Id) -&gt; Vec&lt;CommittedCandidateReceipt&lt;Hash&gt;&gt;;
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

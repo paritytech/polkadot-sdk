@@ -686,6 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -984,6 +985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>request_validation_code(para_id: ParaId, assumption: OccupiedCoreAssumption) -&gt; <span class="prelude-ty">Option</span>&lt;ValidationCode&gt;; ValidationCode;
 	<span class="kw">fn </span>request_validation_code_by_hash(validation_code_hash: ValidationCodeHash) -&gt; <span class="prelude-ty">Option</span>&lt;ValidationCode&gt;; ValidationCodeByHash;
 	<span class="kw">fn </span>request_candidate_pending_availability(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&gt;; CandidatePendingAvailability;
+	<span class="kw">fn </span>request_candidates_pending_availability(para_id: ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&gt;; CandidatesPendingAvailability;
 	<span class="kw">fn </span>request_candidate_events() -&gt; Vec&lt;CandidateEvent&gt;; CandidateEvents;
 	<span class="kw">fn </span>request_session_info(index: SessionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;SessionInfo&gt;; SessionInfo;
 	<span class="kw">fn </span>request_validation_code_hash(para_id: ParaId, assumption: OccupiedCoreAssumption)

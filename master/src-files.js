@@ -41,7 +41,7 @@ var srcIndex = JSON.parse('{\
 "bridge_hub_westend_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "bridge_hub_westend_integration_tests":["",[],["lib.rs"]],\
 "bridge_hub_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_balances.rs","pallet_bridge_grandpa.rs","pallet_bridge_messages.rs","pallet_bridge_parachains.rs","pallet_bridge_relayers.rs","pallet_collator_selection.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["bridge_common_config.rs","bridge_to_rococo_config.rs","lib.rs","xcm_config.rs"]],\
-"bridge_runtime_common":["",[],["integrity.rs","lib.rs","messages.rs","messages_api.rs","messages_benchmarking.rs","messages_call_ext.rs","messages_generation.rs","messages_xcm_extension.rs","parachains_benchmarking.rs","priority_calculator.rs","refund_relayer_extension.rs"]],\
+"bridge_runtime_common":["",[["extensions",[],["check_obsolete_extension.rs","mod.rs","priority_calculator.rs","refund_relayer_extension.rs"]]],["integrity.rs","lib.rs","messages.rs","messages_api.rs","messages_benchmarking.rs","messages_call_ext.rs","messages_generation.rs","messages_xcm_extension.rs","parachains_benchmarking.rs"]],\
 "call":["",[],["call.rs"]],\
 "chain_spec_builder":["",[],["main.rs"]],\
 "collectives_westend_emulated_chain":["",[],["genesis.rs","lib.rs"]],\

@@ -151,10 +151,13 @@
 <code>availability_cores</code> and <code>None</code> otherwise.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn candidate_pending_availability(at: Block, ParaId) -&gt; Option&lt;CommittedCandidateReceipt&gt;;
+</span>// Deprectated.
+fn candidate_pending_availability(at: Block, ParaId) -&gt; Option&lt;CommittedCandidateReceipt&gt;;
+// Use this one
+fn candidates_pending_availability(at: Block, ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-04-12, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745c">2dfe5f745c</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

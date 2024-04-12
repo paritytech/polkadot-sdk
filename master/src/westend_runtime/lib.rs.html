@@ -2779,6 +2779,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2630" id="2630">2630</a>
 <a href="#2631" id="2631">2631</a>
 <a href="#2632" id="2632">2632</a>
+<a href="#2633" id="2633">2633</a>
+<a href="#2634" id="2634">2634</a>
+<a href="#2635" id="2635">2635</a>
+<a href="#2636" id="2636">2636</a>
+<a href="#2637" id="2637">2637</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4634,7 +4639,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>candidate_pending_availability(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;Hash&gt;&gt; {
-			parachains_runtime_api_impl::candidate_pending_availability::&lt;Runtime&gt;(para_id)
+			<span class="attr">#[allow(deprecated)]
+			</span>parachains_runtime_api_impl::candidate_pending_availability::&lt;Runtime&gt;(para_id)
 		}
 
 		<span class="kw">fn </span>candidate_events() -&gt; Vec&lt;CandidateEvent&lt;Hash&gt;&gt; {
@@ -4746,6 +4752,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>claim_queue() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt; {
 			vstaging_parachains_runtime_api_impl::claim_queue::&lt;Runtime&gt;()
+		}
+
+		<span class="kw">fn </span>candidates_pending_availability(para_id: ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&lt;Hash&gt;&gt; {
+			vstaging_parachains_runtime_api_impl::candidates_pending_availability::&lt;Runtime&gt;(para_id)
 		}
 	}
 

@@ -685,6 +685,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -988,6 +992,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implementation for the `candidate_pending_availability` function of the runtime API.
+</span><span class="attr">#[deprecated(
+	note = <span class="string">&quot;`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
+	all candidates pending availability&quot;
+</span>)]
 </span><span class="kw">pub fn </span>candidate_pending_availability&lt;T: initializer::Config&gt;(
 	para_id: ParaId,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;T::Hash&gt;&gt; {

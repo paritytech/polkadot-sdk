@@ -1335,6 +1335,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1186" id="1186">1186</a>
 <a href="#1187" id="1187">1187</a>
 <a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1359,15 +1372,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>pallet_transaction_payment::FungibleAdapter;
 <span class="kw">use </span>parity_scale_codec::Encode;
-<span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	prelude::<span class="kw-2">*</span>,
+};
 
 <span class="kw">use </span>polkadot_runtime_parachains::{
 	assigner_parachains <span class="kw">as </span>parachains_assigner_parachains,
 	configuration <span class="kw">as </span>parachains_configuration, disputes <span class="kw">as </span>parachains_disputes,
-	disputes::slashing <span class="kw">as </span>parachains_slashing, dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp,
-	inclusion <span class="kw">as </span>parachains_inclusion, initializer <span class="kw">as </span>parachains_initializer,
-	origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
-	paras_inherent <span class="kw">as </span>parachains_paras_inherent, runtime_api_impl::v10 <span class="kw">as </span>runtime_impl,
+	disputes::slashing <span class="kw">as </span>parachains_slashing,
+	dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp, inclusion <span class="kw">as </span>parachains_inclusion,
+	initializer <span class="kw">as </span>parachains_initializer, origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
+	paras_inherent <span class="kw">as </span>parachains_paras_inherent,
+	runtime_api_impl::{v10 <span class="kw">as </span>runtime_impl, vstaging <span class="kw">as </span>vstaging_parachains_runtime_api_impl},
 	scheduler <span class="kw">as </span>parachains_scheduler, session_info <span class="kw">as </span>parachains_session_info,
 	shared <span class="kw">as </span>parachains_shared,
 };
@@ -1390,9 +1407,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 <span class="kw">use </span>primitives::{
 	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-	Hash <span class="kw">as </span>HashT, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
-	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash <span class="kw">as </span>HashT, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionInfo <span class="kw">as </span>SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
@@ -2168,7 +2185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">10</span>)]
+	<span class="attr">#[api_version(<span class="number">11</span>)]
 	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			runtime_impl::validators::&lt;Runtime&gt;()
@@ -2216,7 +2233,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>candidate_pending_availability(para_id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;Hash&gt;&gt; {
-			runtime_impl::candidate_pending_availability::&lt;Runtime&gt;(para_id)
+			<span class="attr">#[allow(deprecated)]
+			</span>runtime_impl::candidate_pending_availability::&lt;Runtime&gt;(para_id)
 		}
 
 		<span class="kw">fn </span>candidate_events() -&gt; Vec&lt;CandidateEvent&lt;Hash&gt;&gt; {
@@ -2319,6 +2337,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>node_features() -&gt; primitives::NodeFeatures {
 			runtime_impl::node_features::&lt;Runtime&gt;()
+		}
+
+		<span class="kw">fn </span>claim_queue() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt; {
+			vstaging_parachains_runtime_api_impl::claim_queue::&lt;Runtime&gt;()
+		}
+
+		<span class="kw">fn </span>candidates_pending_availability(para_id: ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&lt;Hash&gt;&gt; {
+			vstaging_parachains_runtime_api_impl::candidates_pending_availability::&lt;Runtime&gt;(para_id)
 		}
 	}
 

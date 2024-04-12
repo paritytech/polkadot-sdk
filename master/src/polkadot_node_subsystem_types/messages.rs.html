@@ -1369,6 +1369,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
 <a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2041,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get validation code by its hash, either past, current or future code can be returned, as
 	/// long as state is still available.
 	</span>ValidationCodeByHash(ValidationCodeHash, RuntimeApiSender&lt;<span class="prelude-ty">Option</span>&lt;ValidationCode&gt;&gt;),
-	<span class="doccomment">/// Get a the candidate pending availability for a particular parachain by parachain / core
+	<span class="doccomment">/// Get the candidate pending availability for a particular parachain by parachain / core
 	/// index
 	</span>CandidatePendingAvailability(ParaId, RuntimeApiSender&lt;<span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&gt;&gt;),
 	<span class="doccomment">/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
@@ -2110,6 +2116,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Fetch the `ClaimQueue` from scheduler pallet
 	/// `V11`
 	</span>ClaimQueue(RuntimeApiSender&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt;),
+	<span class="doccomment">/// Get the candidates pending availability for a particular parachain
+	/// `V11`
+	</span>CandidatesPendingAvailability(ParaId, RuntimeApiSender&lt;Vec&lt;CommittedCandidateReceipt&gt;&gt;),
 }
 
 <span class="kw">impl </span>RuntimeApiRequest {
@@ -2147,6 +2156,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// `ClaimQueue`
 	</span><span class="kw">pub const </span>CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = <span class="number">11</span>;
+
+	<span class="doccomment">/// `candidates_pending_availability`
+	</span><span class="kw">pub const </span>CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = <span class="number">11</span>;
 }
 
 <span class="doccomment">/// A message to the Runtime API subsystem.

@@ -741,6 +741,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -791,6 +809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validation_code: LruMap&lt;(Hash, ParaId, OccupiedCoreAssumption), <span class="prelude-ty">Option</span>&lt;ValidationCode&gt;&gt;,
 	validation_code_by_hash: LruMap&lt;ValidationCodeHash, <span class="prelude-ty">Option</span>&lt;ValidationCode&gt;&gt;,
 	candidate_pending_availability: LruMap&lt;(Hash, ParaId), <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&gt;&gt;,
+	candidates_pending_availability: LruMap&lt;(Hash, ParaId), Vec&lt;CommittedCandidateReceipt&gt;&gt;,
 	candidate_events: LruMap&lt;Hash, Vec&lt;CandidateEvent&gt;&gt;,
 	session_executor_params: LruMap&lt;SessionIndex, <span class="prelude-ty">Option</span>&lt;ExecutorParams&gt;&gt;,
 	session_info: LruMap&lt;SessionIndex, SessionInfo&gt;,
@@ -829,6 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			validation_code: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			validation_code_by_hash: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			candidate_pending_availability: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			candidates_pending_availability: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			candidate_events: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			session_executor_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			session_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -1002,6 +1022,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&gt;,
 	) {
 		<span class="self">self</span>.candidate_pending_availability.insert(key, value);
+	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidates_pending_availability(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		key: (Hash, ParaId),
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;CommittedCandidateReceipt&gt;&gt; {
+		<span class="self">self</span>.candidates_pending_availability.get(<span class="kw-2">&amp;</span>key).map(|v| <span class="kw-2">&amp;*</span>v)
+	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_candidates_pending_availability(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		key: (Hash, ParaId),
+		value: Vec&lt;CommittedCandidateReceipt&gt;,
+	) {
+		<span class="self">self</span>.candidates_pending_availability.insert(key, value);
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidate_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>, relay_parent: <span class="kw-2">&amp;</span>Hash) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;CandidateEvent&gt;&gt; {
@@ -1334,6 +1369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;),
+	CandidatesPendingAvailability(Hash, ParaId, Vec&lt;CommittedCandidateReceipt&gt;),
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

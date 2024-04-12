@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["claim_queue"]};
+window.SIDEBAR_ITEMS = {"fn":["candidates_pending_availability","claim_queue"]};

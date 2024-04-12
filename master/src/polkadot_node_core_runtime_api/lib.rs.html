@@ -788,6 +788,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#639" id="639">639</a>
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -923,6 +935,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CandidatePendingAvailability(relay_parent, para_id, candidate) =&gt; <span class="self">self
 				</span>.requests_cache
 				.cache_candidate_pending_availability((relay_parent, para_id), candidate),
+			CandidatesPendingAvailability(relay_parent, para_id, candidates) =&gt; <span class="self">self
+				</span>.requests_cache
+				.cache_candidates_pending_availability((relay_parent, para_id), candidates),
 			CandidateEvents(relay_parent, events) =&gt;
 				<span class="self">self</span>.requests_cache.cache_candidate_events(relay_parent, events),
 			SessionExecutorParams(_relay_parent, session_index, index) =&gt;
@@ -1042,6 +1057,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Request::CandidatePendingAvailability(para, sender) =&gt;
 				<span class="macro">query!</span>(candidate_pending_availability(para), sender)
 					.map(|sender| Request::CandidatePendingAvailability(para, sender)),
+			Request::CandidatesPendingAvailability(para, sender) =&gt;
+				<span class="macro">query!</span>(candidates_pending_availability(para), sender)
+					.map(|sender| Request::CandidatesPendingAvailability(para, sender)),
 			Request::CandidateEvents(sender) =&gt;
 				<span class="macro">query!</span>(candidate_events(), sender).map(|sender| Request::CandidateEvents(sender)),
 			Request::SessionExecutorParams(session_index, sender) =&gt; {
@@ -1319,6 +1337,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CandidatePendingAvailability,
 			candidate_pending_availability(para),
 			ver = <span class="number">1</span>,
+			sender
+		),
+		Request::CandidatesPendingAvailability(para, sender) =&gt; <span class="macro">query!</span>(
+			CandidatesPendingAvailability,
+			candidates_pending_availability(para),
+			ver = Request::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
 			sender
 		),
 		Request::CandidateEvents(sender) =&gt; {

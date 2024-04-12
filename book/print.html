@@ -2309,6 +2309,10 @@ where the changes to the state are expected to be discarded directly after.</p>
 pending availability for the para provided, if any.</p>
 </li>
 <li>
+<p><code>candidates_pending_availability(ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&gt;</code>: returns the <code>CommittedCandidateReceipt</code>s
+pending availability for the para provided, if any.</p>
+</li>
+<li>
 <p><code>pending_availability(ParaId) -&gt; Option&lt;CandidatePendingAvailability&gt;</code>: returns the metadata around the candidate
 pending availability for the para, if any.</p>
 </li>
@@ -2344,7 +2348,7 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<footer id="last-change">Last change: 2024-04-12, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745c">2dfe5f745c</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
 <p>This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 &quot;inherent&quot;, in that it is provided with no origin by the block author. The data within it carries its own
@@ -3146,10 +3150,13 @@ fn session_index_for_child(at: Block) -&gt; SessionIndex;
 <code>availability_cores</code> and <code>None</code> otherwise.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn candidate_pending_availability(at: Block, ParaId) -&gt; Option&lt;CommittedCandidateReceipt&gt;;
+</span>// Deprectated.
+fn candidate_pending_availability(at: Block, ParaId) -&gt; Option&lt;CommittedCandidateReceipt&gt;;
+// Use this one
+fn candidates_pending_availability(at: Block, ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&gt;;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-events"><a class="header" href="#candidate-events">Candidate Events</a></h1>
+<footer id="last-change">Last change: 2024-04-12, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745c">2dfe5f745c</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="candidate-events"><a class="header" href="#candidate-events">Candidate Events</a></h1>
 <p>Yields a vector of events concerning candidates that occurred within the given block.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

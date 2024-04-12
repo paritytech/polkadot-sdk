@@ -321,6 +321,10 @@ where the changes to the state are expected to be discarded directly after.</p>
 pending availability for the para provided, if any.</p>
 </li>
 <li>
+<p><code>candidates_pending_availability(ParaId) -&gt; Vec&lt;CommittedCandidateReceipt&gt;</code>: returns the <code>CommittedCandidateReceipt</code>s
+pending availability for the para provided, if any.</p>
+</li>
+<li>
 <p><code>pending_availability(ParaId) -&gt; Option&lt;CandidatePendingAvailability&gt;</code>: returns the metadata around the candidate
 pending availability for the para, if any.</p>
 </li>
@@ -356,7 +360,7 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer>
+<footer id="last-change">Last change: 2024-04-12, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745c">2dfe5f745c</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
