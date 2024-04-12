@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712935774759,
+  "lastUpdate": 1712940262919,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2939,6 +2939,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 13.143650919399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2dfe5f745cd6daa362c6d8371e723fe4f0429b67",
+          "message": "Runtime API: introduce `candidates_pending_availability` (#4027)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/3576\n\nRequired by elastic scaling collators.\nDeprecates old API: `candidate_pending_availability`.\n\nTODO:\n- [x] PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-12T10:50:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745cd6daa362c6d8371e723fe4f0429b67"
+        },
+        "date": 1712940237873,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2569376419999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.004310170466667,
             "unit": "seconds"
           }
         ]
