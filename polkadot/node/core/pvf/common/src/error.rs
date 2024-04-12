@@ -136,6 +136,7 @@ pub enum InternalValidationError {
 	/// Could not find or open compiled artifact file.
 	#[error("validation: could not find or open compiled artifact file: {0}")]
 	CouldNotOpenFile(String),
+	/// Could not create a pipe between the worker and a child process.
 	#[error("validation: could not create pipe: {0}")]
 	CouldNotCreatePipe(String),
 	/// Host could not clear the worker cache after a job.

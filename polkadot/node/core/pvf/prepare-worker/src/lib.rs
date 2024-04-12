@@ -173,8 +173,6 @@ fn end_memory_tracking() -> isize {
 ///
 /// - `worker_version`: see above
 ///
-/// - `security_status`: contains the detected status of security features.
-///
 /// # Flow
 ///
 /// This runs the following in a loop:

@@ -122,8 +122,6 @@ macro_rules! map_err {
 ///   check is not necessary.
 ///
 /// - `worker_version`: see above
-///
-/// - `security_status`: contains the detected status of security features.
 pub fn worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
