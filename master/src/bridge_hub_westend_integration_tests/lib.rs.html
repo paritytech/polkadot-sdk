@@ -211,6 +211,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -239,6 +242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		v3,
 		v4::NetworkId::Rococo <span class="kw">as </span>RococoId,
 	};
+	<span class="kw">pub use </span>xcm_executor::traits::TransferType;
 
 	<span class="comment">// Cumulus
 	</span><span class="kw">pub use </span>emulated_integration_tests_common::{
@@ -261,13 +265,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			genesis::ED <span class="kw">as </span>BRIDGE_HUB_WESTEND_ED,
 			BridgeHubWestendParaPallet <span class="kw">as </span>BridgeHubWestendPallet,
 		},
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet <span class="kw">as </span>PenpalBPallet},
 		westend_emulated_chain::WestendRelayPallet <span class="kw">as </span>WestendPallet,
 		AssetHubRococoPara <span class="kw">as </span>AssetHubRococo, AssetHubRococoParaReceiver <span class="kw">as </span>AssetHubRococoReceiver,
 		AssetHubRococoParaSender <span class="kw">as </span>AssetHubRococoSender, AssetHubWestendPara <span class="kw">as </span>AssetHubWestend,
 		AssetHubWestendParaReceiver <span class="kw">as </span>AssetHubWestendReceiver,
 		AssetHubWestendParaSender <span class="kw">as </span>AssetHubWestendSender, BridgeHubRococoPara <span class="kw">as </span>BridgeHubRococo,
 		BridgeHubWestendPara <span class="kw">as </span>BridgeHubWestend,
-		BridgeHubWestendParaSender <span class="kw">as </span>BridgeHubWestendSender, WestendRelay <span class="kw">as </span>Westend,
+		BridgeHubWestendParaSender <span class="kw">as </span>BridgeHubWestendSender, PenpalBPara <span class="kw">as </span>PenpalB,
+		PenpalBParaSender <span class="kw">as </span>PenpalBSender, WestendRelay <span class="kw">as </span>Westend,
 	};
 
 	<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;

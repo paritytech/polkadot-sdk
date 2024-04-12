@@ -359,9 +359,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -477,17 +474,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="comment">// check remote origin
-		</span><span class="kw">let _ </span>= <span class="kw">match </span>ensure_is_remote(universal_source.clone(), origin.clone()) {
-			<span class="prelude-val">Ok</span>(devolved) =&gt; devolved,
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;xcm::contains&quot;</span>,
-					<span class="string">&quot;IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}&quot;</span>,
-					origin, universal_source
-				);
-				<span class="kw">return </span><span class="bool-val">false
-			</span>},
-		};
+		</span><span class="kw">if </span>ensure_is_remote(universal_source.clone(), origin.clone()).is_err() {
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">&quot;xcm::contains&quot;</span>,
+				<span class="string">&quot;IsTrustedBridgedReserveLocationForConcreteAsset origin: {:?} is not remote to the universal_source: {:?}&quot;</span>,
+				origin, universal_source
+			);
+			<span class="kw">return </span><span class="bool-val">false
+		</span>}
 
 		<span class="comment">// check asset according to the configured reserve locations
 		</span>Reserves::contains(asset, origin)

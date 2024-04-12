@@ -715,6 +715,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -908,6 +916,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_message_sent_to_bridge(message_size: u32) {
+			<span class="macro">log::trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;on_message_sent_to_bridge - message_size: {message_size:?}&quot;</span>,
+			);
 			<span class="kw">let _ </span>= Bridge::&lt;T, I&gt;::try_mutate(|bridge| {
 				<span class="kw">let </span>is_channel_with_bridge_hub_congested = T::WithBridgeHubChannel::is_congested();
 				<span class="kw">let </span>is_bridge_congested = bridge.is_congested;
@@ -955,14 +967,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		remote_location: <span class="kw-2">&amp;</span>InteriorLocation,
 		message: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt; {
+		<span class="macro">log::trace!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;exporter_for - network: {network:?}, remote_location: {remote_location:?}, msg: {message:?}&quot;</span>,
+		);
 		<span class="comment">// ensure that the message is sent to the expected bridged network (if specified).
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(bridged_network) = T::BridgedNetworkId::get() {
 			<span class="kw">if </span><span class="kw-2">*</span>network != bridged_network {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Router with bridged_network_id {:?} does not support bridging to network {:?}!&quot;</span>,
-					bridged_network,
-					network,
+					<span class="string">&quot;Router with bridged_network_id {bridged_network:?} does not support bridging to network {network:?}!&quot;</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>}
@@ -1017,7 +1031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Going to send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}&quot;</span>,
+			<span class="string">&quot;Validate send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}&quot;</span>,
 			(network, remote_location),
 			message_size,
 			fee,
@@ -1038,6 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;validate - msg: {xcm:?}, destination: {dest:?}&quot;</span>);
 		<span class="comment">// `dest` and `xcm` are required here
 		</span><span class="kw">let </span>dest_ref = dest.as_ref().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
 		<span class="kw">let </span>xcm_ref = xcm.as_ref().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
@@ -1083,6 +1098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// increase delivery fee factor if required
 		</span><span class="self">Self</span>::on_message_sent_to_bridge(message_size);
 
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;deliver - message sent, xcm_hash: {xcm_hash:?}&quot;</span>);
 		<span class="prelude-val">Ok</span>(xcm_hash)
 	}
 }

@@ -234,6 +234,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -266,6 +268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
 		v3,
 	};
+	<span class="kw">pub use </span>xcm_executor::traits::TransferType;
 
 	<span class="comment">// Cumulus
 	</span><span class="kw">pub use </span>asset_test_utils::xcm_helpers;
@@ -317,6 +320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub type </span>SystemParaToParaTest = Test&lt;AssetHubRococo, PenpalA&gt;;
 	<span class="kw">pub type </span>ParaToSystemParaTest = Test&lt;PenpalA, AssetHubRococo&gt;;
 	<span class="kw">pub type </span>ParaToParaThroughRelayTest = Test&lt;PenpalA, PenpalB, Rococo&gt;;
+	<span class="kw">pub type </span>ParaToParaThroughAHTest = Test&lt;PenpalA, PenpalB, AssetHubRococo&gt;;
 }
 
 <span class="attr">#[cfg(test)]

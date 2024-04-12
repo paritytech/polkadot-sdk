@@ -1129,6 +1129,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#980" id="980">980</a>
 <a href="#981" id="981">981</a>
 <a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2073,7 +2076,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				<span class="prelude-val">Ok</span>(hash)
 			},
-			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(SendError::Transport(e.into())),
+			<span class="prelude-val">Err</span>(e) =&gt; {
+				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Deliver error: {e:?}&quot;</span>);
+				<span class="prelude-val">Err</span>(SendError::Transport(e.into()))
+			},
 		}
 	}
 }

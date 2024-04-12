@@ -226,6 +226,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -244,16 +257,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>genesis;
 <span class="kw">pub use </span>genesis::{genesis, PenpalAssetOwner, PenpalSudoAccount, ED, PARA_ID_A, PARA_ID_B};
 <span class="kw">pub use </span>penpal_runtime::xcm_config::{
-	CustomizableAssetFromSystemAssetHub, LocalTeleportableToAssetHub, XcmConfig,
+	CustomizableAssetFromSystemAssetHub, RelayNetworkId <span class="kw">as </span>PenpalRelayNetworkId,
 };
 
 <span class="comment">// Substrate
 </span><span class="kw">use </span>frame_support::traits::OnInitialize;
+<span class="kw">use </span>sp_core::Encode;
 
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, impl_xcm_helpers_for_parachain,
+	impls::{NetworkId, Parachain},
+	xcm_emulator::decl_test_parachains,
 };
 
 <span class="comment">// Penpal Parachain declaration
@@ -262,6 +278,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		genesis = genesis(PARA_ID_A),
 		on_init = {
 			penpal_runtime::AuraExt::on_initialize(<span class="number">1</span>);
+			<span class="macro">frame_support::assert_ok!</span>(penpal_runtime::System::set_storage(
+				penpal_runtime::RuntimeOrigin::root(),
+				<span class="macro">vec!</span>[(PenpalRelayNetworkId::key().to_vec(), NetworkId::Rococo.encode())],
+			));
 		},
 		runtime = penpal_runtime,
 		core = {
@@ -281,6 +301,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		genesis = genesis(PARA_ID_B),
 		on_init = {
 			penpal_runtime::AuraExt::on_initialize(<span class="number">1</span>);
+			<span class="macro">frame_support::assert_ok!</span>(penpal_runtime::System::set_storage(
+				penpal_runtime::RuntimeOrigin::root(),
+				<span class="macro">vec!</span>[(PenpalRelayNetworkId::key().to_vec(), NetworkId::Westend.encode())],
+			));
 		},
 		runtime = penpal_runtime,
 		core = {
@@ -305,6 +329,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalB);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalA);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalB);
+<span class="macro">impl_xcm_helpers_for_parachain!</span>(PenpalA);
+<span class="macro">impl_xcm_helpers_for_parachain!</span>(PenpalB);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

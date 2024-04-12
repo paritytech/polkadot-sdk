@@ -1380,6 +1380,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1729,6 +1732,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: Xcm&lt;()&gt;,
 		reason: FeeReason,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, XcmError&gt; {
+		<span class="macro">log::trace!</span>(
+			target: <span class="string">&quot;xcm::send&quot;</span>, <span class="string">&quot;Sending msg: {msg:?}, to destination: {dest:?}, (reason: {reason:?})&quot;
+		</span>);
 		<span class="kw">let </span>(ticket, fee) = validate_send::&lt;Config::XcmSender&gt;(dest, msg)<span class="question-mark">?</span>;
 		<span class="self">self</span>.take_fee(fee, reason)<span class="question-mark">?</span>;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
