@@ -23,7 +23,8 @@ use frame_support::{
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::testing::H256;
 use xcm::prelude::*;
-use xcm_fee_payment_runtime_api::{XcmDryRunApi, XcmPaymentApi};
+use xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi;
+use xcm_fee_payment_runtime_api::fees::XcmPaymentApi;
 
 mod mock;
 use mock::{

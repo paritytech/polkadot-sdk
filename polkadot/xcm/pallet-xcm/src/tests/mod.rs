@@ -1272,11 +1272,11 @@ fn record_xcm_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let message = Xcm::<RuntimeCall>::builder()
-			.withdraw_asset((Here, SEND_AMOUNT).into())
-			.buy_execution((Here, SEND_AMOUNT).into(), Unlimited)
+			.withdraw_asset((Here, SEND_AMOUNT))
+			.buy_execution((Here, SEND_AMOUNT), Unlimited)
 			.deposit_asset(
-				AllCounted(1).into(),
-				Junction::AccountId32 { network: None, id: BOB.into() }.into(),
+				AllCounted(1),
+				Junction::AccountId32 { network: None, id: BOB.into() },
 			)
 			.build();
 		// Test default values.
