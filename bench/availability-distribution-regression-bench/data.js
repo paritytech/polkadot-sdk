@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712869847843,
+  "lastUpdate": 1712935475902,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3587,6 +3587,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.014615952733333326,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a64009ae00f954acf907593309af2b1f1797e87d",
+          "message": "Improve docs of broker pallet (#3980)\n\nSmall adjustments which should make understanding what is going on much\neasier for future readers.\n\nInitialization is a bit messy, the very least we should do is adding\ndocumentation to make it harder to use wrongly.\n\nI was thinking about calling `request_core_count` right from\n`start_sales`, but as explained in the docs, this is not necessarily\nwhat you want.\n\n---------\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2024-04-12T10:23:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a64009ae00f954acf907593309af2b1f1797e87d"
+        },
+        "date": 1712935450358,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02465476213333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015451214799999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1672521566666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008059387733333336,
             "unit": "seconds"
           }
         ]
