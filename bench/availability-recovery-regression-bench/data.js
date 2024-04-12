@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712870140429,
+  "lastUpdate": 1712935774759,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2897,6 +2897,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.2156480974,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "eskimor",
+            "username": "eskimor",
+            "email": "eskimor@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a64009ae00f954acf907593309af2b1f1797e87d",
+          "message": "Improve docs of broker pallet (#3980)\n\nSmall adjustments which should make understanding what is going on much\neasier for future readers.\n\nInitialization is a bit messy, the very least we should do is adding\ndocumentation to make it harder to use wrongly.\n\nI was thinking about calling `request_core_count` right from\n`start_sales`, but as explained in the docs, this is not necessarily\nwhat you want.\n\n---------\n\nCo-authored-by: eskimor <eskimor@no-such-url.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2024-04-12T10:23:49Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a64009ae00f954acf907593309af2b1f1797e87d"
+        },
+        "date": 1712935748683,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2193420735333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.143650919399999,
             "unit": "seconds"
           }
         ]
