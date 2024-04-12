@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712950931542,
+  "lastUpdate": 1712965516334,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3795,6 +3795,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.008569035466666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Vedhavyas Singareddi",
+            "username": "vedhavyas",
+            "email": "vedhavyas.singareddi@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5b513cc0e995140b17e200d75442d7a3f2436243",
+          "message": "define block hash provider and default impl using frame_system (#4080)\n\nThis PR introduces `BlockHashProvider` into `pallet_mmr::Config`\nThis type is used to get `block_hash` for a given `block_number` rather\nthan directly using `frame_system::Pallet::block_hash`\n\nThe `DefaultBlockHashProvider` uses `frame_system::Pallet::block_hash`\nto get the `block_hash`\n\nCloses: #4062",
+          "timestamp": "2024-04-12T21:57:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b513cc0e995140b17e200d75442d7a3f2436243"
+        },
+        "date": 1712965490338,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014485177533333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02430055693333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006878012866666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16385189939999983,
             "unit": "seconds"
           }
         ]
