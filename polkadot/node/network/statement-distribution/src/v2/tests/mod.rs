@@ -533,7 +533,7 @@ async fn activate_leaf(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
-	hypothetical_frontier: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
+	hypothetical_memberships: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let activated = new_leaf(leaf.hash, leaf.number);
 
@@ -548,7 +548,7 @@ async fn activate_leaf(
 		leaf,
 		test_state,
 		is_new_session,
-		hypothetical_frontier,
+		hypothetical_memberships,
 	)
 	.await;
 }
@@ -558,7 +558,7 @@ async fn handle_leaf_activation(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
-	hypothetical_frontier: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
+	hypothetical_memberships: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let TestLeaf {
 		number,
@@ -671,15 +671,14 @@ async fn handle_leaf_activation(
 				ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx),
 			) => {
 				assert_eq!(req.fragment_chain_relay_parent, Some(*hash));
-				assert!(!req.backed_in_path_only);
-				for (i, (candidate, _)) in hypothetical_frontier.iter().enumerate() {
+				for (i, (candidate, _)) in hypothetical_memberships.iter().enumerate() {
 					assert!(
 						req.candidates.iter().any(|c| &c == &candidate),
 						"did not receive request for hypothetical candidate {}",
 						i,
 					);
 				}
-				tx.send(hypothetical_frontier).unwrap();
+				tx.send(hypothetical_memberships).unwrap();
 				// this is the last expected runtime api call
 				break
 			},
@@ -721,7 +720,7 @@ async fn handle_sent_request(
 	);
 }
 
-async fn answer_expected_hypothetical_depth_request(
+async fn answer_expected_hypothetical_membership_request(
 	virtual_overseer: &mut VirtualOverseer,
 	responses: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
@@ -731,7 +730,6 @@ async fn answer_expected_hypothetical_depth_request(
 			ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx)
 		) => {
 			assert_eq!(req.fragment_chain_relay_parent, None);
-			assert!(!req.backed_in_path_only);
 			for (i, (candidate, _)) in responses.iter().enumerate() {
 				assert!(
 					req.candidates.iter().any(|c| &c == &candidate),
