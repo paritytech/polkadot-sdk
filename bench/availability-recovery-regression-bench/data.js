@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712945621881,
+  "lastUpdate": 1712951227000,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3023,6 +3023,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.806169883199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c963dc283af77824ceeeecc20e205f3a17968746",
+          "message": "Synchronize templates (#4040)\n\n- Progresses https://github.com/paritytech/polkadot-sdk/issues/3155\n\n### What's inside\n\nA job, that will take each of the three\n[templates](https://github.com/paritytech/polkadot-sdk/tree/master/templates),\nyank them out of the monorepo workspace, and push to individual\nrepositories\n([1](https://github.com/paritytech/polkadot-sdk-minimal-template),\n[2](https://github.com/paritytech/polkadot-sdk-parachain-template),\n[3](https://github.com/paritytech/polkadot-sdk-solochain-template)).\n\nIn case the build/test does not succeed, a PR such as [this\none](https://github.com/paritytech-stg/polkadot-sdk-solochain-template/pull/2)\ngets created instead.\n\nI'm proposing a manual dispatch trigger for now - so we can test and\niterate faster - and change it to fully automatic triggered by releases\nlater.\n\nThe manual trigger looks like this:\n\n<img width=\"340px\"\nsrc=\"https://github.com/paritytech/polkadot-sdk/assets/12039224/e87e0fda-23a3-4735-9035-af801e8417fc\"/>\n\n### How it works\n\nThe job replaces dependencies [referenced by\ngit](https://github.com/paritytech/polkadot-sdk/blob/d733c77ee2d2e8e2d5205c552a5efb2e5b5242c8/templates/minimal/pallets/template/Cargo.toml#L25)\nwith a reference to released crates using\n[psvm](https://github.com/paritytech/psvm).\n\nIt creates a new workspace for the template, and adapts what's needed\nfrom the `polkadot-sdk` workspace.\n\n### See the results\n\nThe action has been tried out in staging, and the results can be\nobserved here:\n\n- [minimal\nstg](https://github.com/paritytech-stg/polkadot-sdk-minimal-template/)\n- [parachain\nstg](https://github.com/paritytech-stg/polkadot-sdk-parachain-template/)\n- [solochain\nstg](https://github.com/paritytech-stg/polkadot-sdk-solochain-template/)\n\nThese are based on the `1.9.0` release (using `release-crates-io-v1.9.0`\nbranch).",
+          "timestamp": "2024-04-12T17:24:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c963dc283af77824ceeeecc20e205f3a17968746"
+        },
+        "date": 1712951199951,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.978819099600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.22865346686666674,
             "unit": "seconds"
           }
         ]
