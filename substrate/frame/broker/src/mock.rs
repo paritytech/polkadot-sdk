@@ -47,7 +47,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -77,7 +77,7 @@ pub struct TestCoretimeProvider;
 impl CoretimeInterface for TestCoretimeProvider {
 	type AccountId = u64;
 	type Balance = u64;
-	type RealyChainBlockNumberProvider = System;
+	type RelayChainBlockNumberProvider = System;
 	fn request_core_count(count: CoreIndex) {
 		CoreCountInbox::<Test>::put(count);
 	}

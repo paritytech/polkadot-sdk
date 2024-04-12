@@ -17,6 +17,10 @@
 
 //! Keystore traits
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod testing;
 
@@ -29,24 +33,34 @@ use sp_core::{
 	ecdsa, ed25519, sr25519,
 };
 
-use std::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 
 /// Keystore error
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
 	/// Public key type is not supported
-	#[error("Key not supported: {0:?}")]
 	KeyNotSupported(KeyTypeId),
 	/// Validation error
-	#[error("Validation error: {0}")]
 	ValidationError(String),
 	/// Keystore unavailable
-	#[error("Keystore unavailable")]
 	Unavailable,
 	/// Programming errors
-	#[error("An unknown keystore error occurred: {0}")]
 	Other(String),
 }
+
+impl core::fmt::Display for Error {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Error::KeyNotSupported(key_type) => write!(fmt, "Key not supported: {key_type:?}"),
+			Error::ValidationError(error) => write!(fmt, "Validation error: {error}"),
+			Error::Unavailable => fmt.write_str("Keystore unavailable"),
+			Error::Other(error) => write!(fmt, "An unknown keystore error occurred: {error}"),
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 /// Something that generates, stores and provides access to secret keys.
 pub trait Keystore: Send + Sync {
@@ -349,6 +363,24 @@ pub trait Keystore: Send + Sync {
 	/// An `Err` will be returned if generating the signature itself failed.
 	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls377_sign(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls377::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls377::Signature>, Error>;
+
+	/// Hashes the `message` using keccak256 and then signs it using ECDSA
+	/// algorithm. It does not affect the behavior of BLS12-377 component. It generates
+	/// BLS12-377 Signature according to IETF standard.
+	///
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map
+	/// them to a private key that exists in the keystore.
+	///
+	/// Returns an [`ecdsa_bls377::Signature`] or `None` in case the given `key_type`
+	/// and `public` combination doesn't exist in the keystore.
+	/// An `Err` will be returned if generating the signature itself failed.
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,
 		public: &ecdsa_bls377::Public,
@@ -659,6 +691,16 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		msg: &[u8],
 	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
 		(**self).ecdsa_bls377_sign(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls377_sign_with_keccak256(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls377::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
+		(**self).ecdsa_bls377_sign_with_keccak256(key_type, public, msg)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {

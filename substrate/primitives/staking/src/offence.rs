@@ -18,10 +18,10 @@
 //! Common traits and types that are useful for describing offences for usage in environments
 //! that use staking.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::Get;
 use sp_runtime::{transaction_validity::TransactionValidityError, DispatchError, Perbill};
-use sp_std::vec::Vec;
 
 use crate::SessionIndex;
 
@@ -117,7 +117,7 @@ pub trait Offence<Offender> {
 /// Errors that may happen on offence reports.
 #[derive(PartialEq, sp_runtime::RuntimeDebug)]
 pub enum OffenceError {
-	/// The report has already been sumbmitted.
+	/// The report has already been submitted.
 	DuplicateReport,
 
 	/// Other error has happened.

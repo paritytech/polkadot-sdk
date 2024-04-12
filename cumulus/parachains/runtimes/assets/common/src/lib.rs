@@ -371,7 +371,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<xcm::v3::MultiLocation, u128>>::matches_fungibles(
+				<Convert as MatchesFungibles<xcm::v3::Location, u128>>::matches_fungibles(
 					&asset.clone().try_into().unwrap()
 				),
 				expected_result,

@@ -133,7 +133,7 @@ impl Verify for sp_core::ecdsa::Signature {
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
 		) {
-			Ok(pubkey) => signer.as_ref() == &pubkey[..],
+			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
 	}
@@ -330,7 +330,7 @@ impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	}
 }
 
-/// Implementation of `TryMorph` which attmepts to convert between types using `TryInto`.
+/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
 pub struct TryMorphInto<T>(sp_std::marker::PhantomData<T>);
 impl<T, A: TryInto<T>> TryMorph<A> for TryMorphInto<T> {
 	type Outcome = T;
@@ -539,6 +539,9 @@ macro_rules! morph_types {
 morph_types! {
 	/// Morpher to disregard the source value and replace with another.
 	pub type Replace<V: TypedGet> = |_| -> V::Type { V::get() };
+
+	/// Morpher to disregard the source value and replace with the default of `V`.
+	pub type ReplaceWithDefault<V: Default> = |_| -> V { Default::default() };
 
 	/// Mutator which reduces a scalar by a particular amount.
 	pub type ReduceBy<N: TypedGet> = |r: N::Type| -> N::Type {
@@ -1446,7 +1449,7 @@ pub trait Dispatchable {
 	/// to represent the dispatch class and weight.
 	type Info;
 	/// Additional information that is returned by `dispatch`. Can be used to supply the caller
-	/// with information about a `Dispatchable` that is ownly known post dispatch.
+	/// with information about a `Dispatchable` that is only known post dispatch.
 	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
@@ -2319,12 +2322,12 @@ pub trait BlockNumberProvider {
 	/// .
 	fn current_block_number() -> Self::BlockNumber;
 
-	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
+	/// Utility function only to be used in benchmarking scenarios or tests, to be implemented
+	/// optionally, else a noop.
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	fn set_block_number(_block: Self::BlockNumber) {}
 }
 

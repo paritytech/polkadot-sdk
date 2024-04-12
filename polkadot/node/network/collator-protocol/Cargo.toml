@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3"
 gum = { package = "tracing-gum", path = "../../gum" }
 
@@ -25,12 +25,12 @@ polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 fatality = "0.0.6"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 tokio-util = "0.7.1"
 
 [dev-dependencies]
-log = "0.4.17"
-env_logger = "0.9.0"
+log = { workspace = true, default-features = true }
+env_logger = "0.11"
 assert_matches = "1.4.0"
 
 sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
@@ -41,3 +41,7 @@ parity-scale-codec = { version = "3.6.1", features = ["std"] }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+
+[features]
+default = []
+elastic-scaling-experimental = []

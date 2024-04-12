@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use rococo_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
-use sp_runtime::ModuleError;
+use crate::imports::*;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
@@ -114,49 +112,39 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
-	let ah_as_seen_by_penpal = PenpalA::sibling_location_of(AssetHubRococo::para_id());
-	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHubV3::get();
-	let asset_id_on_penpal = match asset_location_on_penpal.last() {
-		Some(v3::Junction::GeneralIndex(id)) => *id as u32,
-		_ => unreachable!(),
-	};
-	let asset_owner_on_penpal = PenpalASender::get();
+	let asset_native =
+		Box::new(v3::Location::try_from(RelayLocation::get()).expect("conversion works"));
+	let asset_location_on_penpal =
+		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).expect("conversion works");
 	let foreign_asset_at_asset_hub_rococo =
 		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
 
-	// 1. Create asset on penpal and, 2. Create foreign asset on asset_hub_rococo
-	super::penpal_create_foreign_asset_on_asset_hub(
-		asset_id_on_penpal,
-		foreign_asset_at_asset_hub_rococo,
-		ah_as_seen_by_penpal,
-		true,
-		asset_owner_on_penpal,
-		ASSET_MIN_BALANCE * 1_000_000,
-	);
-
 	let penpal_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_as_seen_by_ah);
 	AssetHubRococo::fund_accounts(vec![
-		(AssetHubRococoSender::get().into(), 5_000_000 * ROCOCO_ED), /* An account to swap dot
-		                                                              * for something else. */
+		// An account to swap dot for something else.
+		(AssetHubRococoSender::get().into(), 5_000_000 * ASSET_HUB_ROCOCO_ED),
+		// Penpal's sovereign account in AH should have some balance
+		(sov_penpal_on_ahr.clone().into(), 100_000_000 * ASSET_HUB_ROCOCO_ED),
 	]);
 
 	AssetHubRococo::execute_with(|| {
-		// 3: Mint foreign asset on asset_hub_rococo:
+		// 0: No need to create foreign asset as it exists in genesis.
+		//
+		// 1: Mint foreign asset on asset_hub_rococo:
 		//
 		// (While it might be nice to use batch,
 		// currently that's disabled due to safe call filters.)
 
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		// 3. Mint foreign asset (in reality this should be a teleport or some such)
+		// 1. Mint foreign asset (in reality this should be a teleport or some such)
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone().into()),
 			foreign_asset_at_asset_hub_rococo,
 			sov_penpal_on_ahr.clone().into(),
-			3_000_000_000_000,
+			ASSET_HUB_ROCOCO_ED * 3_000_000_000_000,
 		));
 
 		assert_expected_events!(
@@ -166,7 +154,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		// 4. Create pool:
+		// 2. Create pool:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			asset_native.clone(),
@@ -180,7 +168,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		// 5. Add liquidity:
+		// 3. Add liquidity:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
@@ -201,15 +189,15 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		// 6. Swap!
+		// 4. Swap!
 		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_rococo)];
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
 				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 				path,
-				100000,
-				1000,
+				100000 * ASSET_HUB_ROCOCO_ED,
+				1000 * ASSET_HUB_ROCOCO_ED,
 				AssetHubRococoSender::get().into(),
 				true
 			)
@@ -219,18 +207,18 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			AssetHubRococo,
 			vec![
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapExecuted { amount_in, amount_out, .. },) => {
-					amount_in: *amount_in == 100000,
-					amount_out: *amount_out == 199399,
+					amount_in: *amount_in == 333333300000,
+					amount_out: *amount_out == 498874118173,
 				},
 			]
 		);
 
-		// 7. Remove liquidity
+		// 5. Remove liquidity
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo),
-			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
+			1414213562273 - ASSET_HUB_ROCOCO_ED * 2, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
 			sov_penpal_on_ahr.clone().into(),
@@ -382,10 +370,10 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 			penpal.clone(),
 		);
 
-		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send_blob(
 			penpal_root,
 			bx!(asset_hub_location),
-			bx!(xcm),
+			xcm.encode().try_into().unwrap(),
 		));
 
 		PenpalA::assert_xcm_pallet_sent();

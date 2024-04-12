@@ -15,12 +15,12 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.20.3", features = ["ws-client"] }
+jsonrpsee = { version = "0.22", features = ["ws-client"] }
 sc-rpc-api = { path = "../../../../client/rpc-api" }
-async-trait = "0.1.74"
-serde = "1"
+async-trait = "0.1.79"
+serde = { workspace = true, default-features = true }
 sp-runtime = { path = "../../../../primitives/runtime" }
-log = "0.4"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread", "sync"] }

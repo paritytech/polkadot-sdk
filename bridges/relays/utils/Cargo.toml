@@ -1,0 +1,38 @@
+[package]
+name = "relay-utils"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+ansi_term = "0.12"
+anyhow = "1.0"
+async-std = "1.9.0"
+async-trait = "0.1.79"
+backoff = "0.4"
+isahc = "1.2"
+env_logger = "0.11.3"
+futures = "0.3.30"
+jsonpath_lib = "0.3"
+log = { workspace = true }
+num-traits = "0.2"
+serde_json = { workspace = true, default-features = true }
+sysinfo = "0.30"
+time = { version = "0.3", features = ["formatting", "local-offset", "std"] }
+tokio = { version = "1.37", features = ["rt"] }
+thiserror = { workspace = true }
+
+# Bridge dependencies
+
+bp-runtime = { path = "../../primitives/runtime" }
+
+# Substrate dependencies
+
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }

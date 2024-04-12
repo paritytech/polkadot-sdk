@@ -372,6 +372,11 @@ fn instapool_payouts_work() {
 		advance_to(11);
 		assert_eq!(pot(), 14);
 		assert_eq!(revenue(), 106);
+
+		// Cannot claim for 0 timeslices.
+		assert_noop!(Broker::do_claim_revenue(region, 0), Error::<Test>::NoClaimTimeslices);
+
+		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
 		assert_eq!(pot(), 10);
 		assert_eq!(balance(2), 4);
@@ -860,6 +865,29 @@ fn cannot_set_expired_lease() {
 			Broker::do_set_lease(1000, current_timeslice.saturating_sub(1)),
 			Error::<Test>::AlreadyExpired
 		);
+	});
+}
+
+#[test]
+fn short_leases_are_cleaned() {
+	TestExt::new().region_length(3).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(200, 1));
+		advance_to(2);
+
+		// New leases are allowed to expire within this region given expiry > `current_timeslice`.
+		assert_noop!(
+			Broker::do_set_lease(1000, Broker::current_timeslice()),
+			Error::<Test>::AlreadyExpired
+		);
+		assert_eq!(Leases::<Test>::get().len(), 0);
+		assert_ok!(Broker::do_set_lease(1000, Broker::current_timeslice().saturating_add(1)));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+
+		// But are cleaned up in the next rotate_sale.
+		let config = Configuration::<Test>::get().unwrap();
+		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
+		assert_eq!(Leases::<Test>::get().len(), 0);
 	});
 }
 

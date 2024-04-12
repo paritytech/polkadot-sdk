@@ -107,7 +107,7 @@ type LeasePeriodOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Le
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -148,18 +148,15 @@ pub mod pallet {
 
 	/// Assigned permanent slots, with their start lease period, and duration.
 	#[pallet::storage]
-	#[pallet::getter(fn permanent_slots)]
 	pub type PermanentSlots<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, (LeasePeriodOf<T>, LeasePeriodOf<T>), OptionQuery>;
 
 	/// Number of assigned (and active) permanent slots.
 	#[pallet::storage]
-	#[pallet::getter(fn permanent_slot_count)]
 	pub type PermanentSlotCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Assigned temporary slots.
 	#[pallet::storage]
-	#[pallet::getter(fn temporary_slots)]
 	pub type TemporarySlots<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -170,12 +167,10 @@ pub mod pallet {
 
 	/// Number of assigned temporary slots.
 	#[pallet::storage]
-	#[pallet::getter(fn temporary_slot_count)]
 	pub type TemporarySlotCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Number of active temporary slots in current slot lease period.
 	#[pallet::storage]
-	#[pallet::getter(fn active_temporary_slot_count)]
 	pub type ActiveTemporarySlotCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	///  The max number of temporary slots that can be assigned.
@@ -197,8 +192,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			<MaxPermanentSlots<T>>::put(&self.max_permanent_slots);
-			<MaxTemporarySlots<T>>::put(&self.max_temporary_slots);
+			MaxPermanentSlots::<T>::put(&self.max_permanent_slots);
+			MaxTemporarySlots::<T>::put(&self.max_temporary_slots);
 		}
 	}
 
@@ -306,7 +301,7 @@ pub mod pallet {
 					LeasePeriodOf::<T>::from(T::PermanentSlotLeasePeriodLength::get()),
 				),
 			);
-			<PermanentSlotCount<T>>::mutate(|count| count.saturating_inc());
+			PermanentSlotCount::<T>::mutate(|count| count.saturating_inc());
 
 			Self::deposit_event(Event::<T>::PermanentSlotAssigned(id));
 			Ok(())
@@ -364,7 +359,7 @@ pub mod pallet {
 			};
 
 			if lease_period_start == SlotLeasePeriodStart::Current &&
-				Self::active_temporary_slot_count() < T::MaxTemporarySlotPerLeasePeriod::get()
+				ActiveTemporarySlotCount::<T>::get() < T::MaxTemporarySlotPerLeasePeriod::get()
 			{
 				// Try to allocate slot directly
 				match Self::configure_slot_lease(
@@ -394,7 +389,7 @@ pub mod pallet {
 			}
 
 			TemporarySlots::<T>::insert(id, temp_slot);
-			<TemporarySlotCount<T>>::mutate(|count| count.saturating_inc());
+			TemporarySlotCount::<T>::mutate(|count| count.saturating_inc());
 
 			Self::deposit_event(Event::<T>::TemporarySlotAssigned(id));
 
@@ -420,12 +415,12 @@ pub mod pallet {
 
 			if PermanentSlots::<T>::contains_key(id) {
 				PermanentSlots::<T>::remove(id);
-				<PermanentSlotCount<T>>::mutate(|count| *count = count.saturating_sub(One::one()));
+				PermanentSlotCount::<T>::mutate(|count| *count = count.saturating_sub(One::one()));
 			} else if TemporarySlots::<T>::contains_key(id) {
 				TemporarySlots::<T>::remove(id);
-				<TemporarySlotCount<T>>::mutate(|count| *count = count.saturating_sub(One::one()));
+				TemporarySlotCount::<T>::mutate(|count| *count = count.saturating_sub(One::one()));
 				if is_parachain {
-					<ActiveTemporarySlotCount<T>>::mutate(|active_count| {
+					ActiveTemporarySlotCount::<T>::mutate(|active_count| {
 						*active_count = active_count.saturating_sub(One::one())
 					});
 				}
@@ -456,7 +451,7 @@ pub mod pallet {
 		pub fn set_max_permanent_slots(origin: OriginFor<T>, slots: u32) -> DispatchResult {
 			ensure_root(origin)?;
 
-			<MaxPermanentSlots<T>>::put(slots);
+			MaxPermanentSlots::<T>::put(slots);
 
 			Self::deposit_event(Event::<T>::MaxPermanentSlotsChanged { slots });
 			Ok(())
@@ -468,7 +463,7 @@ pub mod pallet {
 		pub fn set_max_temporary_slots(origin: OriginFor<T>, slots: u32) -> DispatchResult {
 			ensure_root(origin)?;
 
-			<MaxTemporarySlots<T>>::put(slots);
+			MaxTemporarySlots::<T>::put(slots);
 
 			Self::deposit_event(Event::<T>::MaxTemporarySlotsChanged { slots });
 			Ok(())
@@ -680,7 +675,7 @@ mod tests {
 		pub const BlockHashCount: u32 = 250;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -965,7 +960,7 @@ mod tests {
 				RuntimeOrigin::root(),
 				ParaId::from(2_u32),
 			));
-			assert_eq!(AssignedSlots::permanent_slot_count(), 2);
+			assert_eq!(assigned_slots::PermanentSlotCount::<Test>::get(), 2);
 
 			assert_noop!(
 				AssignedSlots::assign_perm_parachain_slot(
@@ -989,8 +984,8 @@ mod tests {
 				dummy_validation_code(),
 			));
 
-			assert_eq!(AssignedSlots::permanent_slot_count(), 0);
-			assert_eq!(AssignedSlots::permanent_slots(ParaId::from(1_u32)), None);
+			assert_eq!(assigned_slots::PermanentSlotCount::<Test>::get(), 0);
+			assert_eq!(assigned_slots::PermanentSlots::<Test>::get(ParaId::from(1_u32)), None);
 
 			assert_ok!(AssignedSlots::assign_perm_parachain_slot(
 				RuntimeOrigin::root(),
@@ -1004,9 +999,12 @@ mod tests {
 
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 
-				assert_eq!(AssignedSlots::permanent_slot_count(), 1);
+				assert_eq!(assigned_slots::PermanentSlotCount::<Test>::get(), 1);
 				assert_eq!(AssignedSlots::has_permanent_slot(ParaId::from(1_u32)), true);
-				assert_eq!(AssignedSlots::permanent_slots(ParaId::from(1_u32)), Some((0, 3)));
+				assert_eq!(
+					assigned_slots::PermanentSlots::<Test>::get(ParaId::from(1_u32)),
+					Some((0, 3))
+				);
 
 				assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 2), true);
 
@@ -1138,7 +1136,7 @@ mod tests {
 				));
 			}
 
-			assert_eq!(AssignedSlots::temporary_slot_count(), 6);
+			assert_eq!(assigned_slots::TemporarySlotCount::<Test>::get(), 6);
 
 			// Attempt to assign one more temp slot
 			assert_ok!(TestRegistrar::<Test>::register(
@@ -1170,15 +1168,15 @@ mod tests {
 				dummy_validation_code(),
 			));
 
-			assert_eq!(AssignedSlots::temporary_slots(ParaId::from(1_u32)), None);
+			assert_eq!(assigned_slots::TemporarySlots::<Test>::get(ParaId::from(1_u32)), None);
 
 			assert_ok!(AssignedSlots::assign_temp_parachain_slot(
 				RuntimeOrigin::root(),
 				ParaId::from(1_u32),
 				SlotLeasePeriodStart::Current
 			));
-			assert_eq!(AssignedSlots::temporary_slot_count(), 1);
-			assert_eq!(AssignedSlots::active_temporary_slot_count(), 1);
+			assert_eq!(assigned_slots::TemporarySlotCount::<Test>::get(), 1);
+			assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 1);
 
 			// Block 1-5
 			// Para is a lease holding parachain for TemporarySlotLeasePeriodLength * LeasePeriod
@@ -1186,14 +1184,14 @@ mod tests {
 			while block < 6 {
 				println!("block #{}", block);
 				println!("lease period #{}", AssignedSlots::current_lease_period_index());
-				println!("lease {:?}", Slots::lease(ParaId::from(1_u32)));
+				println!("lease {:?}", slots::Leases::<Test>::get(ParaId::from(1_u32)));
 
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 
 				assert_eq!(AssignedSlots::has_temporary_slot(ParaId::from(1_u32)), true);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 1);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 1);
 				assert_eq!(
-					AssignedSlots::temporary_slots(ParaId::from(1_u32)),
+					assigned_slots::TemporarySlots::<Test>::get(ParaId::from(1_u32)),
 					Some(ParachainTemporarySlot {
 						manager: 1,
 						period_begin: 0,
@@ -1212,23 +1210,23 @@ mod tests {
 			// Block 6
 			println!("block #{}", block);
 			println!("lease period #{}", AssignedSlots::current_lease_period_index());
-			println!("lease {:?}", Slots::lease(ParaId::from(1_u32)));
+			println!("lease {:?}", slots::Leases::<Test>::get(ParaId::from(1_u32)));
 
 			// Para lease ended, downgraded back to on-demand parachain
 			assert_eq!(TestRegistrar::<Test>::is_parathread(ParaId::from(1_u32)), true);
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 3), false);
-			assert_eq!(AssignedSlots::active_temporary_slot_count(), 0);
+			assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 0);
 
 			// Block 12
 			// Para should get a turn after TemporarySlotLeasePeriodLength * LeasePeriod blocks
 			run_to_block(12);
 			println!("block #{}", block);
 			println!("lease period #{}", AssignedSlots::current_lease_period_index());
-			println!("lease {:?}", Slots::lease(ParaId::from(1_u32)));
+			println!("lease {:?}", slots::Leases::<Test>::get(ParaId::from(1_u32)));
 
 			assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 4, 5), true);
-			assert_eq!(AssignedSlots::active_temporary_slot_count(), 1);
+			assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 1);
 		});
 	}
 
@@ -1270,7 +1268,7 @@ mod tests {
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 2);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 6-11, Period 2-3
@@ -1282,7 +1280,7 @@ mod tests {
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), true);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 2);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 12-17, Period 4-5
@@ -1294,7 +1292,7 @@ mod tests {
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), true);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), true);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 2);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 18-23, Period 6-7
@@ -1306,7 +1304,7 @@ mod tests {
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 2);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 24-29, Period 8-9
@@ -1318,7 +1316,7 @@ mod tests {
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), true);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 2);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 30-35, Period 10-11
@@ -1330,7 +1328,7 @@ mod tests {
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), true);
 				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), true);
-				assert_eq!(AssignedSlots::active_temporary_slot_count(), 2);
+				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 		});
 	}
@@ -1386,9 +1384,9 @@ mod tests {
 				ParaId::from(1_u32),
 			));
 
-			assert_eq!(AssignedSlots::permanent_slot_count(), 0);
+			assert_eq!(assigned_slots::PermanentSlotCount::<Test>::get(), 0);
 			assert_eq!(AssignedSlots::has_permanent_slot(ParaId::from(1_u32)), false);
-			assert_eq!(AssignedSlots::permanent_slots(ParaId::from(1_u32)), None);
+			assert_eq!(assigned_slots::PermanentSlots::<Test>::get(ParaId::from(1_u32)), None);
 
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 2), false);
 		});
@@ -1419,10 +1417,10 @@ mod tests {
 				ParaId::from(1_u32),
 			));
 
-			assert_eq!(AssignedSlots::temporary_slot_count(), 0);
-			assert_eq!(AssignedSlots::active_temporary_slot_count(), 0);
+			assert_eq!(assigned_slots::TemporarySlotCount::<Test>::get(), 0);
+			assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 0);
 			assert_eq!(AssignedSlots::has_temporary_slot(ParaId::from(1_u32)), false);
-			assert_eq!(AssignedSlots::temporary_slots(ParaId::from(1_u32)), None);
+			assert_eq!(assigned_slots::TemporarySlots::<Test>::get(ParaId::from(1_u32)), None);
 
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 1), false);
 		});

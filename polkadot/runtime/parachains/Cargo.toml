@@ -13,10 +13,10 @@ workspace = true
 impl-trait-for-tuples = "0.2.2"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { features = ["alloc", "derive"], workspace = true }
 derive_more = "0.99.17"
 bitflags = "1.3.2"
 
@@ -59,7 +59,7 @@ polkadot-runtime-metrics = { path = "../metrics", default-features = false }
 polkadot-core-primitives = { path = "../../core-primitives", default-features = false }
 
 [dev-dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 hex-literal = "0.4.1"
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 frame-support-test = { path = "../../../substrate/frame/support/test" }
@@ -69,7 +69,8 @@ sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 thousands = "0.2.0"
 assert_matches = "1"
-serde_json = "1.0.111"
+rstest = "0.18.2"
+serde_json = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

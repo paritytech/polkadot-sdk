@@ -197,7 +197,9 @@ where
 pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 	init_data: bp_header_chain::InitializationData<BridgedHeader<Runtime, GPI>>,
 ) where
-	Runtime: BridgeGrandpaConfig<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 {
 	pallet_bridge_grandpa::Pallet::<Runtime, GPI>::initialize(
 		RuntimeHelper::<Runtime>::root_origin(),

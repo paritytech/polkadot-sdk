@@ -21,17 +21,17 @@ prost-build = "0.11"
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 libp2p = "0.51.4"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 mockall = "0.11.3"
 prost = "0.12"
 schnellru = "0.2.1"
 smallvec = "1.11.0"
-thiserror = "1.0"
+thiserror = { workspace = true }
 tokio-stream = "0.1.14"
 tokio = { version = "1.32.0", features = ["macros", "time"] }
 fork-tree = { path = "../../../utils/fork-tree" }
@@ -40,6 +40,7 @@ sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../../consensus/common" }
 sc-network = { path = ".." }
 sc-network-common = { path = "../common" }
+sc-network-types = { path = "../types" }
 sc-utils = { path = "../../utils" }
 sp-arithmetic = { path = "../../../primitives/arithmetic" }
 sp-blockchain = { path = "../../../primitives/blockchain" }

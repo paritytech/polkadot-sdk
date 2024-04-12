@@ -184,13 +184,13 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 			vec![
 				// WND is withdrawn from AHR's SA on AHW
 				RuntimeEvent::Balances(
-					pallet_balances::Event::Withdraw { who, amount }
+					pallet_balances::Event::Burned { who, amount }
 				) => {
 					who: *who == sov_ahr_on_ahw,
 					amount: *amount == amount_to_send,
 				},
 				// WNDs deposited to beneficiary
-				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 					who: *who == AssetHubWestendReceiver::get(),
 				},
 				// message processed successfully

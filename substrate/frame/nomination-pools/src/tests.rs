@@ -19,11 +19,15 @@ use super::*;
 use crate::{mock::*, Event};
 use frame_support::{assert_err, assert_noop, assert_ok, assert_storage_noop};
 use pallet_balances::Event as BEvent;
-use sp_runtime::{bounded_btree_map, traits::Dispatchable, FixedU128};
+use sp_runtime::{
+	bounded_btree_map,
+	traits::{BadOrigin, Dispatchable},
+	FixedU128,
+};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
-		use sp_std::iter::{Iterator, IntoIterator};
+		use ::core::iter::{Iterator, IntoIterator};
 		let not_bounded: BTreeMap<_, _> = Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]));
 		BoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
 	}};
@@ -2441,16 +2445,10 @@ mod claim_payout {
 			// given
 			assert_eq!(Currency::free_balance(&10), 35);
 
-			// Permissioned by default
-			assert_noop!(
-				Pools::claim_payout_other(RuntimeOrigin::signed(80), 10),
-				Error::<Runtime>::DoesNotHavePermission
-			);
+			// when
 
-			assert_ok!(Pools::set_claim_permission(
-				RuntimeOrigin::signed(10),
-				ClaimPermission::PermissionlessWithdraw
-			));
+			// NOTE: Claim permission of `PermissionlessWithdraw` allows payout claiming as default,
+			// so a claim permission does not need to be set for non-pool members prior to claiming.
 			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(80), 10));
 
 			// then
@@ -2489,7 +2487,6 @@ mod unbond {
 				);
 
 				// Make permissionless
-				assert_eq!(ClaimPermissions::<Runtime>::get(10), ClaimPermission::Permissioned);
 				assert_ok!(Pools::set_claim_permission(
 					RuntimeOrigin::signed(20),
 					ClaimPermission::PermissionlessAll
@@ -4563,12 +4560,11 @@ mod withdraw_unbonded {
 			CurrentEra::set(1);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 
-			assert_ok!(Pools::set_claim_permission(
-				RuntimeOrigin::signed(20),
-				ClaimPermission::PermissionlessAll
-			));
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 20));
-			assert_eq!(ClaimPermissions::<Runtime>::get(20), ClaimPermission::PermissionlessAll);
+			assert_eq!(
+				ClaimPermissions::<Runtime>::get(20),
+				ClaimPermission::PermissionlessWithdraw
+			);
 
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4792,7 +4788,7 @@ mod create {
 }
 
 #[test]
-fn set_claimable_actor_works() {
+fn set_claim_permission_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
 		Currency::set_balance(&11, ExistentialDeposit::get() + 2);
@@ -4811,22 +4807,19 @@ fn set_claimable_actor_works() {
 			]
 		);
 
-		// Make permissionless
-		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
+		// Make permissioned
+		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::PermissionlessWithdraw);
 		assert_noop!(
-			Pools::set_claim_permission(
-				RuntimeOrigin::signed(12),
-				ClaimPermission::PermissionlessAll
-			),
+			Pools::set_claim_permission(RuntimeOrigin::signed(12), ClaimPermission::Permissioned),
 			Error::<T>::PoolMemberNotFound
 		);
 		assert_ok!(Pools::set_claim_permission(
 			RuntimeOrigin::signed(11),
-			ClaimPermission::PermissionlessAll
+			ClaimPermission::Permissioned
 		));
 
 		// then
-		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::PermissionlessAll);
+		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
 	});
 }
 
@@ -4847,6 +4840,18 @@ mod nominate {
 				Pools::nominate(RuntimeOrigin::signed(902), 1, vec![21]),
 				Error::<Runtime>::NotNominator
 			);
+
+			// if `depositor` stake is less than the `MinimumNominatorBond`, they can't nominate
+			StakingMinBond::set(20);
+
+			// Can't nominate if depositor's stake is less than the `MinimumNominatorBond`
+			assert_noop!(
+				Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]),
+				Error::<Runtime>::MinimumBondNotMet
+			);
+
+			// restore `MinimumNominatorBond`
+			StakingMinBond::set(10);
 
 			// Root can nominate
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]));
@@ -4995,9 +5000,23 @@ mod set_configs {
 	#[test]
 	fn set_configs_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// Setting works
+			// only admin origin can set configs
+			assert_noop!(
+				Pools::set_configs(
+					RuntimeOrigin::signed(20),
+					ConfigOp::Set(1 as Balance),
+					ConfigOp::Set(2 as Balance),
+					ConfigOp::Set(3u32),
+					ConfigOp::Set(4u32),
+					ConfigOp::Set(5u32),
+					ConfigOp::Set(Perbill::from_percent(6))
+				),
+				BadOrigin
+			);
+
+			// Setting works by Admin (42)
 			assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Set(1 as Balance),
 				ConfigOp::Set(2 as Balance),
 				ConfigOp::Set(3u32),
@@ -5014,7 +5033,7 @@ mod set_configs {
 
 			// Noop does nothing
 			assert_storage_noop!(assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5025,7 +5044,7 @@ mod set_configs {
 
 			// Removing works
 			assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
@@ -5212,7 +5231,7 @@ mod bond_extra {
 
 			assert_ok!(Pools::set_claim_permission(
 				RuntimeOrigin::signed(10),
-				ClaimPermission::PermissionlessAll
+				ClaimPermission::PermissionlessCompound
 			));
 			assert_ok!(Pools::bond_extra_other(RuntimeOrigin::signed(50), 10, BondExtra::Rewards));
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
@@ -7336,5 +7355,35 @@ mod slash {
 			);
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap(), bonded(12 + 24, 3));
 		});
+	}
+}
+
+mod chill {
+	use super::*;
+
+	#[test]
+	fn chill_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// only nominator or root can chill
+			assert_noop!(
+				Pools::chill(RuntimeOrigin::signed(10), 1),
+				Error::<Runtime>::NotNominator
+			);
+
+			// root can chill and re-nominate
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(900), 1));
+			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![31]));
+
+			// nominator can chill and re-nominate
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(901), 1));
+			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
+
+			// if `depositor` stake is less than the `MinimumNominatorBond`, then this call
+			// becomes permissionless;
+			StakingMinBond::set(20);
+
+			// any account can chill
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
+		})
 	}
 }

@@ -10,10 +10,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 kvdb = "0.13.0"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 bitvec = "1.0.0"
 
@@ -28,8 +28,8 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common", def
 polkadot-node-jaeger = { path = "../../jaeger" }
 
 [dev-dependencies]
-log = "0.4.17"
-env_logger = "0.9.0"
+log = { workspace = true, default-features = true }
+env_logger = "0.11"
 assert_matches = "1.4.0"
 kvdb-memorydb = "0.13.0"
 

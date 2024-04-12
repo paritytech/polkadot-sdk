@@ -16,11 +16,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
+serde = { features = ["alloc", "derive"], workspace = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
@@ -33,17 +33,17 @@ pallet-session = { path = "../session", default-features = false, features = [
 pallet-authorship = { path = "../authorship", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
+pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-core = { path = "../../primitives/core" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
-pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "reward-curve" }
 pallet-bags-list = { path = "../bags-list" }

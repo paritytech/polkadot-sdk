@@ -21,11 +21,11 @@
 use crate::{weights::WeightInfo, Config};
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{weights::Weight, DefaultNoBound};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_std::marker::PhantomData;
 
 /// Definition of the cost schedule and other parameterizations for the wasm vm.
 ///
@@ -39,11 +39,7 @@ use sp_std::marker::PhantomData;
 /// fn create_schedule<T: Config>() -> Schedule<T> {
 ///     Schedule {
 ///         limits: Limits {
-/// 		        globals: 3,
-/// 		        parameters: 3,
 /// 		        memory_pages: 16,
-/// 		        table_size: 3,
-/// 		        br_table_size: 3,
 /// 		        .. Default::default()
 /// 	        },
 ///         instruction_weights: InstructionWeights {
@@ -77,37 +73,8 @@ pub struct Limits {
 	/// The maximum number of topics supported by an event.
 	pub event_topics: u32,
 
-	/// Maximum number of globals a module is allowed to declare.
-	///
-	/// Globals are not limited through the linear memory limit `memory_pages`.
-	pub globals: u32,
-
-	/// Maximum number of locals a function can have.
-	///
-	/// As wasm engine initializes each of the local, we need to limit their number to confine
-	/// execution costs.
-	pub locals: u32,
-
-	/// Maximum numbers of parameters a function can have.
-	///
-	/// Those need to be limited to prevent a potentially exploitable interaction with
-	/// the stack height instrumentation: The costs of executing the stack height
-	/// instrumentation for an indirectly called function scales linearly with the amount
-	/// of parameters of this function. Because the stack height instrumentation itself is
-	/// is not weight metered its costs must be static (via this limit) and included in
-	/// the costs of the instructions that cause them (call, call_indirect).
-	pub parameters: u32,
-
 	/// Maximum number of memory pages allowed for a contract.
 	pub memory_pages: u32,
-
-	/// Maximum number of elements allowed in a table.
-	///
-	/// Currently, the only type of element that is allowed in a table is funcref.
-	pub table_size: u32,
-
-	/// Maximum number of elements that can appear as immediate value to the br_table instruction.
-	pub br_table_size: u32,
 
 	/// The maximum length of a subject in bytes used for PRNG generation.
 	pub subject_len: u32,
@@ -226,7 +193,7 @@ pub struct HostFnWeights<T: Config> {
 	/// Weight of calling `seal_set_storage`.
 	pub set_storage: Weight,
 
-	/// Weight per written byten of an item stored with `seal_set_storage`.
+	/// Weight per written byte of an item stored with `seal_set_storage`.
 	pub set_storage_per_new_byte: Weight,
 
 	/// Weight per overwritten byte of an item stored with `seal_set_storage`.
@@ -331,11 +298,11 @@ pub struct HostFnWeights<T: Config> {
 	/// Weight of calling `instantiation_nonce`.
 	pub instantiation_nonce: Weight,
 
-	/// Weight of calling `add_delegate_dependency`.
-	pub add_delegate_dependency: Weight,
+	/// Weight of calling `lock_delegate_dependency`.
+	pub lock_delegate_dependency: Weight,
 
-	/// Weight of calling `remove_delegate_dependency`.
-	pub remove_delegate_dependency: Weight,
+	/// Weight of calling `unlock_delegate_dependency`.
+	pub unlock_delegate_dependency: Weight,
 
 	/// The type parameter is used in the default implementation.
 	#[codec(skip)]
@@ -370,13 +337,7 @@ impl Default for Limits {
 	fn default() -> Self {
 		Self {
 			event_topics: 4,
-			globals: 256,
-			locals: 1024,
-			parameters: 128,
 			memory_pages: 16,
-			// 4k function pointers (This is in count not bytes).
-			table_size: 4096,
-			br_table_size: 256,
 			subject_len: 32,
 			payload_len: 16 * 1024,
 			runtime_memory: 1024 * 1024 * 128,
@@ -474,8 +435,8 @@ impl<T: Config> Default for HostFnWeights<T> {
 			reentrance_count: cost!(seal_reentrance_count),
 			account_reentrance_count: cost!(seal_account_reentrance_count),
 			instantiation_nonce: cost!(seal_instantiation_nonce),
-			add_delegate_dependency: cost!(add_delegate_dependency),
-			remove_delegate_dependency: cost!(remove_delegate_dependency),
+			lock_delegate_dependency: cost!(lock_delegate_dependency),
+			unlock_delegate_dependency: cost!(unlock_delegate_dependency),
 			_phantom: PhantomData,
 		}
 	}

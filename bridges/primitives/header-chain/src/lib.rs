@@ -244,6 +244,16 @@ pub enum BridgeGrandpaCall<Header: HeaderT> {
 		/// All data, required to initialize the pallet.
 		init_data: InitializationData<Header>,
 	},
+	/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
+	#[codec(index = 4)]
+	submit_finality_proof_ex {
+		/// The header that we are going to finalize.
+		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
+		justification: justification::GrandpaJustification<Header>,
+		/// An identifier of the validators set, that have signed the justification.
+		current_set_id: SetId,
+	},
 }
 
 /// The `BridgeGrandpaCall` used by a chain.
@@ -273,7 +283,7 @@ pub trait ChainWithGrandpa: Chain {
 	/// ancestry and the pallet will accept such justification. The limit is only used to compute
 	/// maximal refund amount and submitting justifications which exceed the limit, may be costly
 	/// to submitter.
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32;
 
 	/// Maximal size of the mandatory chain header. Mandatory header is the header that enacts new
 	/// GRANDPA authorities set (so it has large digest inside).
@@ -307,8 +317,8 @@ where
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
 		<T::Chain as ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = <T::Chain as ChainWithGrandpa>::MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 =
 		<T::Chain as ChainWithGrandpa>::MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE;
@@ -363,7 +373,7 @@ mod tests {
 	impl ChainWithGrandpa for TestChain {
 		const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "Test";
 		const MAX_AUTHORITIES_COUNT: u32 = 128;
-		const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
+		const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
 		const MAX_MANDATORY_HEADER_SIZE: u32 = 100_000;
 		const AVERAGE_HEADER_SIZE: u32 = 1_024;
 	}

@@ -35,11 +35,13 @@ pub extern "C" fn call() {
 	);
 
 	// Call the callee
-	api::call_v1(
+	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
+		0u64,                // How much ref_time to devote for the execution. 0 = all.
+		0u64,                // How much proof_size to devote for the execution. 0 = all.
+		None,                // No deposit limit.
+		&0u64.to_le_bytes(), // Value transferred to the contract.
 		callee_input,
 		None,
 	)

@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false }
@@ -79,5 +79,3 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 ]
-
-experimental = ["pallet-aura/experimental"]

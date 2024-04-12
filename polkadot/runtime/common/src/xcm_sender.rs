@@ -116,11 +116,11 @@ where
 
 		// Downward message passing.
 		let xcm = msg.take().ok_or(MissingArgument)?;
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let blob = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?.encode();
-		<dmp::Pallet<T>>::can_queue_downward_message(&config, &para, &blob)
+		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
 
 		Ok(((config, para, blob), price))
@@ -130,16 +130,16 @@ where
 		(config, para, blob): (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>),
 	) -> Result<XcmHash, SendError> {
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
-		<dmp::Pallet<T>>::queue_downward_message(&config, para, blob)
+		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
 	}
 }
 
-/// Implementation of `pallet_xcm_benchmarks::EnsureDelivery` which helps to ensure delivery to the
+/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// `ParaId` parachain (sibling or child). Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
+/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if needed).
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParachainDeliveryHelper<
 	XcmConfig,
@@ -164,7 +164,7 @@ impl<
 		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
 		ToParachainHelper: EnsureForParachain,
-	> pallet_xcm_benchmarks::EnsureDelivery
+	> xcm_builder::EnsureDelivery
 	for ToParachainDeliveryHelper<
 		XcmConfig,
 		ExistentialDeposit,
@@ -175,13 +175,22 @@ impl<
 {
 	fn ensure_successful_delivery(
 		origin_ref: &Location,
-		_dest: &Location,
+		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
 		};
+
+		// check if the destination matches the expected `Parachain`.
+		if let Some(Parachain(para_id)) = dest.first_interior() {
+			if ParaId::from(*para_id) != Parachain::get().into() {
+				return (None, None)
+			}
+		} else {
+			return (None, None)
+		}
 
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {

@@ -17,7 +17,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 dlmalloc = { version = "0.2.4", features = ["global"] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 # We need to make sure the global allocator is disabled until we have support of full substrate externalities
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false, features = ["disable_allocator"] }

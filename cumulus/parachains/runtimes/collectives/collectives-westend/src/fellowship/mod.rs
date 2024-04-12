@@ -113,12 +113,17 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type WeightInfo = weights::pallet_ranked_collective_fellowship_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
-	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type AddOrigin = frame_system::EnsureNever<()>;
 	#[cfg(feature = "runtime-benchmarks")]
+	type AddOrigin = frame_system::EnsureRoot<Self::AccountId>;
+
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
+	#[cfg(feature = "runtime-benchmarks")]
 	type PromoteOrigin = EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>;
 
 	// Demotion is by any of:
@@ -127,6 +132,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	//
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
+	type RemoveOrigin = Self::DemoteOrigin;
 	type DemoteOrigin = EitherOf<
 		EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		MapSuccess<

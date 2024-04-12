@@ -27,7 +27,7 @@ use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
 use sp_core::Get;
 use sp_runtime::{
-	traits::{Convert, ReduceBy, TryMorphInto},
+	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
 	BuildStorage, DispatchError,
 };
 type Class = Rank;
@@ -51,7 +51,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::max_value()));
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -137,12 +137,14 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can promote up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	type DemoteOrigin = EitherOf<
 		// Root can demote arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		// Members can demote up to the rank of 3 below them.
 		MapSuccess<EnsureRanked<Test, (), 3>, ReduceBy<ConstU16<3>>>,
 	>;
+	type RemoveOrigin = Self::DemoteOrigin;
 	type ExchangeOrigin = EitherOf<
 		// Root can exchange arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
@@ -249,7 +251,7 @@ fn swap_exhaustive_works() {
 		});
 
 		assert_eq!(root_add, root_swap);
-		// Ensure that we dont compare trivial stuff like `()` from a type error above.
+		// Ensure that we don't compare trivial stuff like `()` from a type error above.
 		assert_eq!(root_add.len(), 32);
 	});
 }

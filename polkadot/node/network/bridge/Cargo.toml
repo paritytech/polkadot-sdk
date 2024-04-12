@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
-async-trait = "0.1.74"
-futures = "0.3.21"
+async-trait = "0.1.79"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
@@ -25,7 +25,7 @@ polkadot-overseer = { path = "../../overseer" }
 parking_lot = "0.12.1"
 bytes = "1"
 fatality = "0.0.6"
-thiserror = "1"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = "1.4.0"

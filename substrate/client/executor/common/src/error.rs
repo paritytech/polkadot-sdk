@@ -145,9 +145,27 @@ pub enum WasmError {
 	#[error("{0}")]
 	Instantiation(String),
 
-	/// Other error happenend.
+	/// Other error happened.
 	#[error("Other error happened while constructing the runtime: {0}")]
 	Other(String),
+}
+
+impl From<polkavm::ProgramParseError> for WasmError {
+	fn from(error: polkavm::ProgramParseError) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::Error> for WasmError {
+	fn from(error: polkavm::Error) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::Error> for Error {
+	fn from(error: polkavm::Error) -> Self {
+		Error::Other(error.to_string())
+	}
 }
 
 /// An error message with an attached backtrace.

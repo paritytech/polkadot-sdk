@@ -10,13 +10,13 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
-tokio = "1.24.2"
+futures = "0.3.30"
+tokio = "1.37"
 schnellru = "0.2.1"
 rand = "0.8.5"
 fatality = "0.0.6"
-thiserror = "1.0.48"
-async-trait = "0.1.74"
+thiserror = { workspace = true }
+async-trait = "0.1.79"
 gum = { package = "tracing-gum", path = "../../gum" }
 
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
@@ -30,9 +30,9 @@ sc-network = { path = "../../../../substrate/client/network" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-env_logger = "0.9.0"
+env_logger = "0.11"
 futures-timer = "3.0.2"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
@@ -41,6 +41,13 @@ sc-network = { path = "../../../../substrate/client/network" }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+
+[[bench]]
+name = "availability-recovery-regression-bench"
+path = "benches/availability-recovery-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
 
 [features]
 subsystem-benchmarks = []

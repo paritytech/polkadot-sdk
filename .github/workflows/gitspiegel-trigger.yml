@@ -13,14 +13,15 @@ on:
       - unlocked
       - ready_for_review
       - reopened
+  # doesn't work as intended, triggers "workflow_run" webhook in any case
   # the job doesn't check out any code, so it is relatively safe to run it on any event
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - unlocked
-      - ready_for_review
-      - reopened
+  # pull_request_target:
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - unlocked
+  #     - ready_for_review
+  #     - reopened
   merge_group:
 
 # drop all permissions for GITHUB_TOKEN

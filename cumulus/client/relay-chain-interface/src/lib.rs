@@ -22,7 +22,7 @@ use sc_client_api::StorageProof;
 use futures::Stream;
 
 use async_trait::async_trait;
-use jsonrpsee_core::Error as JsonRpcError;
+use jsonrpsee_core::ClientError as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
 
@@ -30,7 +30,7 @@ use cumulus_primitives_core::relay_chain::BlockId;
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -194,6 +194,15 @@ pub trait RelayChainInterface: Send + Sync {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
+
+	/// Returns the validation code hash for the given `para_id` using the given
+	/// `occupied_core_assumption`.
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>>;
 }
 
 #[async_trait]
@@ -300,5 +309,16 @@ where
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		(**self).header(block_id).await
+	}
+
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		(**self)
+			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
+			.await
 	}
 }
