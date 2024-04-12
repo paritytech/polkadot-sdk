@@ -58,3 +58,13 @@ std = [
 	"xcm-executor/std",
 	"frame-executive/std",
 ]
+runtime-benchmarks = [
+	"sp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
