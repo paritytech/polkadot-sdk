@@ -61,7 +61,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
-use xcm_fee_payment_runtime_api::XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::fees::Error as XcmPaymentApiError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;

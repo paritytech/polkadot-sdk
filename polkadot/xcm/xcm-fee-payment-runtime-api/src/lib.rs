@@ -26,10 +26,7 @@
 
 /// Dry-run API.
 /// Given an extrinsic or an XCM program, it returns the outcome of its execution.
-mod dry_run;
+pub mod dry_run;
 /// Fee estimation API.
 /// Given an XCM program, it will return the fees needed to execute it properly or send it.
-mod fees;
-
-pub use dry_run::{XcmDryRunApi, ExtrinsicDryRunEffects, XcmDryRunEffects, Error as XcmDryRunApiError};
-pub use fees::{Error as XcmPaymentApiError, XcmPaymentApi};
+pub mod fees;
