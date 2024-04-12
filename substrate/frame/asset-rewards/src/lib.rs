@@ -53,10 +53,10 @@
 //! ## Implementation Notes
 //!
 //! Internal logic functions such as `update_pool_and_staker_rewards` where deliberately written
-//! without storage interaction.
+//! as pure functions without side-effects.
 //!
 //! Storage interaction such as reads and writes are instead all performed in the top level
-//! pallet Call method, which while slightly more verbose, makes it much easier to understand the
+//! pallet Call method, which while slightly more verbose, makes it easier to understand the
 //! code and reason about how storage reads and writes occur in the pallet.
 //!
 //! ## Rewards Algorithm
@@ -392,7 +392,7 @@ pub mod pallet {
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			let staker_info = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
 			let (mut pool_info, mut staker_info) =
-				Self::update_pool_and_staker_rewards(pool_info, staker_info)?;
+				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
 			// Try to freeze the staker assets.
 			// TODO: (blocked https://github.com/paritytech/polkadot-sdk/issues/3342)
@@ -424,7 +424,7 @@ pub mod pallet {
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			let staker_info = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
 			let (mut pool_info, mut staker_info) =
-				Self::update_pool_and_staker_rewards(pool_info, staker_info)?;
+				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
 			// Check the staker has enough staked tokens.
 			ensure!(staker_info.amount >= amount, Error::<T>::NotEnoughTokens);
@@ -462,7 +462,7 @@ pub mod pallet {
 			let staker_info =
 				PoolStakers::<T>::get(pool_id, &staker).ok_or(Error::<T>::NonExistentStaker)?;
 			let (pool_info, mut staker_info) =
-				Self::update_pool_and_staker_rewards(pool_info, staker_info)?;
+				Self::update_pool_and_staker_rewards(&pool_info, &staker_info)?;
 
 			// Transfer unclaimed rewards from the pool to the staker.
 			let pool_account_id = Self::pool_account_id(&pool_id)?;
@@ -503,7 +503,7 @@ pub mod pallet {
 			ensure!(caller == pool_info.admin, BadOrigin);
 
 			// Always start by updating the pool rewards.
-			let mut pool_info = Self::update_pool_rewards(pool_info)?;
+			let mut pool_info = Self::update_pool_rewards(&pool_info)?;
 
 			pool_info.reward_rate_per_block = new_reward_rate_per_block;
 			Pools::<T>::insert(pool_id, pool_info);
@@ -555,7 +555,7 @@ pub mod pallet {
 			ensure!(pool_info.admin == caller, BadOrigin);
 
 			// Always start by updating the pool rewards.
-			let mut pool_info = Self::update_pool_rewards(pool_info)?;
+			let mut pool_info = Self::update_pool_rewards(&pool_info)?;
 
 			pool_info.expiry_block = new_expiry_block;
 			Pools::<T>::insert(pool_id, pool_info);
@@ -631,16 +631,18 @@ pub mod pallet {
 		///
 		/// Returns the updated pool and staker info.
 		///
-		/// NOTE: does not modify any storage, that is the responsibility of the caller.
+		/// NOTE: this is a pure function without any side-effects. Side-effects such as storage
+		/// modifications are the resopnsibility of the caller.
 		pub fn update_pool_and_staker_rewards(
-			pool_info: PoolInfoFor<T>,
-			mut staker_info: PoolStakerInfo<T::Balance>,
+			pool_info: &PoolInfoFor<T>,
+			staker_info: &PoolStakerInfo<T::Balance>,
 		) -> Result<(PoolInfoFor<T>, PoolStakerInfo<T::Balance>), DispatchError> {
 			let pool_info = Self::update_pool_rewards(pool_info)?;
 
-			staker_info.rewards = Self::derive_rewards(&pool_info, &staker_info)?;
-			staker_info.reward_per_token_paid = pool_info.reward_per_token_stored;
-			return Ok((pool_info, staker_info));
+			let mut new_staker_info = staker_info.clone();
+			new_staker_info.rewards = Self::derive_rewards(&pool_info, &staker_info)?;
+			new_staker_info.reward_per_token_paid = pool_info.reward_per_token_stored;
+			return Ok((pool_info, new_staker_info));
 		}
 
 		/// Computes update pool reward state.
@@ -649,16 +651,18 @@ pub mod pallet {
 		///
 		/// Returns the updated pool and staker info.
 		///
-		/// NOTE: does not modify any storage, that is the responsibility of the caller.
+		/// NOTE: this is a pure function without any side-effects. Side-effects such as storage
+		/// modifications are the resopnsibility of the caller.
 		pub fn update_pool_rewards(
-			mut pool_info: PoolInfoFor<T>,
+			pool_info: &PoolInfoFor<T>,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
 			let reward_per_token = Self::reward_per_token(&pool_info)?;
 
-			pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
-			pool_info.reward_per_token_stored = reward_per_token;
+			let mut new_pool_info = pool_info.clone();
+			new_pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
+			new_pool_info.reward_per_token_stored = reward_per_token;
 
-			Ok(pool_info)
+			Ok(new_pool_info)
 		}
 
 		/// Derives the current reward per token for this pool.
