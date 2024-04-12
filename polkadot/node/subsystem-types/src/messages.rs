@@ -62,7 +62,7 @@ pub mod network_bridge_event;
 pub use network_bridge_event::NetworkBridgeEvent;
 
 /// A request to the candidate backing subsystem to check whether
-/// there exists vacant membership in some fragment tree.
+/// we can second this candidate.
 #[derive(Debug, Copy, Clone)]
 pub struct CanSecondRequest {
 	/// Para id of the candidate.
@@ -90,10 +90,12 @@ pub enum CandidateBackingMessage {
 		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	),
 	/// Request the subsystem to check whether it's allowed to second given candidate.
-	/// The rule is to only fetch collations that are either built on top of the root
-	/// of some fragment tree or have a parent node which represents backed candidate.
+	/// The rule is to only fetch collations that can either be directly chained to any
+	/// FragmentChain in the view or there is at least one FragmentChain where this candidate is a
+	/// potentially unconnected candidate (we predict that it may become connected to a
+	/// FragmentChain in the future).
 	///
-	/// Always responses with `false` if async backing is disabled for candidate's relay
+	/// Always responds with `false` if async backing is disabled for candidate's relay
 	/// parent.
 	CanSecond(CanSecondRequest, oneshot::Sender<bool>),
 	/// Note that the Candidate Backing subsystem should second the given candidate in the context
@@ -1021,7 +1023,7 @@ pub struct IntroduceSecondedCandidateRequest {
 	pub persisted_validation_data: PersistedValidationData,
 }
 
-/// A hypothetical candidate to be evaluated for frontier membership
+/// A hypothetical candidate to be evaluated for potential/actual membership
 /// in the prospective parachains subsystem.
 ///
 /// Hypothetical candidates are either complete or incomplete.
@@ -1093,14 +1095,14 @@ impl HypotheticalCandidate {
 }
 
 /// Request specifying which candidates are either already included
-/// or might be included in the hypothetical frontier of fragment trees
-/// under a given active leaf.
+/// or might become included in fragment chain under a given active leaf (or any active leaf if
+/// `fragment_chain_relay_parent` is `None`).
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HypotheticalMembershipRequest {
 	/// Candidates, in arbitrary order, which should be checked for
-	/// possible membership in fragment trees.
+	/// hypothetical/actual membership in fragment chains.
 	pub candidates: Vec<HypotheticalCandidate>,
-	/// Either a specific fragment tree to check, otherwise all.
+	/// Either a specific fragment chain to check, otherwise all.
 	pub fragment_chain_relay_parent: Option<Hash>,
 }
 
@@ -1140,7 +1142,7 @@ impl ParentHeadData {
 	}
 }
 
-/// Indicates the relay-parents whose fragment tree a candidate
+/// Indicates the relay-parents whose fragment chain a candidate
 /// is present in or can be added in (right now or in the future).
 pub type HypotheticalMembership = Vec<Hash>;
 
@@ -1190,12 +1192,12 @@ pub enum ProspectiveParachainsMessage {
 		HypotheticalMembershipRequest,
 		oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
 	),
-	/// Get the minimum accepted relay-parent number for each para in the fragment tree
+	/// Get the minimum accepted relay-parent number for each para in the fragment chain
 	/// for the given relay-chain block hash.
 	///
 	/// That is, if the block hash is known and is an active leaf, this returns the
 	/// minimum relay-parent block number in the same branch of the relay chain which
-	/// is accepted in the fragment tree for each para-id.
+	/// is accepted in the fragment chain for each para-id.
 	///
 	/// If the block hash is not an active leaf, this will return an empty vector.
 	///
@@ -1205,8 +1207,10 @@ pub enum ProspectiveParachainsMessage {
 	/// Para-IDs are returned in no particular order.
 	GetMinimumRelayParents(Hash, oneshot::Sender<Vec<(ParaId, BlockNumber)>>),
 	/// Get the validation data of some prospective candidate. The candidate doesn't need
-	/// to be part of any fragment tree, but this only succeeds if the parent head-data and
-	/// relay-parent are part of some fragment tree.
+	/// to be part of any fragment chain, but this only succeeds if the parent head-data and
+	/// relay-parent are part of the `CandidateStorage` (meaning that it's a candidate which is
+	/// part of some fragment chain or which prospective-parachains predicted will become part of
+	/// some fragment chain).
 	GetProspectiveValidationData(
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,

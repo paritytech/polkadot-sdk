@@ -111,7 +111,7 @@ fn share_seconded_circulated_to_cluster() {
 		);
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
-		// fragment tree updates.
+		// fragment chain updates.
 		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		overseer
@@ -717,7 +717,7 @@ fn cluster_accounts_for_implicit_view() {
 		);
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
-		// fragment tree updates.
+		// fragment chain updates.
 		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		// activate new leaf, which has relay-parent in implicit view.

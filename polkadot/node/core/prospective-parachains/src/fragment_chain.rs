@@ -72,7 +72,7 @@
 //! # Spam protection
 //!
 //! As long as the [`CandidateStorage`] has bounded input on the number of candidates supplied,
-//! [`FragmentTree`] complexity is bounded. This means that higher-level code needs to be selective
+//! [`FragmentChain`] complexity is bounded. This means that higher-level code needs to be selective
 //! about limiting the amount of candidates that are considered.
 //!
 //! The code in this module is not designed for speed or efficiency, but conceptual simplicity.

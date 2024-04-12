@@ -2222,7 +2222,7 @@ async fn fragment_chain_update_inner<Context>(
 		target: LOG_TARGET,
 		"Calling getHypotheticalMembership from statement distribution"
 	);
-	let frontier = {
+	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();
 		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
 			HypotheticalMembershipRequest {
@@ -2234,13 +2234,13 @@ async fn fragment_chain_update_inner<Context>(
 		.await;
 
 		match rx.await {
-			Ok(frontier) => frontier,
+			Ok(candidate_memberships) => candidate_memberships,
 			Err(oneshot::Canceled) => return,
 		}
 	};
 	// 3. note that they are importable under a given leaf hash.
-	for (hypo, membership) in frontier {
-		// skip parablocks outside of the frontier
+	for (hypo, membership) in candidate_memberships {
+		// skip parablocks which aren't potential candidates
 		if membership.is_empty() {
 			continue
 		}
@@ -3177,8 +3177,8 @@ pub(crate) async fn handle_response<Context>(
 
 	let confirmed = state.candidates.get_confirmed(&candidate_hash).expect("just confirmed; qed");
 
-	// Although the candidate is confirmed, it isn't yet on the
-	// hypothetical frontier of the fragment tree. Later, when it is,
+	// Although the candidate is confirmed, it isn't yet a
+	// hypothetical member of the fragment chain. Later, when it is,
 	// we will import statements.
 	if !confirmed.is_importable(None) {
 		return

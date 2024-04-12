@@ -1213,8 +1213,8 @@ enum SecondingAllowed {
 	Yes(Vec<Hash>),
 }
 
-/// Checks whether a candidate can be seconded based on its hypothetical frontiers in the fragment
-/// tree and what we've already seconded in all active leaves.
+/// Checks whether a candidate can be seconded based on its hypothetical membership in the fragment
+/// chain.
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn seconding_sanity_check<Context>(
 	ctx: &mut Context,
@@ -1248,8 +1248,8 @@ async fn seconding_sanity_check<Context>(
 				tx,
 			))
 			.await;
-			let response = rx.map_ok(move |frontiers| {
-				let is_member_or_potential = frontiers
+			let response = rx.map_ok(move |candidate_memberships| {
+				let is_member_or_potential = candidate_memberships
 					.into_iter()
 					.find_map(|(candidate, leaves)| {
 						(candidate.candidate_hash() == candidate_hash).then_some(leaves)
