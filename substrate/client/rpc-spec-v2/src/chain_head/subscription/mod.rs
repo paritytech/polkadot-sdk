@@ -233,6 +233,15 @@ impl<Block: BlockT, BE: Backend<Block>> ReservedSubscription<Block, BE> {
 			},
 		}
 	}
+
+	/// Stop all active subscriptions.
+	///
+	/// For all active subscriptions, the internal data is discarded, blocks are unpinned and the
+	/// `Stop` event will be generated.
+	pub fn stop_all_subscriptions(&self) {
+		let mut inner = self.inner.write();
+		inner.stop_all_subscriptions()
+	}
 }
 
 impl<Block: BlockT, BE: Backend<Block>> Drop for ReservedSubscription<Block, BE> {

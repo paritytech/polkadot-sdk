@@ -102,11 +102,47 @@ impl State {
 	}
 }
 
+/// Local collator state so we can compute how fast we are advancing
+/// per relay parent.
+#[derive(Default)]
+pub struct LocalCollatorState {
+	/// First relay block number on which we've built on.
+	first_relay_parent: Option<u32>,
+	/// Last relay block number on which we've built on.
+	last_relay_parent: Option<u32>,
+}
+
+impl LocalCollatorState {
+	fn advance(&mut self, new_relay_parent: u32, best_block: u64) {
+		match (self.first_relay_parent, self.last_relay_parent) {
+			(Some(first_relay_parent), Some(last_relay_parent)) => {
+				// Compute the parachain velocity when relay parent changes vs our last
+				// recorded relay parent. We do this to only print out the velocity
+				// once per relay parent.
+				if new_relay_parent > last_relay_parent {
+					let building_for = (new_relay_parent - first_relay_parent) as f32;
+					// Round it up, as we don't expect perfect runs in CI.
+					let velocity = (best_block as f32 / building_for).ceil() as u32;
+
+					log::info!("Parachain velocity: {:}", velocity);
+				}
+			},
+			_ => {},
+		}
+
+		if self.first_relay_parent.is_none() {
+			self.first_relay_parent = Some(new_relay_parent);
+		}
+		self.last_relay_parent = Some(new_relay_parent);
+	}
+}
+
 /// The collator of the adder parachain.
 pub struct Collator {
 	state: Arc<Mutex<State>>,
 	key: CollatorPair,
 	seconded_collations: Arc<AtomicU32>,
+	collator_state: Arc<Mutex<LocalCollatorState>>,
 }
 
 impl Collator {
@@ -116,6 +152,7 @@ impl Collator {
 			state: Arc::new(Mutex::new(State::genesis())),
 			key: CollatorPair::generate().0,
 			seconded_collations: Arc::new(AtomicU32::new(0)),
+			collator_state: Default::default(),
 		}
 	}
 
@@ -156,11 +193,17 @@ impl Collator {
 		use futures::FutureExt as _;
 
 		let state = self.state.clone();
+		let collator_state = self.collator_state.clone();
 		let seconded_collations = self.seconded_collations.clone();
 
 		Box::new(move |relay_parent, validation_data| {
 			let parent = HeadData::decode(&mut &validation_data.parent_head.0[..])
 				.expect("Decodes parent head");
+
+			collator_state
+				.lock()
+				.unwrap()
+				.advance(validation_data.relay_parent_number, parent.number);
 
 			let (block_data, head_data) = state.lock().unwrap().advance(parent);
 

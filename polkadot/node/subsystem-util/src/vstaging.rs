@@ -23,14 +23,40 @@ use std::collections::{BTreeMap, VecDeque};
 
 use polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_overseer::SubsystemSender;
-use polkadot_primitives::{CoreIndex, Hash, Id as ParaId, ScheduledCore, ValidatorIndex};
+use polkadot_primitives::{CoreIndex, Hash, Id as ParaId, ValidatorIndex};
 
 use crate::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
 
 const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-pub type ClaimQueueSnapshot = BTreeMap<CoreIndex, VecDeque<ParaId>>;
+#[derive(Default)]
+pub struct ClaimQueueSnapshot(BTreeMap<CoreIndex, VecDeque<ParaId>>);
+
+impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
+	fn from(claim_queue_snapshot: BTreeMap<CoreIndex, VecDeque<ParaId>>) -> Self {
+		ClaimQueueSnapshot(claim_queue_snapshot)
+	}
+}
+
+impl ClaimQueueSnapshot {
+	/// Returns the `ParaId` that has a claim for `core_index` at the specified `depth` in the
+	/// claim queue. A depth of `0` means the very next block.
+	pub fn get_claim_for(&self, core_index: CoreIndex, depth: usize) -> Option<ParaId> {
+		self.0.get(&core_index)?.get(depth).copied()
+	}
+
+	/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
+	/// `depth` in the claim queue.
+	pub fn iter_claims_at_depth(
+		&self,
+		depth: usize,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
+		self.0
+			.iter()
+			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
+	}
+}
 
 // TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 /// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
@@ -78,21 +104,9 @@ pub async fn fetch_claim_queue(
 			.await
 			.await
 			.map_err(runtime::Error::RuntimeRequestCanceled)??;
-		Ok(Some(res))
+		Ok(Some(res.into()))
 	} else {
 		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
 		Ok(None)
 	}
-}
-
-/// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
-pub fn fetch_next_scheduled_on_core(
-	claim_queue: &ClaimQueueSnapshot,
-	core_idx: CoreIndex,
-) -> Option<ScheduledCore> {
-	claim_queue
-		.get(&core_idx)?
-		.front()
-		.cloned()
-		.map(|para_id| ScheduledCore { para_id, collator: None })
 }

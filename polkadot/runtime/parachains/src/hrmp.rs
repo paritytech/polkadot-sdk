@@ -605,7 +605,7 @@ pub mod pallet {
 				Error::<T>::WrongWitness
 			);
 
-			let host_config = configuration::Pallet::<T>::config();
+			let host_config = configuration::ActiveConfig::<T>::get();
 			Self::process_hrmp_open_channel_requests(&host_config);
 			Ok(())
 		}
@@ -732,7 +732,7 @@ pub mod pallet {
 				Error::<T>::ChannelCreationNotAuthorized
 			);
 
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			let max_message_size = config.hrmp_channel_max_message_size;
 			let max_capacity = config.hrmp_channel_max_capacity;
 
@@ -769,7 +769,7 @@ pub mod pallet {
 			let channel_id = HrmpChannelId { sender, recipient };
 			let is_system = sender.is_system() || recipient.is_system();
 
-			let config = <configuration::Pallet<T>>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 
 			// Channels with and amongst the system do not require a deposit.
 			let (new_sender_deposit, new_recipient_deposit) = if is_system {
@@ -892,7 +892,7 @@ pub mod pallet {
 }
 
 fn initialize_storage<T: Config>(preopen_hrmp_channels: &[(ParaId, ParaId, u32, u32)]) {
-	let host_config = configuration::Pallet::<T>::config();
+	let host_config = configuration::ActiveConfig::<T>::get();
 	for &(sender, recipient, max_capacity, max_message_size) in preopen_hrmp_channels {
 		if let Err(err) =
 			preopen_hrmp_channel::<T>(sender, recipient, max_capacity, max_message_size)
@@ -900,7 +900,7 @@ fn initialize_storage<T: Config>(preopen_hrmp_channels: &[(ParaId, ParaId, u32, 
 			panic!("failed to initialize the genesis storage: {:?}", err);
 		}
 	}
-	<Pallet<T>>::process_hrmp_open_channel_requests(&host_config);
+	Pallet::<T>::process_hrmp_open_channel_requests(&host_config);
 }
 
 fn preopen_hrmp_channel<T: Config>(
@@ -909,8 +909,8 @@ fn preopen_hrmp_channel<T: Config>(
 	max_capacity: u32,
 	max_message_size: u32,
 ) -> DispatchResult {
-	<Pallet<T>>::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
-	<Pallet<T>>::accept_open_channel(recipient, sender)?;
+	Pallet::<T>::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
+	Pallet::<T>::accept_open_channel(recipient, sender)?;
 	Ok(())
 }
 
@@ -1070,8 +1070,8 @@ impl<T: Config> Pallet<T> {
 			let recipient_deposit = if system_channel { 0 } else { config.hrmp_recipient_deposit };
 
 			if request.confirmed {
-				if <paras::Pallet<T>>::is_valid_para(channel_id.sender) &&
-					<paras::Pallet<T>>::is_valid_para(channel_id.recipient)
+				if paras::Pallet::<T>::is_valid_para(channel_id.sender) &&
+					paras::Pallet::<T>::is_valid_para(channel_id.recipient)
 				{
 					HrmpChannels::<T>::insert(
 						&channel_id,
@@ -1362,7 +1362,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the amount of weight consumed.
 	pub(crate) fn queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) -> Weight {
 		let mut weight = Weight::zero();
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 
 		for out_msg in out_hrmp_msgs {
 			let channel_id = HrmpChannelId { sender, recipient: out_msg.recipient };
@@ -1439,11 +1439,11 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(origin != recipient, Error::<T>::OpenHrmpChannelToSelf);
 		ensure!(
-			<paras::Pallet<T>>::is_valid_para(recipient),
+			paras::Pallet::<T>::is_valid_para(recipient),
 			Error::<T>::OpenHrmpChannelInvalidRecipient,
 		);
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		ensure!(proposed_max_capacity > 0, Error::<T>::OpenHrmpChannelZeroCapacity);
 		ensure!(
 			proposed_max_capacity <= config.hrmp_channel_max_capacity,
@@ -1511,7 +1511,7 @@ impl<T: Config> Pallet<T> {
 			.encode()
 		};
 		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			<dmp::Pallet<T>>::queue_downward_message(&config, recipient, notification_bytes)
+			dmp::Pallet::<T>::queue_downward_message(&config, recipient, notification_bytes)
 		{
 			// this should never happen unless the max downward message size is configured to a
 			// jokingly small number.
@@ -1537,7 +1537,7 @@ impl<T: Config> Pallet<T> {
 
 		// check if by accepting this open channel request, this parachain would exceed the
 		// number of inbound channels.
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let channel_num_limit = config.hrmp_max_parachain_inbound_channels;
 		let ingress_cnt = HrmpIngressChannelsIndex::<T>::decode_len(&origin).unwrap_or(0) as u32;
 		let accepted_cnt = HrmpAcceptedChannelRequestCount::<T>::get(&origin);
@@ -1569,7 +1569,7 @@ impl<T: Config> Pallet<T> {
 			VersionedXcm::from(xcm).encode()
 		};
 		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			<dmp::Pallet<T>>::queue_downward_message(&config, sender, notification_bytes)
+			dmp::Pallet::<T>::queue_downward_message(&config, sender, notification_bytes)
 		{
 			// this should never happen unless the max downward message size is configured to an
 			// jokingly small number.
@@ -1632,7 +1632,7 @@ impl<T: Config> Pallet<T> {
 		HrmpCloseChannelRequests::<T>::insert(&channel_id, ());
 		HrmpCloseChannelRequestsList::<T>::append(channel_id.clone());
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let notification_bytes = {
 			use parity_scale_codec::Encode as _;
 			use xcm::opaque::{latest::prelude::*, VersionedXcm};
@@ -1647,7 +1647,7 @@ impl<T: Config> Pallet<T> {
 		let opposite_party =
 			if origin == channel_id.sender { channel_id.recipient } else { channel_id.sender };
 		if let Err(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			<dmp::Pallet<T>>::queue_downward_message(&config, opposite_party, notification_bytes)
+			dmp::Pallet::<T>::queue_downward_message(&config, opposite_party, notification_bytes)
 		{
 			// this should never happen unless the max downward message size is configured to an
 			// jokingly small number.
