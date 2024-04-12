@@ -64,13 +64,23 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v15 {
 	use super::*;
 
-	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
+	// The disabling strategy used by staking pallet
+	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
+
+	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let migrated = v14::OffendingValidators::<T>::take()
+			let mut migrated = v14::OffendingValidators::<T>::take()
 				.into_iter()
+				.filter(|p| p.1) // take only disabled validators
 				.map(|p| p.0)
 				.collect::<Vec<_>>();
+
+			// Respect disabling limit
+			migrated.truncate(DefaultDisablingStrategy::disable_limit(
+				T::SessionInterface::validators().len(),
+			));
+
 			DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v15 applied successfully.");
