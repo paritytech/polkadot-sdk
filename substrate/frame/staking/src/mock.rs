@@ -262,7 +262,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
-// Disabling threshold for `UpToThresholdDisablingStrategy`
+// Disabling threshold for `UpToLimitDisablingStrategy`
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 impl crate::pallet::pallet::Config for Test {
