@@ -33,6 +33,7 @@ impl Config for Runtime {
 
 parameter_types! {
 	pub static PreDispatchCount: u32 = 0;
+	pub static ValidateCount: u32 = 0;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
@@ -47,6 +48,18 @@ impl SignedExtension for DummyExtension {
 	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
+
+	fn validate(
+		&self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> TransactionValidity {
+		ValidateCount::mutate(|c| *c += 1);
+		Ok(Default::default())
+	}
+
 	fn pre_dispatch(
 		self,
 		_who: &Self::AccountId,
