@@ -61,11 +61,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Try-runtime has migrated to a standalone CLI
-	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after January 2024.
-	TryRuntime,
-
 	/// Key management cli utilities
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
