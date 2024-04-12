@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712935475902,
+  "lastUpdate": 1712939965371,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3639,6 +3639,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.008059387733333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2dfe5f745cd6daa362c6d8371e723fe4f0429b67",
+          "message": "Runtime API: introduce `candidates_pending_availability` (#4027)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/3576\n\nRequired by elastic scaling collators.\nDeprecates old API: `candidate_pending_availability`.\n\nTODO:\n- [x] PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-12T10:50:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2dfe5f745cd6daa362c6d8371e723fe4f0429b67"
+        },
+        "date": 1712939939704,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16615990539999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007339489466666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024253042866666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015224951000000028,
             "unit": "seconds"
           }
         ]
