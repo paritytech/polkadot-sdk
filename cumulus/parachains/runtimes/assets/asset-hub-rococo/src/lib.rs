@@ -339,7 +339,7 @@ pub type NativeAndNonPoolAssets = fungible::UnionOf<
 	AccountId,
 >;
 
-/// Union fungibles implementation for [`PoolAssets`] and [`NativeAndAssets`].
+/// Union fungibles implementation for [`PoolAssets`] and [`NativeAndNonPoolAssets`].
 ///
 /// NOTE: Should be kept updated to include ALL balances and assets in the runtime.
 pub type NativeAndAllAssets = fungibles::UnionOf<
