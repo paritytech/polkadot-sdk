@@ -254,7 +254,7 @@ impl PalletCmd {
 				&mut changes,
 				&executor,
 				"Core_version",
-				&(self.extra).encode(),
+				&[],
 				&mut Self::build_extensions(executor.clone()),
 				&runtime_code,
 				CallContext::Offchain,

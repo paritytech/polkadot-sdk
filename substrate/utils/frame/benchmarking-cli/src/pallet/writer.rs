@@ -207,7 +207,10 @@ pub(crate) fn sanity_weight_check(
 		in the worst case scenario and compared with the maximum extrinsic weight (the maximum weight \
 		that can be put in a single block for an extrinsic with `DispatchClass::Normal`). In other words, \
 		each extrinsic is checked whether it will fit in an empty (meaning; empty of \
-		`DispatchClass::Normal` extrinsics) block.\n\n<u>Results:</>\n"
+		`DispatchClass::Normal` extrinsics) block. \n\nProvided values for the maximum extrinsic weight: \
+		{:?} (ref_time), {:?} (proof_size)\n\n<u>Results:</>\n",
+		max_extrinsic_weight.ref_time(),
+		max_extrinsic_weight.proof_size()
 	);
 	let mut sanity_weight_check_passed = true;
 	// Loop through all benchmark results.
