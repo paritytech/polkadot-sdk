@@ -381,10 +381,8 @@ fn send_token_from_ethereum_to_penpal() {
 #[test]
 fn send_weth_asset_from_asset_hub_to_ethereum() {
 	use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
-	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
-		1,
-		[Parachain(AssetHubRococo::para_id().into())],
-	));
+	let assethub_location = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
+	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(assethub_location);
 
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));
