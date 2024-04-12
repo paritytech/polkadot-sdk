@@ -254,7 +254,7 @@ pub(crate) fn import_block(
 }
 
 // Load the given ancestor's block entry, in descending order from the `block_hash`.
-// The ancestor_number must be at least one block less than the `block_number`.
+// The ancestor_number must be not higher than the `block_entry`'s.
 //
 // The returned entry will be `None` if the range is invalid or any block in the path had
 // no entry present. If any block entry was missing, it can safely be assumed to
