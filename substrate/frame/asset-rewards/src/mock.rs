@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test environment for Staking Rewards pallet.
+//! Test environment for Asset Rewards pallet.
 
 use super::*;
 use crate as pallet_staking_rewards;
