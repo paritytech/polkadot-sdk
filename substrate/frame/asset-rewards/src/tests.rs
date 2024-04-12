@@ -32,7 +32,7 @@ const DEFAULT_ADMIN: u128 = 1;
 /// - Expiry block: 100
 /// - Admin: 1
 ///
-/// Useful to reduce boilerplate in tests when it's not important to customise or reusing pool
+/// Useful to reduce boilerplate in tests when it's not important to customise or reuse pool
 /// params.
 pub fn create_default_pool() {
 	assert_ok!(StakingRewards::create_pool(
