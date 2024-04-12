@@ -372,7 +372,6 @@ pub mod pallet {
 	/// finalization. So it never ends up in the storage trie.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	#[pallet::getter(fn free_mandatory_headers_remaining)]
 	pub type FreeHeadersRemaining<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, u32, OptionQuery>;
 
