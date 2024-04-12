@@ -75,7 +75,7 @@ const TOMBSTONE_VALUE: &[u8] = b" ";
 const KEEP_UNAVAILABLE_FOR: Duration = Duration::from_secs(60 * 60);
 
 /// Finalized data is kept for 25 hours.
-const KEEP_FINALIZED_FOR: Duration = Duration::from_secs(25 * 60 * 60);
+const KEEP_FINALIZED_FOR: Duration = Duration::from_secs(1 * 60 * 60);
 
 /// The pruning interval.
 const PRUNING_INTERVAL: Duration = Duration::from_secs(60 * 5);
