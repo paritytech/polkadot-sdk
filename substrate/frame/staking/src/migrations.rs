@@ -64,6 +64,9 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v15 {
 	use super::*;
 
+	// The disabling strategy used by staking pallet
+	type DefaultDisablingStrategy = UpToThresholdDisablingStrategy;
+
 	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
@@ -74,7 +77,7 @@ pub mod v15 {
 				.collect::<Vec<_>>();
 
 			// Respect disabling limit
-			migrated.truncate(T::DisablingStrategy::disable_threshold(
+			migrated.truncate(DefaultDisablingStrategy::disable_limit(
 				T::SessionInterface::validators().len(),
 			));
 

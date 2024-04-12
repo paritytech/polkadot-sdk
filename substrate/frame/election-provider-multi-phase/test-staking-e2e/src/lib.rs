@@ -155,7 +155,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 		// Slashed validators are disabled up to a threshold
 		slashed.truncate(pallet_staking::UpToThresholdDisablingStrategy::<
 			SLASHING_DISABLING_FACTOR,
-		>::disable_threshold(active_set_size_after_slash));
+		>::disable_limit(active_set_size_after_slash));
 
 		// Find the indices of the disabled validators
 		let active_set = Session::validators();
