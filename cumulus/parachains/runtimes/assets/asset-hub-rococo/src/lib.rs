@@ -947,6 +947,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		AccountId,
 		TreasurerBodyAccount,
 	>;
+	type WeightInfo = weights::pallet_asset_rewards::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
 }

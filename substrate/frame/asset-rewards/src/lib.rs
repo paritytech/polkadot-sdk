@@ -30,7 +30,7 @@
 //! Once created, holders of the 'staking asset' can 'stake' them in a corresponding pool, which
 //! creates a Freeze on the asset.
 //!
-//! Once staked, the rewards denominated in 'reward asset' begin accumulating to the staker,
+//! Once staked, rewards denominated in 'reward asset' begin accumulating to the staker,
 //! proportional to their share of the total staked tokens in the pool.
 //!
 //! Reward assets pending distribution are held in an account unique to each pool.
@@ -99,14 +99,17 @@ pub mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
 
-/// The type of the unique id for each pool.
+pub use weights::WeightInfo;
+
+/// Unique id type for each pool.
 pub type PoolId = u32;
 
 /// Multiplier to maintain precision when calculating rewards.
 pub(crate) const PRECISION_SCALING_FACTOR: u32 = u32::MAX;
 
-/// Convenience type alias for `PoolInfo`.
+/// Convenience alias for `PoolInfo`.
 pub type PoolInfoFor<T> = PoolInfo<
 	<T as frame_system::Config>::AccountId,
 	<T as Config>::AssetId,
@@ -114,7 +117,7 @@ pub type PoolInfoFor<T> = PoolInfo<
 	BlockNumberFor<T>,
 >;
 
-/// A pool staker.
+/// The state of a staker in a pool.
 #[derive(Debug, Default, Clone, Decode, Encode, MaxEncodedLen, TypeInfo)]
 pub struct PoolStakerInfo<Balance> {
 	/// Amount of tokens staked.
@@ -125,28 +128,28 @@ pub struct PoolStakerInfo<Balance> {
 	reward_per_token_paid: Balance,
 }
 
-/// A staking pool.
+/// The state and configuration an incentive pool.
 #[derive(Debug, Clone, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
-	/// The asset that is staked in this pool.
+	/// The asset staked in this pool.
 	staked_asset_id: AssetId,
-	/// The asset that is distributed as rewards in this pool.
+	/// The asset distributed as rewards by this pool.
 	reward_asset_id: AssetId,
-	/// The amount of tokens distributed per block.
+	/// The amount of tokens rewarded per block.
 	reward_rate_per_block: Balance,
-	/// The total amount of tokens staked in this pool.
-	total_tokens_staked: Balance,
-	/// Total rewards accumulated per token, up to the last time the rewards were updated.
-	reward_per_token_stored: Balance,
-	/// Last block number the pool was updated. Used when calculating payouts.
-	last_update_block: BlockNumber,
 	/// The block the pool will cease distributing rewards.
 	expiry_block: BlockNumber,
-	/// Permissioned account that can manage this pool.
+	/// The permissioned account that can manage this pool.
 	admin: AccountId,
+	/// The total amount of tokens staked in this pool.
+	total_tokens_staked: Balance,
+	/// Total rewards accumulated per token, up to the `last_update_block`.
+	reward_per_token_stored: Balance,
+	/// Last block number the pool was updated.
+	last_update_block: BlockNumber,
 }
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::{
@@ -167,7 +170,7 @@ pub mod pallet {
 		/// Overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The pallet's id, used for deriving its sovereign account ID.
+		/// The pallet's id, used for deriving pool account IDs.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
@@ -190,9 +193,9 @@ pub mod pallet {
 			+ Mutate<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
-		// type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfo;
 
-		/// The benchmarks need a way to create asset ids from u32s.
+		/// Helper for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: benchmarking::BenchmarkHelper<Self::AssetId, Self::AccountId>;
 	}
@@ -246,7 +249,7 @@ pub mod pallet {
 		},
 		/// An account harvested some rewards.
 		RewardsHarvested {
-			/// The extrinsic caller.
+			/// The caller.
 			who: T::AccountId,
 			/// The staker whos rewards were harvested.
 			staker: T::AccountId,
@@ -259,7 +262,7 @@ pub mod pallet {
 		PoolCreated {
 			/// The account that created the pool.
 			creator: T::AccountId,
-			/// Unique ID for the new pool.
+			/// The unique ID for the new pool.
 			pool_id: PoolId,
 			/// The staking asset.
 			staked_asset_id: T::AssetId,
@@ -272,11 +275,6 @@ pub mod pallet {
 			/// The account allowed to modify the pool.
 			admin: T::AccountId,
 		},
-		/// A reward pool was deleted by the admin.
-		PoolDeleted {
-			/// The deleted pool id.
-			pool_id: PoolId,
-		},
 		/// A pool reward rate was modified by the admin.
 		PoolRewardRateModified {
 			/// The modified pool.
@@ -284,7 +282,7 @@ pub mod pallet {
 			/// The new reward rate per block.
 			new_reward_rate_per_block: T::Balance,
 		},
-		/// A pool admin modified by the admin.
+		/// A pool admin was modified.
 		PoolAdminModified {
 			/// The modified pool.
 			pool_id: PoolId,
@@ -306,30 +304,24 @@ pub mod pallet {
 		NotEnoughTokens,
 		/// An operation was attempted on a non-existent pool.
 		NonExistentPool,
-		/// An operation was attempted on a non-existent pool.
+		/// An operation was attempted for a non-existent staker.
 		NonExistentStaker,
-		/// An operation was attempted using a non-existent asset.
+		/// An operation was attempted with a non-existent asset.
 		NonExistentAsset,
 		/// There was an error converting a block number.
 		BlockNumberConversionError,
-		/// Expiry block must be in the future.
+		/// The expiry block must be in the future.
 		ExpiryBlockMustBeInTheFuture,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			// TODO: Proper implementation
-		}
 	}
 
 	/// Pallet's callable functions.
 	///
 	/// Allows optionally specifying an admin account for the pool. By default, the origin is made
 	/// admin.
-	#[pallet::call]
+	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
+		#[pallet::call_index(0)]
 		pub fn create_pool(
 			origin: OriginFor<T>,
 			staked_asset_id: Box<T::AssetId>,
@@ -392,6 +384,7 @@ pub mod pallet {
 		}
 
 		/// Stake tokens in a pool.
+		#[pallet::call_index(1)]
 		pub fn stake(origin: OriginFor<T>, pool_id: PoolId, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -419,6 +412,7 @@ pub mod pallet {
 		}
 
 		/// Unstake tokens from a pool.
+		#[pallet::call_index(2)]
 		pub fn unstake(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -453,6 +447,7 @@ pub mod pallet {
 		}
 
 		/// Harvest unclaimed pool rewards for a staker.
+		#[pallet::call_index(3)]
 		pub fn harvest_rewards(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -495,6 +490,7 @@ pub mod pallet {
 		}
 
 		/// Modify a pool reward rate.
+		#[pallet::call_index(4)]
 		pub fn set_pool_reward_rate_per_block(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -521,6 +517,7 @@ pub mod pallet {
 		}
 
 		/// Modify a pool admin.
+		#[pallet::call_index(5)]
 		pub fn set_pool_admin(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -540,6 +537,7 @@ pub mod pallet {
 		}
 
 		/// Modify a expiry block.
+		#[pallet::call_index(6)]
 		pub fn set_pool_expiry_block(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -571,6 +569,7 @@ pub mod pallet {
 		/// This method is not strictly necessary (tokens could be transferred directly to the
 		/// pool pot address), but is provided for convenience so manual derivation of the
 		/// account id is not required.
+		#[pallet::call_index(7)]
 		pub fn deposit_reward_tokens(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -590,6 +589,7 @@ pub mod pallet {
 		}
 
 		/// Permissioned method to withdraw reward tokens from a pool.
+		#[pallet::call_index(8)]
 		pub fn withdraw_reward_tokens(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -601,6 +601,7 @@ pub mod pallet {
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin == caller, BadOrigin);
+
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
 				&Self::pool_account_id(&pool_id)?,
@@ -661,7 +662,7 @@ pub mod pallet {
 
 		/// Derives the current reward per token for this pool.
 		///
-		/// Helper function for update_pool_rewards. Should not be called directly.
+		/// This is a helper function for `update_pool_rewards` and should not be called directly.
 		fn reward_per_token(pool_info: &PoolInfoFor<T>) -> Result<T::Balance, DispatchError> {
 			if pool_info.total_tokens_staked.eq(&0u32.into()) {
 				return Ok(pool_info.reward_per_token_stored)
@@ -687,7 +688,7 @@ pub mod pallet {
 
 		/// Derives the amount of rewards earned by a staker.
 		///
-		/// Helper function for update_pool_rewards. Should not be called directly.
+		/// This is a helper function for `update_pool_rewards` and should not be called directly.
 		fn derive_rewards(
 			pool_info: &PoolInfoFor<T>,
 			staker_info: &PoolStakerInfo<T::Balance>,

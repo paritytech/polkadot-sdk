@@ -150,6 +150,7 @@ impl Config for MockRuntime {
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
 	type PermissionedOrigin = MockPermissionedOrigin;
+	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
