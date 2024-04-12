@@ -17,7 +17,6 @@
 
 //! Test environment for Staking Rewards pallet.
 
-use self::benchmarking::BenchmarkHelper;
 use super::*;
 use crate as pallet_staking_rewards;
 use core::default::Default;
@@ -33,6 +32,9 @@ use frame_support::{
 };
 use frame_system::EnsureSigned;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
+
+#[cfg(feature = "runtime-benchmarks")]
+use self::benchmarking::BenchmarkHelper;
 
 type Block = frame_system::mocking::MockBlock<MockRuntime>;
 
@@ -120,7 +122,9 @@ impl EnsureOrigin<RuntimeOrigin> for MockPermissionedOrigin {
 
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
 
+#[cfg(feature = "runtime-benchmarks")]
 pub struct AssetRewardsBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<NativeOrWithId<u32>, u128> for AssetRewardsBenchmarkHelper {
 	fn to_asset_id(seed: u32) -> NativeOrWithId<u32> {
 		if seed == 0 {
