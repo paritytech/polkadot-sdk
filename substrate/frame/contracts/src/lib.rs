@@ -253,7 +253,6 @@ pub mod pallet {
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
-		#[pallet::no_default]
 		type Time: Time;
 
 		/// The generator used to supply randomness to contracts through `seal_random`.
@@ -510,15 +509,20 @@ pub mod pallet {
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
 
-		pub struct TestRandomness;
-		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestRandomness {
+		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestDefaultConfig {
 			fn random(_subject: &[u8]) -> (Output, BlockNumber) {
-				panic!("Randomness is not configured for this test environment")
+				unimplemented!("No default `random` implementation in `TestDefaultConfig`, provide a custom `T::Randomness` type.")
 			}
 		}
 
-		pub struct TestWeightPrice;
-		impl<T: From<u64>> Convert<Weight, T> for TestWeightPrice {
+		impl Time for TestDefaultConfig {
+			type Moment = u64;
+			fn now() -> Self::Moment {
+				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+			}
+		}
+
+		impl<T: From<u64>> Convert<Weight, T> for TestDefaultConfig {
 			fn convert(w: Weight) -> T {
 				w.ref_time().into()
 			}
@@ -550,12 +554,13 @@ pub mod pallet {
 			type MaxDelegateDependencies = MaxDelegateDependencies;
 			type MaxStorageKeyLen = ConstU32<128>;
 			type Migrations = ();
-			type Randomness = TestRandomness;
+			type Time = Self;
+			type Randomness = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<AccountId>;
 			type InstantiateOrigin = EnsureSigned<AccountId>;
 			type WeightInfo = ();
-			type WeightPrice = TestWeightPrice;
+			type WeightPrice = Self;
 			type Debug = ();
 			type Environment = ();
 			type ApiVersion = ();
