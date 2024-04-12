@@ -57,7 +57,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"log",
+	"log/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
