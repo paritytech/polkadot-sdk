@@ -121,10 +121,10 @@ mod enter {
 		}
 	}
 
-	#[test]
 	// Validate that if we create 2 backed candidates which are assigned to 2 cores that will be
 	// freed via becoming fully available, the backed candidates will not be filtered out in
 	// `create_inherent` and will not cause `enter` to early.
+	#[test]
 	fn include_backed_candidates() {
 		let config = MockGenesisConfig::default();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
@@ -582,8 +582,8 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that disputes are filtered out if the session is in the future.
+	#[test]
 	fn filter_multi_dispute_data() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -653,9 +653,9 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that when dispute data establishes an over weight block that we adequately
 	// filter out disputes according to our prioritization rule
+	#[test]
 	fn limit_dispute_data() {
 		sp_tracing::try_init_simple();
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
@@ -721,10 +721,10 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that when a block is over weight due to disputes, but there is still sufficient
 	// block weight to include a number of signed bitfields, the inherent data is filtered
 	// as expected
+	#[test]
 	fn limit_dispute_data_ignore_backed_candidates() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -804,9 +804,9 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure an overweight block with an excess amount of disputes and bitfields, the bitfields are
 	// filtered to accommodate the block size and no backed candidates are included.
+	#[test]
 	fn limit_bitfields_some() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
@@ -892,8 +892,8 @@ mod enter {
 		});
 	}
 
-	#[test]
 	// Ensure that when a block is over weight due to disputes and bitfields, we filter.
+	#[test]
 	fn limit_bitfields_overweight() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// Create the inherent data for this block
