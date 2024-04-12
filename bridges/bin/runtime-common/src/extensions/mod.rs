@@ -14,23 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Common types/functions that may be used by runtimes of all bridged chains.
+//! Bridge-specific transaction extensions.
 
-#![warn(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
-
-pub mod extensions;
-pub mod messages;
-pub mod messages_api;
-pub mod messages_benchmarking;
-pub mod messages_call_ext;
-pub mod messages_generation;
-pub mod messages_xcm_extension;
-pub mod parachains_benchmarking;
-
-mod mock;
-
-#[cfg(feature = "integrity-test")]
-pub mod integrity;
-
-const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";
+pub mod check_obsolete_extension;
+pub mod priority_calculator;
+pub mod refund_relayer_extension;
