@@ -809,6 +809,7 @@ dependencies = [
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -927,6 +928,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "staging-xcm",
  "testnet-parachains-constants",
  "westend-emulated-chain",
 ]
