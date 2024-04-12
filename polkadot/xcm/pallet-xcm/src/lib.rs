@@ -1419,11 +1419,11 @@ pub mod pallet {
 		///    mint/teleport assets and deposit them to `beneficiary`.
 		///
 		/// Fee payment on the source, destination and all intermediary hops, is specified through
-		/// `fees`, but make sure enough of the specified `fees` asset is included in the given list
-		/// of `assets`. `fees` should be enough to pay for `weight_limit`. If more weight is needed
+		/// `fees_id`, but make sure enough of the specified `fees_id` asset is included in the given list
+		/// of `assets`. `fees_id` should be enough to pay for `weight_limit`. If more weight is needed
 		/// than `weight_limit`, then the operation will fail and the sent assets may be at risk.
 		///
-		/// `fees` may use different transfer type than rest of `assets` and can be specified
+		/// `fees_id` may use different transfer type than rest of `assets` and can be specified
 		/// through `fees_transfer_type`.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1436,7 +1436,7 @@ pub mod pallet {
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
 		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
-		/// - `fees`: One of the included `assets` to be be used to pay fees.
+		/// - `fees_id`: One of the included `assets` to be be used to pay fees.
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(15)]
