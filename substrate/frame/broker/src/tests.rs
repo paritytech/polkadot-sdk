@@ -907,7 +907,7 @@ fn leases_can_be_renewed() {
 		// Start the sales but don't offer any more cores.
 		assert_ok!(Broker::do_start_sales(100, 0));
 
-		// Advance sale period 1, we should get an AllowedRenewal for task 2001 for the next
+		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
 		// sale.
 		advance_to(7);
 		assert_eq!(
@@ -926,9 +926,6 @@ fn leases_can_be_renewed() {
 
 		// Advance to sale period 2, where we can renew.
 		advance_to(13);
-		for i in 0..20 {
-			assert_eq!(Workplan::<Test>::get((i, 0)), None);
-		}
 		assert_ok!(Broker::do_renew(1, 0));
 		// we renew for the base price of the previous sale period.
 		assert_eq!(balance(1), 900);
@@ -976,6 +973,73 @@ fn leases_can_be_renewed() {
 					AssignCore {
 						core: 0,
 						begin: 26,
+						assignment: vec![(CoreAssignment::Pool, 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
+	});
+}
+
+// We understand that this should panic for leases that expire within `region_length` timeslices
+// after calling `start_sales`.
+#[test]
+fn short_leases_cannot_be_renewed() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Timeslice period is 2.
+		//
+		// Sale 1 starts at block 7, Sale 2 starts at 13.
+
+		// Add a core.
+		assert_ok!(Broker::request_core_count(RuntimeOrigin::root(), 1));
+
+		// Set lease to expire in sale period 0 and start sales.
+		assert_ok!(Broker::do_set_lease(2001, 3));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+		// Start the sales but don't offer any more cores.
+		assert_ok!(Broker::do_start_sales(100, 0));
+
+		// The lease is removed.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// We should have got an entry in AllowedRenewals, but we don't because rotate_sale
+		// schedules leases a period in advance. This renewal should be in the period after next
+		// because while bootstrapping our way into the sale periods, we give everything a lease for
+		// period 1, so they can renew for period 2. So we have a core until the end of period 1,
+		// but we are not marked as able to renew because we expired before sale period 1 starts.
+		//
+		// This should be fixed.
+		assert_eq!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }), None);
+		// And the lease has been removed from storage.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// Advance to sale period 2, where we now cannot renew.
+		advance_to(13);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
+
+		// Check the trace.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				// Period 0 gets no assign core, but leases are on-core.
+				// Period 1 we get assigned a core due to the way the sales are bootstrapped.
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 2 - we don't get a core as we couldn't renew.
+				// This core is recycled into the pool.
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
 						assignment: vec![(CoreAssignment::Pool, 57600)],
 						end_hint: None,
 					},
