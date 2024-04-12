@@ -41,7 +41,7 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Ord,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,

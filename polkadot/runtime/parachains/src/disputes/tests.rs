@@ -29,6 +29,7 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use keyring::Sr25519Keyring;
 use primitives::BlockNumber;
 use sp_core::{crypto::CryptoType, Pair};
 
@@ -85,6 +86,27 @@ type NewSession<'a> = (
 	Vec<(&'a AccountId, ValidatorId)>,
 	Option<Vec<(&'a AccountId, ValidatorId)>>,
 );
+
+pub(crate) fn make_dispute_concluding_against(
+	candidate_hash: CandidateHash,
+	session: SessionIndex,
+	validators: &[(ValidatorIndex, Sr25519Keyring)],
+) -> DisputeStatementSet {
+	let mut statements = Vec::new();
+	for (i, key) in validators.iter() {
+		// make the first statement backing
+		// and the rest against it
+		let statement = if i.0 == 0 {
+			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(candidate_hash.0))
+		} else {
+			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit)
+		};
+		let payload_data = statement.payload_data(candidate_hash, session).unwrap();
+		let signature = key.sign(&payload_data);
+		statements.push((statement, *i, signature.into()));
+	}
+	DisputeStatementSet { candidate_hash, session, statements }
+}
 
 // Run to specific block, while calling disputes pallet hooks manually, because disputes is not
 // integrated in initializer yet.

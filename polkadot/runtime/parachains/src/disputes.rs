@@ -40,7 +40,7 @@ use sp_std::{cmp::Ordering, collections::btree_set::BTreeSet, prelude::*};
 
 #[cfg(test)]
 #[allow(unused_imports)]
-pub(crate) use self::tests::run_to_block;
+pub(crate) use self::tests::{make_dispute_concluding_against, run_to_block};
 
 pub mod slashing;
 #[cfg(test)]

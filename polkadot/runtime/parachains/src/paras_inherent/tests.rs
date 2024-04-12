@@ -61,18 +61,18 @@ mod enter {
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
-	struct TestConfig {
-		dispute_statements: BTreeMap<u32, u32>,
-		dispute_sessions: Vec<u32>,
-		backed_and_concluding: BTreeMap<u32, u32>,
-		num_validators_per_core: u32,
-		code_upgrade: Option<u32>,
-		fill_claimqueue: bool,
-		elastic_paras: BTreeMap<u32, u8>,
-		unavailable_cores: Vec<u32>,
+	pub struct TestConfig {
+		pub dispute_statements: BTreeMap<u32, u32>,
+		pub dispute_sessions: Vec<u32>,
+		pub backed_and_concluding: BTreeMap<u32, u32>,
+		pub num_validators_per_core: u32,
+		pub code_upgrade: Option<u32>,
+		pub fill_claimqueue: bool,
+		pub elastic_paras: BTreeMap<u32, u8>,
+		pub unavailable_cores: Vec<u32>,
 	}
 
-	fn make_inherent_data(
+	pub fn make_inherent_data(
 		TestConfig {
 			dispute_statements,
 			dispute_sessions,
@@ -1741,10 +1741,11 @@ mod sanitizers {
 	mod candidates {
 		use crate::{
 			mock::{set_disabled_validators, RuntimeOrigin},
-			scheduler::{common::Assignment, ParasEntry},
+			scheduler::{common::Assignment, CoreOccupiedType, ParasEntry},
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use primitives::ValidationCode;
+		use sp_runtime::Digest;
 		use sp_std::collections::vec_deque::VecDeque;
 
 		use super::*;
@@ -1755,6 +1756,7 @@ mod sanitizers {
 			expected_backed_candidates_with_core:
 				BTreeMap<ParaId, Vec<(BackedCandidate, CoreIndex)>>,
 			scheduled_paras: BTreeMap<primitives::Id, BTreeSet<CoreIndex>>,
+			validators: Vec<Sr25519Keyring>,
 		}
 
 		// Generate test data for the candidates and assert that the environment is set as expected
@@ -1768,7 +1770,7 @@ mod sanitizers {
 				default_header().hash(),
 				Default::default(),
 				RELAY_PARENT_NUM,
-				1,
+				10,
 			);
 
 			let header = default_header();
@@ -1817,20 +1819,26 @@ mod sanitizers {
 				vec![ValidatorIndex(2), ValidatorIndex(3)],
 			]);
 
+			// Set the availability of the cores
+			scheduler::Pallet::<Test>::set_availability_cores(vec![
+				CoreOccupiedType::<Test>::Free,
+				CoreOccupiedType::<Test>::Free,
+			]);
+
 			// Update scheduler's claimqueue with the parachains
 			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
 					VecDeque::from([ParasEntry::new(
 						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
-						RELAY_PARENT_NUM,
+						RELAY_PARENT_NUM + 10,
 					)]),
 				),
 				(
 					CoreIndex::from(1),
 					VecDeque::from([ParasEntry::new(
 						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
-						RELAY_PARENT_NUM,
+						RELAY_PARENT_NUM + 10,
 					)]),
 				),
 			]));
@@ -1931,6 +1939,7 @@ mod sanitizers {
 				backed_candidates,
 				scheduled_paras: scheduled,
 				expected_backed_candidates_with_core,
+				validators,
 			}
 		}
 
@@ -2474,6 +2483,7 @@ mod sanitizers {
 				backed_candidates,
 				scheduled_paras: scheduled,
 				expected_backed_candidates_with_core,
+				validators,
 			}
 		}
 
@@ -2977,6 +2987,7 @@ mod sanitizers {
 				backed_candidates,
 				scheduled_paras: scheduled,
 				expected_backed_candidates_with_core,
+				validators,
 			}
 		}
 
@@ -2989,6 +3000,7 @@ mod sanitizers {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
+					..
 				} = get_test_data_one_core_per_para(core_index_enabled);
 
 				assert_eq!(
@@ -3013,6 +3025,7 @@ mod sanitizers {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
+					..
 				} = get_test_data_multiple_cores_per_para(core_index_enabled);
 
 				assert_eq!(
@@ -3037,6 +3050,7 @@ mod sanitizers {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					expected_backed_candidates_with_core,
+					..
 				} = get_test_data_for_order_checks(core_index_enabled);
 
 				assert_eq!(
@@ -3195,6 +3209,111 @@ mod sanitizers {
 
 				// We'll be left with candidates from paraid 1, 2, 3 and 4.
 				assert_eq!(sanitized_backed_candidates, expected_backed_candidates_with_core);
+			});
+		}
+
+		#[test]
+		fn concluded_invalid_in_the_past_are_filtered_out() {
+			use crate::disputes::{make_dispute_concluding_against, run_to_block};
+
+			new_test_ext(default_config()).execute_with(|| {
+				let mut hc = configuration::ActiveConfig::<Test>::get();
+				hc.minimum_backing_votes = 1;
+				hc.scheduler_params.group_rotation_frequency = 20;
+				hc.async_backing_params.allowed_ancestry_len = 10;
+				// hc.max_pov_size = 5_000_000;
+				configuration::Pallet::<Test>::force_set_active_config(hc);
+
+				// run_to_block(parent_block_number, |_| None);
+				let TestData { backed_candidates, validators, .. } =
+					get_test_data_one_core_per_para(false);
+
+				let session = SessionIndex::from(0_u32);
+				let mut validators: Vec<_> = validators
+					.into_iter()
+					.enumerate()
+					.map(|(i, v)| (ValidatorIndex::from(i as u32), v))
+					.collect();
+				let groups = scheduler::ValidatorGroups::<Test>::get();
+				let para_id_to_group: BTreeMap<ParaId, Vec<ValidatorIndex>> = groups
+					.into_iter()
+					.enumerate()
+					.map(|(i, g)| (ParaId::from(i as u32 + 1), g))
+					.collect();
+
+				let disputes: MultiDisputeStatementSet = backed_candidates
+					.iter()
+					.map(|c| {
+						// make sure the backer is the first in the list
+						let para_id = c.descriptor().para_id;
+						let group = para_id_to_group.get(&para_id).unwrap();
+						let backer = validators.iter().position(|v| group.contains(&v.0)).unwrap();
+						validators.swap(0, backer);
+
+						make_dispute_concluding_against(c.hash(), session, &validators)
+					})
+					.collect();
+
+				let parent_block_number = 4;
+				let parent_header = HeaderFor::<Test>::new(
+					parent_block_number,     // `block_number`,
+					Default::default(),      // `extrinsics_root`,
+					Default::default(),      // `storage_root`,
+					default_header().hash(), // `parent_hash`,
+					Default::default(),      // digest,
+				);
+
+				// run_to_block(parent_block_number + 1, |_| None);
+				frame_system::Pallet::<Test>::reset_events();
+				frame_system::Pallet::<Test>::initialize(
+					&(parent_header.number() + 1),
+					&parent_header.hash(),
+					&Digest { logs: Vec::new() },
+				);
+
+				let data = ParachainsInherentData {
+					disputes: Vec::new(),
+					parent_header: parent_header.clone(),
+					bitfields: Vec::new(),
+					backed_candidates,
+				};
+				let mut inherent_data = InherentData::new();
+				inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &data).unwrap();
+
+				let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data).unwrap();
+
+				let parent_block_number = 5;
+				run_to_block(parent_block_number, |_| None);
+				let parent_header = HeaderFor::<Test>::new(
+					parent_block_number,  // `block_number`,
+					Default::default(),   // `extrinsics_root`,
+					Default::default(),   // `storage_root`,
+					parent_header.hash(), // `parent_hash`,
+					Default::default(),   // digest,
+				);
+
+				frame_system::Pallet::<Test>::reset_events();
+				frame_system::Pallet::<Test>::initialize(
+					&(parent_header.number() + 1),
+					&parent_header.hash(),
+					&Digest { logs: Vec::new() },
+				);
+
+				// let data = ParachainsInherentData {
+				// 	disputes: Vec::new(),
+				// 	parent_header,
+				// 	bitfields: Vec::new(),
+				// 	backed_candidates,
+				// };
+
+				// let _ = Pallet::<Test>::enter(frame_system::RawOrigin::None.into(),
+				// data).unwrap();
+				assert_eq!(
+					// The length of this vec is equal to the number of candidates, so we know
+					// all of our candidates got filtered out
+					OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
+					0,
+				);
 			});
 		}
 
