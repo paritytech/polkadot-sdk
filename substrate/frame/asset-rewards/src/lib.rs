@@ -551,11 +551,12 @@ pub mod pallet {
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
 
-			// Always start by updating the pool rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			ensure!(pool_info.admin == caller, BadOrigin);
+
+			// Always start by updating the pool rewards.
 			let mut pool_info = Self::update_pool_rewards(pool_info)?;
 
-			ensure!(pool_info.admin == caller, BadOrigin);
 			pool_info.expiry_block = new_expiry_block;
 			Pools::<T>::insert(pool_id, pool_info);
 
