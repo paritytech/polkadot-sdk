@@ -53,7 +53,7 @@
 //! ## Implementation Notes
 //!
 //! Internal logic functions such as `update_pool_and_staker_rewards` where deliberately written
-//! as pure functions without side-effects.
+//! without side-effects.
 //!
 //! Storage interaction such as reads and writes are instead all performed in the top level
 //! pallet Call method, which while slightly more verbose, makes it easier to understand the
@@ -631,8 +631,8 @@ pub mod pallet {
 		///
 		/// Returns the updated pool and staker info.
 		///
-		/// NOTE: this is a pure function without any side-effects. Side-effects such as storage
-		/// modifications are the resopnsibility of the caller.
+		/// NOTE: this function has no side-effects. Side-effects such as storage modifications are
+		/// the resopnsibility of the caller.
 		pub fn update_pool_and_staker_rewards(
 			pool_info: &PoolInfoFor<T>,
 			staker_info: &PoolStakerInfo<T::Balance>,
@@ -651,8 +651,8 @@ pub mod pallet {
 		///
 		/// Returns the updated pool and staker info.
 		///
-		/// NOTE: this is a pure function without any side-effects. Side-effects such as storage
-		/// modifications are the resopnsibility of the caller.
+		/// NOTE: this function has no side-effects. Side-effects such as storage modifications are
+		/// the resopnsibility of the caller.
 		pub fn update_pool_rewards(
 			pool_info: &PoolInfoFor<T>,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
