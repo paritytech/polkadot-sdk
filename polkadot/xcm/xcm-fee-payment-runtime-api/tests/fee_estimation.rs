@@ -130,7 +130,8 @@ fn fee_estimation_for_teleport() {
 				}),
 				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(107074070, 0), // Will break if weights get updated.
+						weight: Weight::from_parts(107074070, 0), /* Will break if weights get
+						                                           * updated. */
 						class: DispatchClass::Normal,
 						pays_fee: Pays::Yes,
 					}
@@ -280,7 +281,8 @@ fn dry_run_reserve_asset_transfer() {
 				}),
 				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(107074066, 0), // Will break if weights get updated.
+						weight: Weight::from_parts(107074066, 0), /* Will break if weights get
+						                                           * updated. */
 						class: DispatchClass::Normal,
 						pays_fee: Pays::Yes,
 					}
