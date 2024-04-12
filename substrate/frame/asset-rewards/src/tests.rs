@@ -368,7 +368,7 @@ mod stake {
 
 	#[test]
 	fn fails_for_insufficient_balance() {
-		// TODO: When we're able to freeze assets.
+		// TODO: When freezing assets fails.
 	}
 }
 
