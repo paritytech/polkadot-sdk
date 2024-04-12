@@ -520,8 +520,9 @@ where
 		}
 
 		// compute priority boost
-		let priority_boost =
-			crate::priority_calculator::compute_priority_boost::<T::Priority>(bundled_messages);
+		let priority_boost = crate::extensions::priority_calculator::compute_priority_boost::<
+			T::Priority,
+		>(bundled_messages);
 		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
 		log::trace!(

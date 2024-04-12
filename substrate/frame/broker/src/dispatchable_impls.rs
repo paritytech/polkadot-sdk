@@ -81,7 +81,8 @@ impl<T: Config> Pallet<T> {
 			last_timeslice: Self::current_timeslice(),
 		};
 		let now = frame_system::Pallet::<T>::block_number();
-		let new_sale = SaleInfoRecord {
+		// Imaginary old sale for bootstrapping the first actual sale:
+		let old_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
 			price,
@@ -94,7 +95,7 @@ impl<T: Config> Pallet<T> {
 			cores_sold: 0,
 		};
 		Self::deposit_event(Event::<T>::SalesStarted { price, core_count });
-		Self::rotate_sale(new_sale, &config, &status);
+		Self::rotate_sale(old_sale, &config, &status);
 		Status::<T>::put(&status);
 		Ok(())
 	}

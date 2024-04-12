@@ -111,8 +111,7 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	let asset_native =
-		Box::new(v3::Location::try_from(RelayLocation::get()).expect("conversion works"));
+	let asset_native = Box::new(v3::Location::try_from(RelayLocation::get()).unwrap());
 	let asset_location_on_penpal =
 		v3::Location::try_from(PenpalLocalTeleportableToAssetHub::get()).expect("conversion_works");
 	let foreign_asset_at_asset_hub_westend =
