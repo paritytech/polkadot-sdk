@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713001905970,
+  "lastUpdate": 1713005196233,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3191,6 +3191,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17554544033333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "aa437974376a6c862af4afff2a3b74b13cb3596e",
+          "message": "Use Github Issue Sync to automate issues in Parachain board (#3694)\n\nThis workflow will automatically add issues related to async backing to\nthe Parachain team board, updating a custom \"meta\" field.\n\nRequested by @the-right-joyce",
+          "timestamp": "2024-04-13T09:33:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa437974376a6c862af4afff2a3b74b13cb3596e"
+        },
+        "date": 1713005168530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2019766936666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.827565032533334,
             "unit": "seconds"
           }
         ]
