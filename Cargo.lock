@@ -15772,6 +15772,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-nis",
  "pallet-offences",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
