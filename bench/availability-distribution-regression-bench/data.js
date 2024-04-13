@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713004859988,
+  "lastUpdate": 1713008592028,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4003,6 +4003,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007574360466666678,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1bca825cc27599dfea7b254d0ce00e3c51e632ea",
+          "message": "Use `master` environment in the synchronize templates workflow (#4114)",
+          "timestamp": "2024-04-13T11:00:45Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bca825cc27599dfea7b254d0ce00e3c51e632ea"
+        },
+        "date": 1713008565680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1655572354666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013870248133333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024563040400000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007307677533333333,
             "unit": "seconds"
           }
         ]
