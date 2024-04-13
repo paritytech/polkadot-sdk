@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713001606312,
+  "lastUpdate": 1713004859988,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3951,6 +3951,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007398111666666677,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "aa437974376a6c862af4afff2a3b74b13cb3596e",
+          "message": "Use Github Issue Sync to automate issues in Parachain board (#3694)\n\nThis workflow will automatically add issues related to async backing to\nthe Parachain team board, updating a custom \"meta\" field.\n\nRequested by @the-right-joyce",
+          "timestamp": "2024-04-13T09:33:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa437974376a6c862af4afff2a3b74b13cb3596e"
+        },
+        "date": 1713004832620,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015046664399999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024570926466666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16698325959999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007574360466666678,
             "unit": "seconds"
           }
         ]
