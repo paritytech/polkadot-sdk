@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712965814545,
+  "lastUpdate": 1712997272518,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3107,6 +3107,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.863522850333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8220c980084e70be55d956a69c5ebeebe47c9b9c",
+          "message": "Fix zombienet-bridges-0001-asset-transfer-works (#4069)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/3999\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-13T07:04:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8220c980084e70be55d956a69c5ebeebe47c9b9c"
+        },
+        "date": 1712997244843,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.958771620600004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21315963479999994,
             "unit": "seconds"
           }
         ]
