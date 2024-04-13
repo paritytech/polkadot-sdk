@@ -1,0 +1,37 @@
+[package]
+name = "bp-bridge-hub-rococo"
+description = "Primitives of BridgeHubRococo parachain runtime."
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Bridge Dependencies
+
+bp-bridge-hub-cumulus = { path = "../chain-bridge-hub-cumulus", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
+bp-messages = { path = "../../primitives/messages", default-features = false }
+
+# Substrate Based Dependencies
+
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"bp-bridge-hub-cumulus/std",
+	"bp-messages/std",
+	"bp-runtime/std",
+	"frame-support/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

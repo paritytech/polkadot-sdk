@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 derive_more = "0.99.17"
-futures = "0.3.21"
+futures = "0.3.30"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
@@ -19,6 +19,7 @@ polkadot-statement-table = { path = "../../statement-table" }
 polkadot-node-jaeger = { path = "../jaeger" }
 orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
 sc-network = { path = "../../../substrate/client/network" }
+sc-network-types = { path = "../../../substrate/client/network/types" }
 sp-api = { path = "../../../substrate/primitives/api" }
 sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
@@ -28,6 +29,6 @@ sc-client-api = { path = "../../../substrate/client/api" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-thiserror = "1.0.48"
-async-trait = "0.1.74"
+thiserror = { workspace = true }
+async-trait = "0.1.79"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }

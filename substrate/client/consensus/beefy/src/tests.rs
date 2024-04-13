@@ -23,8 +23,9 @@ use crate::{
 	beefy_block_import_and_links,
 	communication::{
 		gossip::{
-			proofs_topic, tests::sign_commitment, votes_topic, GossipFilterCfg, GossipMessage,
-			GossipValidator,
+			proofs_topic,
+			tests::{sign_commitment, TestNetwork},
+			votes_topic, GossipFilterCfg, GossipMessage, GossipValidator,
 		},
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
@@ -32,8 +33,8 @@ use crate::{
 	gossip_protocol_name,
 	justification::*,
 	wait_for_runtime_pallet,
-	worker::{BeefyWorkerBase, PersistedState},
-	BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
+	worker::PersistedState,
+	BeefyRPCLinks, BeefyVoterLinks, BeefyWorkerBuilder, KnownPeers,
 };
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use parking_lot::Mutex;
@@ -124,7 +125,11 @@ impl BeefyTestNet {
 		let mut net = BeefyTestNet { peers: Vec::with_capacity(n_authority), beefy_genesis };
 
 		for i in 0..n_authority {
-			let (rx, cfg) = on_demand_justifications_protocol_config(GENESIS_HASH, None);
+			let (rx, cfg) = on_demand_justifications_protocol_config::<
+				_,
+				Block,
+				sc_network::NetworkWorker<_, _>,
+			>(GENESIS_HASH, None);
 			let justif_protocol_name = cfg.name.clone();
 
 			net.add_authority_peer(vec![cfg]);
@@ -368,27 +373,20 @@ async fn voter_init_setup(
 	api: &TestApi,
 ) -> Result<PersistedState<Block>, Error> {
 	let backend = net.peer(0).client().as_backend();
-	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
-	let gossip_validator = Arc::new(gossip_validator);
-	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
-		net.peer(0).network_service().clone(),
-		net.peer(0).sync_service().clone(),
-		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
-		"/beefy/whatever",
-		gossip_validator,
-		None,
-	);
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(api, &mut gossip_engine, finality).await.unwrap();
-	let mut worker_base = BeefyWorkerBase {
+	let (beefy_genesis, best_grandpa) = wait_for_runtime_pallet(api, finality).await.unwrap();
+	let key_store = None.into();
+	let metrics = None;
+	BeefyWorkerBuilder::load_or_init_state(
+		beefy_genesis,
+		best_grandpa,
+		1,
 		backend,
-		runtime: Arc::new(api.clone()),
-		key_store: None.into(),
-		metrics: None,
-		_phantom: Default::default(),
-	};
-	worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await
+		Arc::new(api.clone()),
+		&key_store,
+		&metrics,
+		true,
+	)
+	.await
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
@@ -446,6 +444,7 @@ where
 			min_block_delta,
 			prometheus_registry: None,
 			on_demand_justifications_handler: on_demand_justif_handler,
+			is_authority: true,
 		};
 		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
 
@@ -1065,32 +1064,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	net.peer(0).client().as_client().finalize_block(hashes[8], None).unwrap();
 
 	// load persistent state - nothing in DB, should init at genesis
-	//
-	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
-	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
-	// first `GossipEngine`
-	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
-	let gossip_validator = Arc::new(gossip_validator);
-	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
-		net.peer(0).network_service().clone(),
-		net.peer(0).sync_service().clone(),
-		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
-		"/beefy/whatever",
-		gossip_validator,
-		None,
-	);
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let mut worker_base = BeefyWorkerBase {
-		backend: backend.clone(),
-		runtime: Arc::new(api),
-		key_store: None.into(),
-		metrics: None,
-		_phantom: Default::default(),
-	};
-	let persisted_state =
-		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with single session starting at block `custom_pallet_genesis` (7)
@@ -1120,18 +1094,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	net.peer(0).client().as_client().finalize_block(hashes[10], None).unwrap();
 	// load persistent state - state preset in DB, but with different pallet genesis
-	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let mut worker_base = BeefyWorkerBase {
-		backend: backend.clone(),
-		runtime: Arc::new(api),
-		key_store: None.into(),
-		metrics: None,
-		_phantom: Default::default(),
-	};
-	let new_persisted_state =
-		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
+	let new_persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block `new_pallet_genesis` (10)
 	let sessions = new_persisted_state.voting_oracle().sessions();
@@ -1322,32 +1285,7 @@ async fn should_catch_up_when_loading_saved_voter_state() {
 	let api = TestApi::with_validator_set(&validator_set);
 
 	// load persistent state - nothing in DB, should init at genesis
-	//
-	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
-	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
-	// first `GossipEngine`
-	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
-	let gossip_validator = Arc::new(gossip_validator);
-	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
-		net.peer(0).network_service().clone(),
-		net.peer(0).sync_service().clone(),
-		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
-		"/beefy/whatever",
-		gossip_validator,
-		None,
-	);
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let mut worker_base = BeefyWorkerBase {
-		backend: backend.clone(),
-		runtime: Arc::new(api.clone()),
-		key_store: None.into(),
-		metrics: None,
-		_phantom: Default::default(),
-	};
-	let persisted_state =
-		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with two sessions starting at blocks 1 and 10
@@ -1374,18 +1312,7 @@ async fn should_catch_up_when_loading_saved_voter_state() {
 	// finalize 25 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[25], None).unwrap();
 	// load persistent state - state preset in DB
-	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let mut worker_base = BeefyWorkerBase {
-		backend: backend.clone(),
-		runtime: Arc::new(api),
-		key_store: None.into(),
-		metrics: None,
-		_phantom: Default::default(),
-	};
-	let persisted_state =
-		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
 
 	// Verify voter initialized with old sessions plus a new one starting at block 20.
 	// There shouldn't be any duplicates.
@@ -1528,7 +1455,7 @@ async fn gossipped_finality_proofs() {
 	let charlie = &mut net.peers[2];
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
+	let gossip_validator = GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0));
 	let charlie_gossip_validator = Arc::new(gossip_validator);
 	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block> {
 		start: 1,

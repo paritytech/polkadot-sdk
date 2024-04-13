@@ -4,7 +4,7 @@ set -e
 
 trap "trap - SIGTERM && kill -9 -$$" SIGINT SIGTERM EXIT
 
-source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
+source "$FRAMEWORK_PATH/utils/zombienet.sh"
 
 # whether to init the chains (open HRMP channels, set XCM version, create reserve assets, etc)
 init=0

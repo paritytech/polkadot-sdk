@@ -48,22 +48,10 @@ impl Assignment {
 	}
 }
 
-#[derive(Encode, Decode, TypeInfo)]
-/// A set of variables required by the scheduler in order to operate.
-pub struct AssignmentProviderConfig<BlockNumber> {
-	/// How many times a collation can time out on availability.
-	/// Zero timeouts still means that a collation can be provided as per the slot auction
-	/// assignment provider.
-	pub max_availability_timeouts: u32,
-
-	/// How long the collator has to provide a collation to the backing group before being dropped.
-	pub ttl: BlockNumber,
-}
-
 pub trait AssignmentProvider<BlockNumber> {
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
-	/// This is where assignments come into existance.
+	/// This is where assignments come into existence.
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment>;
 
 	/// A previously popped `Assignment` has been fully processed.
@@ -77,13 +65,10 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// Push back a previously popped assignment.
 	///
 	/// If the assignment could not be processed within the current session, it can be pushed back
-	/// to the assignment provider in order to be poppped again later.
+	/// to the assignment provider in order to be popped again later.
 	///
 	/// This is the second way the life of an assignment can come to an end.
 	fn push_back_assignment(assignment: Assignment);
-
-	/// Returns a set of variables needed by the scheduler
-	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
 
 	/// Push some assignment for mocking/benchmarks purposes.
 	///

@@ -28,7 +28,8 @@ use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
 		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
-		RpcMethods, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
+		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
@@ -338,7 +339,12 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
 	}
 
-	/// Rate limit calls per minute.
+	/// RPC server batch request configuration.
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		Ok(RpcBatchRequestConfig::Unlimited)
+	}
+
+	/// RPC rate limit configuration.
 	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(None)
 	}
@@ -515,6 +521,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			rpc_max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
 			rpc_port: DCV::rpc_listen_port(),
 			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
+			rpc_batch_config: self.rpc_batch_config()?,
 			rpc_rate_limit: self.rpc_rate_limit()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,

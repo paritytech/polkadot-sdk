@@ -622,7 +622,7 @@ fn assignment_proportions_in_core_state_work() {
 			);
 		}
 
-		// Case 2: Current assignment remaning < step after pop
+		// Case 2: Current assignment remaining < step after pop
 		{
 			assert_eq!(
 				CoretimeAssigner::pop_assignment_for_core(core_idx),

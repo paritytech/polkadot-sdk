@@ -19,7 +19,7 @@ use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -107,6 +107,17 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		self.rpc_client
 			.parachain_host_persisted_validation_data(hash, para_id, occupied_core_assumption)
+			.await
+	}
+
+	async fn validation_code_hash(
+		&self,
+		hash: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		self.rpc_client
+			.validation_code_hash(hash, para_id, occupied_core_assumption)
 			.await
 	}
 

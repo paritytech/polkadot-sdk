@@ -23,14 +23,13 @@ log = { workspace = true }
 parking_lot = { version = "0.12.1", optional = true }
 rand = { version = "0.8.5", optional = true }
 smallvec = "1.11.0"
-thiserror = { version = "1.0.48", optional = true }
+thiserror = { optional = true, workspace = true }
 tracing = { version = "0.1.29", optional = true }
 sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
 sp-panic-handler = { path = "../panic-handler", optional = true }
-sp-std = { path = "../std", default-features = false }
 sp-trie = { path = "../trie", default-features = false }
-trie-db = { version = "0.28.0", default-features = false }
+trie-db = { version = "0.29.0", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -51,7 +50,6 @@ std = [
 	"sp-externalities/std",
 	"sp-panic-handler",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 	"thiserror",
 	"tracing",

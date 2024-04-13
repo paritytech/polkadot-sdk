@@ -348,20 +348,20 @@ pub trait Ext: sealing::Sealed {
 	/// - [`Error::<T>::MaxDelegateDependenciesReached`]
 	/// - [`Error::<T>::CannotAddSelfAsDelegateDependency`]
 	/// - [`Error::<T>::DelegateDependencyAlreadyExists`]
-	fn add_delegate_dependency(
+	fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
 
 	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
-	/// This is the counterpart of [`Self::add_delegate_dependency`]. It decreases the reference
-	/// count and refunds the deposit that was charged by [`Self::add_delegate_dependency`].
+	/// This is the counterpart of [`Self::lock_delegate_dependency`]. It decreases the reference
+	/// count and refunds the deposit that was charged by [`Self::lock_delegate_dependency`].
 	///
 	/// # Errors
 	///
 	/// - [`Error::<T>::DelegateDependencyNotFound`]
-	fn remove_delegate_dependency(
+	fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError>;
@@ -531,9 +531,9 @@ enum FrameArgs<'a, T: Config, E> {
 		nonce: u64,
 		/// The executable whose `deploy` function is run.
 		executable: E,
-		/// A salt used in the contract address deriviation of the new contract.
+		/// A salt used in the contract address derivation of the new contract.
 		salt: &'a [u8],
-		/// The input data is used in the contract address deriviation of the new contract.
+		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
 }
@@ -731,6 +731,30 @@ where
 		)?;
 		let account_id = stack.top_frame().account_id.clone();
 		stack.run(executable, input_data).map(|ret| (account_id, ret))
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_new_call(
+		dest: T::AccountId,
+		origin: Origin<T>,
+		gas_meter: &'a mut GasMeter<T>,
+		storage_meter: &'a mut storage::meter::Meter<T>,
+		schedule: &'a Schedule<T>,
+		value: BalanceOf<T>,
+		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		determinism: Determinism,
+	) -> (Self, E) {
+		Self::new(
+			FrameArgs::Call { dest, cached_info: None, delegated_call: None },
+			origin,
+			gas_meter,
+			storage_meter,
+			schedule,
+			value,
+			debug_message,
+			determinism,
+		)
+		.unwrap()
 	}
 
 	/// Create a new call stack.
@@ -1466,14 +1490,14 @@ where
 
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool {
 		sp_io::crypto::sr25519_verify(
-			&SR25519Signature(*signature),
+			&SR25519Signature::from(*signature),
 			message,
-			&SR25519Public(*pub_key),
+			&SR25519Public::from(*pub_key),
 		)
 	}
 
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic(*pk).to_eth_address()
+		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
 	#[cfg(test)]
@@ -1554,7 +1578,7 @@ where
 		});
 	}
 
-	fn add_delegate_dependency(
+	fn lock_delegate_dependency(
 		&mut self,
 		code_hash: CodeHash<Self::T>,
 	) -> Result<(), DispatchError> {
@@ -1565,7 +1589,7 @@ where
 		let code_info = CodeInfoOf::<T>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		let deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		info.add_delegate_dependency(code_hash, deposit)?;
+		info.lock_delegate_dependency(code_hash, deposit)?;
 		Self::increment_refcount(code_hash)?;
 		frame
 			.nested_storage
@@ -1573,14 +1597,14 @@ where
 		Ok(())
 	}
 
-	fn remove_delegate_dependency(
+	fn unlock_delegate_dependency(
 		&mut self,
 		code_hash: &CodeHash<Self::T>,
 	) -> Result<(), DispatchError> {
 		let frame = self.top_frame_mut();
 		let info = frame.contract_info.get(&frame.account_id);
 
-		let deposit = info.remove_delegate_dependency(code_hash)?;
+		let deposit = info.unlock_delegate_dependency(code_hash)?;
 		Self::decrement_refcount(*code_hash);
 		frame
 			.nested_storage

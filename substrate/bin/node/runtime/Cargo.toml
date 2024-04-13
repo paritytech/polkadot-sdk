@@ -23,10 +23,10 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
 log = { workspace = true }
-serde_json = { version = "1.0.113", default-features = false, features = ["alloc", "arbitrary_precision"] }
+serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
@@ -58,7 +58,7 @@ sp-io = { path = "../../../primitives/io", default-features = false }
 frame-executive = { path = "../../../frame/executive", default-features = false }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false }
-frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"] }
+frame-support = { path = "../../../frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../frame/system", default-features = false }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
 frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false }
@@ -88,6 +88,8 @@ pallet-election-provider-support-benchmarking = { path = "../../../frame/electio
 pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", default-features = false }
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
+pallet-migrations = { path = "../../../frame/migrations", default-features = false }
+pallet-example-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -187,6 +189,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
+	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
 	"pallet-fast-unstake/std",
 	"pallet-glutton/std",
@@ -198,6 +201,7 @@ std = [
 	"pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -292,6 +296,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
@@ -302,6 +307,7 @@ runtime-benchmarks = [
 	"pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -370,6 +376,7 @@ try-runtime = [
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
+	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-glutton/try-runtime",
@@ -381,6 +388,7 @@ try-runtime = [
 	"pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",

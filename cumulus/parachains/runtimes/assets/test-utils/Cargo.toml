@@ -16,8 +16,8 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
-pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
@@ -56,11 +56,11 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-asset-conversion/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-session/std",
+	"pallet-timestamp/std",
 	"pallet-xcm-bridge-hub-router/std",
 	"pallet-xcm/std",
 	"parachain-info/std",

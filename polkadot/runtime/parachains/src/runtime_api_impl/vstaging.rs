@@ -16,30 +16,36 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, initializer, shared};
-use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	ValidatorIndex,
+use crate::{inclusion, initializer, scheduler};
+use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
+use sp_runtime::traits::One;
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
 };
-use sp_std::prelude::Vec;
 
-/// Implementation for `DisabledValidators`
-// CAVEAT: this should only be called on the node side
-// as it might produce incorrect results on session boundaries
-pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
-where
-	T: shared::Config,
-{
-	<shared::Pallet<T>>::disabled_validators()
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+
+	// This explicit update is only strictly required for session boundaries:
+	//
+	// At the end of a session we clear the claim queues: Without this update call, nothing would be
+	// scheduled to the client.
+	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
+
+	scheduler::ClaimQueue::<T>::get()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
+		})
+		.collect()
 }
 
-/// Returns the current state of the node features.
-pub fn node_features<T: initializer::Config>() -> NodeFeatures {
-	<configuration::Pallet<T>>::config().node_features
-}
-
-/// Approval voting subsystem configuration parameteres
-pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
-	let config = <configuration::Pallet<T>>::config();
-	config.approval_voting_params
+/// Returns all the candidates that are pending availability for a given `ParaId`.
+/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
+pub fn candidates_pending_availability<T: initializer::Config>(
+	para_id: ParaId,
+) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }

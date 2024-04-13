@@ -16,10 +16,11 @@ workspace = true
 sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../../../../../polkadot/xcm", default-features = false }
+
 # Cumulus
-parachains-common = { path = "../../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../../common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 penpal-runtime = { path = "../../../../../../runtimes/testing/penpal" }
-rococo-emulated-chain = { path = "../../../relays/rococo" }
-westend-emulated-chain = { path = "../../../relays/westend" }

@@ -113,8 +113,8 @@ mod v_coretime {
 			}
 
 			let legacy_paras = paras::Parachains::<T>::get();
-			let config = <configuration::Pallet<T>>::config();
-			let total_core_count = config.coretime_cores + legacy_paras.len() as u32;
+			let config = configuration::ActiveConfig::<T>::get();
+			let total_core_count = config.scheduler_params.num_cores + legacy_paras.len() as u32;
 
 			let dmp_queue_size =
 				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
@@ -150,15 +150,15 @@ mod v_coretime {
 
 	// Migrate to Coretime.
 	//
-	// NOTE: Also migrates coretime_cores config value in configuration::ActiveConfig.
+	// NOTE: Also migrates `num_cores` config value in configuration::ActiveConfig.
 	fn migrate_to_coretime<
 		T: Config,
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> Weight {
-		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_count = legacy_paras.len() as u32;
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		for (core, para_id) in legacy_paras.into_iter().enumerate() {
 			let r = assigner_coretime::Pallet::<T>::assign_core(
 				CoreIndex(core as u32),
@@ -175,9 +175,9 @@ mod v_coretime {
 			}
 		}
 
-		let config = <configuration::Pallet<T>>::config();
-		// coretime_cores was on_demand_cores until now:
-		for on_demand in 0..config.coretime_cores {
+		let config = configuration::ActiveConfig::<T>::get();
+		// num_cores was on_demand_cores until now:
+		for on_demand in 0..config.scheduler_params.num_cores {
 			let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
 			let r = assigner_coretime::Pallet::<T>::assign_core(
 				core,
@@ -189,9 +189,9 @@ mod v_coretime {
 				log::error!("Creating assignment for existing on-demand core, failed: {:?}", err);
 			}
 		}
-		let total_cores = config.coretime_cores + legacy_count;
+		let total_cores = config.scheduler_params.num_cores + legacy_count;
 		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.coretime_cores = total_cores;
+			c.scheduler_params.num_cores = total_cores;
 		});
 
 		if let Err(err) = migrate_send_assignments_to_coretime_chain::<T, SendXcm, LegacyLease>() {
@@ -200,7 +200,9 @@ mod v_coretime {
 
 		let single_weight = <T as Config>::WeightInfo::assign_core(1);
 		single_weight
-			.saturating_mul(u64::from(legacy_count.saturating_add(config.coretime_cores)))
+			.saturating_mul(u64::from(
+				legacy_count.saturating_add(config.scheduler_params.num_cores),
+			))
 			// Second read from sending assignments to the coretime chain.
 			.saturating_add(T::DbWeight::get().reads_writes(2, 1))
 	}
@@ -210,7 +212,7 @@ mod v_coretime {
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> result::Result<(), SendError> {
-		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_paras_count = legacy_paras.len();
 		let (system_chains, lease_holding): (Vec<_>, Vec<_>) =
 			legacy_paras.into_iter().partition(IsSystem::is_system);
@@ -236,7 +238,7 @@ mod v_coretime {
 					return None
 				},
 			};
-			// We assume the coretime chain set this parameter to the recommened value in RFC-1:
+			// We assume the coretime chain set this parameter to the recommended value in RFC-1:
 			const TIME_SLICE_PERIOD: u32 = 80;
 			let round_up = if valid_until % TIME_SLICE_PERIOD > 0 { 1 } else { 0 };
 			let time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
@@ -244,7 +246,10 @@ mod v_coretime {
 			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
-		let core_count: u16 = configuration::Pallet::<T>::config().coretime_cores.saturated_into();
+		let core_count: u16 = configuration::ActiveConfig::<T>::get()
+			.scheduler_params
+			.num_cores
+			.saturated_into();
 		let set_core_count = iter::once(mk_coretime_call(
 			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));

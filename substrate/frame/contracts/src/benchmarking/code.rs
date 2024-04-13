@@ -26,7 +26,7 @@
 
 use crate::Config;
 use frame_support::traits::Get;
-use sp_runtime::traits::Hash;
+use sp_runtime::{traits::Hash, Saturating};
 use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
@@ -164,7 +164,7 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 
 		// Grant access to linear memory.
 		// Every contract module is required to have an imported memory.
-		// If no memory is specified in the passed ModuleDefenition, then
+		// If no memory is specified in the passed ModuleDefinition, then
 		// default to (1, 1).
 		let (init, max) = if let Some(memory) = &def.memory {
 			(memory.min_pages, Some(memory.max_pages))
@@ -262,22 +262,25 @@ impl<T: Config> WasmModule<T> {
 	/// `instantiate_with_code` for different sizes of wasm modules. The generated module maximizes
 	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
 	/// `code_location`: Whether to place the code into `deploy` or `call`.
-	pub fn sized(target_bytes: u32, code_location: Location) -> Self {
+	pub fn sized(target_bytes: u32, code_location: Location, use_float: bool) -> Self {
 		use self::elements::Instruction::{End, GetLocal, If, Return};
 		// Base size of a contract is 63 bytes and each expansion adds 6 bytes.
 		// We do one expansion less to account for the code section and function body
 		// size fields inside the binary wasm module representation which are leb128 encoded
 		// and therefore grow in size when the contract grows. We are not allowed to overshoot
 		// because of the maximum code size that is enforced by `instantiate_with_code`.
-		let expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
+		let mut expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
 		const EXPANSION: [Instruction; 4] = [GetLocal(0), If(BlockType::NoResult), Return, End];
+		let mut locals = vec![Local::new(1, ValueType::I32)];
+		if use_float {
+			locals.push(Local::new(1, ValueType::F32));
+			locals.push(Local::new(2, ValueType::F32));
+			locals.push(Local::new(3, ValueType::F32));
+			expansions.saturating_dec();
+		}
 		let mut module =
 			ModuleDefinition { memory: Some(ImportedMemory::max::<T>()), ..Default::default() };
-		let body = Some(body::repeated_with_locals(
-			&[Local::new(1, ValueType::I32)],
-			expansions,
-			&EXPANSION,
-		));
+		let body = Some(body::repeated_with_locals(&locals, expansions, &EXPANSION));
 		match code_location {
 			Location::Call => module.call_body = body,
 			Location::Deploy => module.deploy_body = body,
