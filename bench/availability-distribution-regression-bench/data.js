@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713008592028,
+  "lastUpdate": 1713012109374,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4055,6 +4055,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007307677533333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "30c58fa22ad9fc6630e07e43ee2307675462995a",
+          "message": "Deploy `pallet-parameters` to rococo and fix dynamic_params name expand (#4006)\n\nChanges:\n- Add pallet-parameters to Rococo to configure the NIS and preimage\npallet.\n- Fix names of expanded dynamic params. Apparently, `to_class_case`\nremoves suffix `s`, and `Nis` becomes `Ni` 😑. Now using\n`to_pascal_case`.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Alessandro Siniscalchi <asiniscalchi@gmail.com>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-13T11:20:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/30c58fa22ad9fc6630e07e43ee2307675462995a"
+        },
+        "date": 1713012082656,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02398070833333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012575168466666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006566136133333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15674900779999995,
             "unit": "seconds"
           }
         ]
