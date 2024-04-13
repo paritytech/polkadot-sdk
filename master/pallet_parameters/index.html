@@ -209,6 +209,20 @@ change often would be a perfect fit.</p>
 		<span class="attr">#[codec(index = <span class="number">0</span>)]
 		</span><span class="kw">pub static </span>Key3: u128 = <span class="number">4</span>;
 	}
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">2</span>)]
+	</span><span class="kw">pub mod </span>nis {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>Target: u64 = <span class="number">0</span>;
+	}
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">3</span>)]
+	</span><span class="kw">pub mod </span>somE_weird_SPElLInG_s {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>V: u64 = <span class="number">0</span>;
+	}
 }</code></pre></div>
 <p>A permissioned origin can be define on a per-key basis like this:</p>
 
@@ -230,6 +244,8 @@ change often would be a perfect fit.</p>
 			}
 
 			<span class="kw">match </span>key {
+				RuntimeParametersKey::SomEWeirdSPElLInGS(<span class="kw">_</span>) |
+				RuntimeParametersKey::Nis(<span class="kw">_</span>) |
 				RuntimeParametersKey::Pallet1(<span class="kw">_</span>) =&gt; ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(<span class="kw">_</span>) =&gt; ensure_signed(origin.clone()).map(|<span class="kw">_</span>| ()),
 			}

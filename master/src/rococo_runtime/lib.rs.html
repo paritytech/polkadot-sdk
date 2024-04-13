@@ -2595,6 +2595,83 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2446" id="2446">2446</a>
 <a href="#2447" id="2447">2447</a>
 <a href="#2448" id="2448">2448</a>
+<a href="#2449" id="2449">2449</a>
+<a href="#2450" id="2450">2450</a>
+<a href="#2451" id="2451">2451</a>
+<a href="#2452" id="2452">2452</a>
+<a href="#2453" id="2453">2453</a>
+<a href="#2454" id="2454">2454</a>
+<a href="#2455" id="2455">2455</a>
+<a href="#2456" id="2456">2456</a>
+<a href="#2457" id="2457">2457</a>
+<a href="#2458" id="2458">2458</a>
+<a href="#2459" id="2459">2459</a>
+<a href="#2460" id="2460">2460</a>
+<a href="#2461" id="2461">2461</a>
+<a href="#2462" id="2462">2462</a>
+<a href="#2463" id="2463">2463</a>
+<a href="#2464" id="2464">2464</a>
+<a href="#2465" id="2465">2465</a>
+<a href="#2466" id="2466">2466</a>
+<a href="#2467" id="2467">2467</a>
+<a href="#2468" id="2468">2468</a>
+<a href="#2469" id="2469">2469</a>
+<a href="#2470" id="2470">2470</a>
+<a href="#2471" id="2471">2471</a>
+<a href="#2472" id="2472">2472</a>
+<a href="#2473" id="2473">2473</a>
+<a href="#2474" id="2474">2474</a>
+<a href="#2475" id="2475">2475</a>
+<a href="#2476" id="2476">2476</a>
+<a href="#2477" id="2477">2477</a>
+<a href="#2478" id="2478">2478</a>
+<a href="#2479" id="2479">2479</a>
+<a href="#2480" id="2480">2480</a>
+<a href="#2481" id="2481">2481</a>
+<a href="#2482" id="2482">2482</a>
+<a href="#2483" id="2483">2483</a>
+<a href="#2484" id="2484">2484</a>
+<a href="#2485" id="2485">2485</a>
+<a href="#2486" id="2486">2486</a>
+<a href="#2487" id="2487">2487</a>
+<a href="#2488" id="2488">2488</a>
+<a href="#2489" id="2489">2489</a>
+<a href="#2490" id="2490">2490</a>
+<a href="#2491" id="2491">2491</a>
+<a href="#2492" id="2492">2492</a>
+<a href="#2493" id="2493">2493</a>
+<a href="#2494" id="2494">2494</a>
+<a href="#2495" id="2495">2495</a>
+<a href="#2496" id="2496">2496</a>
+<a href="#2497" id="2497">2497</a>
+<a href="#2498" id="2498">2498</a>
+<a href="#2499" id="2499">2499</a>
+<a href="#2500" id="2500">2500</a>
+<a href="#2501" id="2501">2501</a>
+<a href="#2502" id="2502">2502</a>
+<a href="#2503" id="2503">2503</a>
+<a href="#2504" id="2504">2504</a>
+<a href="#2505" id="2505">2505</a>
+<a href="#2506" id="2506">2506</a>
+<a href="#2507" id="2507">2507</a>
+<a href="#2508" id="2508">2508</a>
+<a href="#2509" id="2509">2509</a>
+<a href="#2510" id="2510">2510</a>
+<a href="#2511" id="2511">2511</a>
+<a href="#2512" id="2512">2512</a>
+<a href="#2513" id="2513">2513</a>
+<a href="#2514" id="2514">2514</a>
+<a href="#2515" id="2515">2515</a>
+<a href="#2516" id="2516">2516</a>
+<a href="#2517" id="2517">2517</a>
+<a href="#2518" id="2518">2518</a>
+<a href="#2519" id="2519">2519</a>
+<a href="#2520" id="2520">2520</a>
+<a href="#2521" id="2521">2521</a>
+<a href="#2522" id="2522">2522</a>
+<a href="#2523" id="2523">2523</a>
+<a href="#2524" id="2524">2524</a>
+<a href="#2525" id="2525">2525</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2622,6 +2699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
+<span class="kw">use </span>frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
 <span class="kw">use </span>pallet_nis::WithMaximumOf;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>primitives::{
@@ -2670,9 +2748,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
-		ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EnsureOrigin,
+		EnsureOriginWithArg, EverythingBut, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee <span class="kw">as _</span>},
 	PalletId,
@@ -2831,6 +2910,72 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="doccomment">/// Dynamic params that can be adjusted at runtime.
+</span><span class="attr">#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::&lt;Runtime&gt;)]
+</span><span class="kw">pub mod </span>dynamic_params {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">0</span>)]
+	</span><span class="kw">pub mod </span>nis {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>Target: Perquintill = Perquintill::zero();
+
+		<span class="attr">#[codec(index = <span class="number">1</span>)]
+		</span><span class="kw">pub static </span>MinBid: Balance = <span class="number">100 </span>* UNITS;
+	}
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">1</span>)]
+	</span><span class="kw">pub mod </span>preimage {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>BaseDeposit: Balance = deposit(<span class="number">2</span>, <span class="number">64</span>);
+
+		<span class="attr">#[codec(index = <span class="number">1</span>)]
+		</span><span class="kw">pub static </span>ByteDeposit: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
+	}
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl </span>Default <span class="kw">for </span>RuntimeParameters {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		RuntimeParameters::Preimage(dynamic_params::preimage::Parameters::BaseDeposit(
+			dynamic_params::preimage::BaseDeposit,
+			<span class="prelude-val">Some</span>(<span class="number">1u32</span>.into()),
+		))
+	}
+}
+
+<span class="doccomment">/// Defines what origin can modify which dynamic parameters.
+</span><span class="kw">pub struct </span>DynamicParameterOrigin;
+<span class="kw">impl </span>EnsureOriginWithArg&lt;RuntimeOrigin, RuntimeParametersKey&gt; <span class="kw">for </span>DynamicParameterOrigin {
+	<span class="kw">type </span>Success = ();
+
+	<span class="kw">fn </span>try_origin(
+		origin: RuntimeOrigin,
+		key: <span class="kw-2">&amp;</span>RuntimeParametersKey,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
+		<span class="kw">use crate</span>::{dynamic_params::<span class="kw-2">*</span>, governance::<span class="kw-2">*</span>, RuntimeParametersKey::<span class="kw-2">*</span>};
+
+		<span class="kw">match </span>key {
+			Nis(nis::ParametersKey::MinBid(<span class="kw">_</span>)) =&gt; StakingAdmin::ensure_origin(origin.clone()),
+			Nis(nis::ParametersKey::Target(<span class="kw">_</span>)) =&gt; GeneralAdmin::ensure_origin(origin.clone()),
+			Preimage(<span class="kw">_</span>) =&gt; frame_system::ensure_root(origin.clone()),
+		}
+		.map_err(|<span class="kw">_</span>| origin)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>try_successful_origin(_key: <span class="kw-2">&amp;</span>RuntimeParametersKey) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
+		<span class="comment">// Provide the origin for the parameter returned by `Default`:
+		</span><span class="prelude-val">Ok</span>(RuntimeOrigin::root())
+	}
+}
+
 <span class="kw">impl </span>pallet_scheduler::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
@@ -2847,8 +2992,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>PreimageBaseDeposit: Balance = deposit(<span class="number">2</span>, <span class="number">64</span>);
-	<span class="kw">pub const </span>PreimageByteDeposit: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
 	<span class="kw">pub const </span>PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -2861,7 +3004,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice&lt;PreimageBaseDeposit, PreimageByteDeposit, Balance&gt;,
+		LinearStoragePrice&lt;
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		&gt;,
 	&gt;;
 }
 
@@ -3725,12 +3872,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>NisBasePeriod: BlockNumber = <span class="number">30 </span>* DAYS;
-	<span class="kw">pub const </span>MinBid: Balance = <span class="number">100 </span>* UNITS;
 	<span class="kw">pub </span>MinReceipt: Perquintill = Perquintill::from_rational(<span class="number">1u64</span>, <span class="number">10_000_000u64</span>);
 	<span class="kw">pub const </span>IntakePeriod: BlockNumber = <span class="number">5 </span>* MINUTES;
 	<span class="kw">pub </span>MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / <span class="number">10</span>;
 	<span class="kw">pub const </span>ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(<span class="number">25</span>), <span class="number">5</span>);
-	<span class="kw">pub </span>storage NisTarget: Perquintill = Perquintill::zero();
 	<span class="kw">pub const </span>NisPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nis  &quot;</span>);
 }
 
@@ -3744,13 +3889,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>CounterpartAmount = WithMaximumOf&lt;ConstU128&lt;<span class="number">21_000_000_000_000_000_000u128</span>&gt;&gt;;
 	<span class="kw">type </span>Deficit = (); <span class="comment">// Mint
 	</span><span class="kw">type </span>IgnoredIssuance = ();
-	<span class="kw">type </span>Target = NisTarget;
+	<span class="kw">type </span>Target = dynamic_params::nis::Target;
 	<span class="kw">type </span>PalletId = NisPalletId;
 	<span class="kw">type </span>QueueCount = ConstU32&lt;<span class="number">300</span>&gt;;
 	<span class="kw">type </span>MaxQueueLen = ConstU32&lt;<span class="number">1000</span>&gt;;
 	<span class="kw">type </span>FifoQueueLen = ConstU32&lt;<span class="number">250</span>&gt;;
 	<span class="kw">type </span>BasePeriod = NisBasePeriod;
-	<span class="kw">type </span>MinBid = MinBid;
+	<span class="kw">type </span>MinBid = dynamic_params::nis::MinBid;
 	<span class="kw">type </span>MinReceipt = MinReceipt;
 	<span class="kw">type </span>IntakePeriod = IntakePeriod;
 	<span class="kw">type </span>MaxIntakeWeight = MaxIntakeWeight;
@@ -3758,6 +3903,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkSetup = ();
+}
+
+<span class="kw">impl </span>pallet_parameters::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>RuntimeParameters = RuntimeParameters;
+	<span class="kw">type </span>AdminOrigin = DynamicParameterOrigin;
+	<span class="kw">type </span>WeightInfo = weights::pallet_parameters::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3888,6 +4040,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Timestamp: pallet_timestamp = <span class="number">2</span>,
 		Indices: pallet_indices = <span class="number">3</span>,
 		Balances: pallet_balances = <span class="number">4</span>,
+		Parameters: pallet_parameters = <span class="number">6</span>,
 		TransactionPayment: pallet_transaction_payment = <span class="number">33</span>,
 
 		<span class="comment">// Consensus support.
@@ -4228,6 +4381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
+		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, FellowshipCollective]

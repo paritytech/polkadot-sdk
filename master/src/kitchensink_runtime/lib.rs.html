@@ -5622,7 +5622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				frame_system::ensure_root(origin.clone()).map_err(|<span class="kw">_</span>| origin)<span class="question-mark">?</span>;
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
-			RuntimeParametersKey::Contract(<span class="kw">_</span>) =&gt; {
+			RuntimeParametersKey::Contracts(<span class="kw">_</span>) =&gt; {
 				frame_system::ensure_root(origin.clone()).map_err(|<span class="kw">_</span>| origin)<span class="question-mark">?</span>;
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},

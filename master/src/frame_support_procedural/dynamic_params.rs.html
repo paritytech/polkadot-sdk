@@ -710,6 +710,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#561" id="561">561</a>
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -803,7 +805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>quoted_enum = <span class="macro">quote! </span>{};
 		<span class="kw">for </span>m <span class="kw">in </span><span class="self">self</span>.inner_mods() {
 			<span class="kw">let </span>aggregate_name =
-				syn::Ident::new(<span class="kw-2">&amp;</span>m.ident.to_string().to_class_case(), m.ident.span());
+				syn::Ident::new(<span class="kw-2">&amp;</span>m.ident.to_string().to_pascal_case(), m.ident.span());
 			<span class="kw">let </span>mod_name = <span class="kw-2">&amp;</span>m.ident;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>attrs = m.attrs.clone();
@@ -934,8 +936,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(params_mod, parameter_pallet, runtime_params) =
 			(<span class="kw-2">&amp;</span><span class="self">self</span>.inner_mod, <span class="kw-2">&amp;</span><span class="self">self</span>.meta.parameter_pallet, <span class="kw-2">&amp;</span><span class="self">self</span>.meta.runtime_params);
 
-		<span class="kw">let </span>aggregate_name =
-			syn::Ident::new(<span class="kw-2">&amp;</span>params_mod.ident.to_string().to_class_case(), params_mod.ident.span());
+		<span class="kw">let </span>aggregate_name = syn::Ident::new(
+			<span class="kw-2">&amp;</span>params_mod.ident.to_string().to_pascal_case(),
+			params_mod.ident.span(),
+		);
 		<span class="kw">let </span>(mod_name, vis) = (<span class="kw-2">&amp;</span>params_mod.ident, <span class="kw-2">&amp;</span>params_mod.vis);
 		<span class="kw">let </span>statics = <span class="self">self</span>.statics();
 
