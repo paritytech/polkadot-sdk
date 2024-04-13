@@ -203,20 +203,40 @@ struct PeerData {
 	version: CollationVersion,
 }
 
+/// A type wrapping a collation and it's designated core index.
+struct CollationWithCoreIndex(Collation, CoreIndex);
+
+impl CollationWithCoreIndex {
+	/// Returns inner collation ref.
+	pub fn collation(&self) -> &Collation {
+		&self.0
+	}
+
+	/// Returns inner collation mut ref.
+	pub fn collation_mut(&mut self) -> &mut Collation {
+		&mut self.0
+	}
+
+	/// Returns inner core index.
+	pub fn core_index(&self) -> &CoreIndex {
+		&self.1
+	}
+}
+
 struct PerRelayParent {
 	prospective_parachains_mode: ProspectiveParachainsMode,
-	/// Validators group responsible for backing candidates built
+	/// Per core index validators group responsible for backing candidates built
 	/// on top of this relay parent.
-	validator_group: ValidatorGroup,
+	validator_group: HashMap<CoreIndex, ValidatorGroup>,
 	/// Distributed collations.
-	collations: HashMap<CandidateHash, Collation>,
+	collations: HashMap<CandidateHash, CollationWithCoreIndex>,
 }
 
 impl PerRelayParent {
 	fn new(mode: ProspectiveParachainsMode) -> Self {
 		Self {
 			prospective_parachains_mode: mode,
-			validator_group: ValidatorGroup::default(),
+			validator_group: HashMap::default(),
 			collations: HashMap::new(),
 		}
 	}
@@ -350,6 +370,7 @@ async fn distribute_collation<Context>(
 	pov: PoV,
 	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	core_index: CoreIndex,
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent;
 	let candidate_hash = receipt.hash();
@@ -422,7 +443,22 @@ async fn distribute_collation<Context>(
 		);
 	}
 
-	let our_core = our_cores[0];
+	// Double check that the specified `core_index` is among the ones our para has assignments for.
+	if !our_cores.iter().any(|assigned_core| assigned_core == &core_index) {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = %id,
+			relay_parent = ?candidate_relay_parent,
+			cores = ?our_cores,
+			?core_index,
+			"Attempting to distribute collation for a core we are not assigned to ",
+		);
+
+		return Ok(())
+	}
+
+	let our_core = core_index;
+
 	// Determine the group on that core.
 	//
 	// When prospective parachains are disabled, candidate relay parent here is
@@ -464,10 +500,12 @@ async fn distribute_collation<Context>(
 		"Accepted collation, connecting to validators."
 	);
 
-	let validators_at_relay_parent = &mut per_relay_parent.validator_group.validators;
-	if validators_at_relay_parent.is_empty() {
-		*validators_at_relay_parent = validators;
-	}
+	// Insert validator group for the `core_index` at relay parent.
+	per_relay_parent.validator_group.entry(core_index).or_insert_with(|| {
+		let mut group = ValidatorGroup::default();
+		group.validators = validators;
+		group
+	});
 
 	// Update a set of connected validators if necessary.
 	connect_to_validators(ctx, &state.validator_groups_buf).await;
@@ -484,7 +522,10 @@ async fn distribute_collation<Context>(
 
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
+		CollationWithCoreIndex(
+			Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
+			core_index,
+		),
 	);
 
 	// If prospective parachains are disabled, a leaf should be known to peer.
@@ -690,7 +731,10 @@ async fn advertise_collation<Context>(
 	advertisement_timeouts: &mut FuturesUnordered<ResetInterestTimeout>,
 	metrics: &Metrics,
 ) {
-	for (candidate_hash, collation) in per_relay_parent.collations.iter_mut() {
+	for (candidate_hash, collation_and_core) in per_relay_parent.collations.iter_mut() {
+		let core_index = *collation_and_core.core_index();
+		let collation = collation_and_core.collation_mut();
+
 		// Check that peer will be able to request the collation.
 		if let CollationVersion::V1 = protocol_version {
 			if per_relay_parent.prospective_parachains_mode.is_enabled() {
@@ -704,11 +748,17 @@ async fn advertise_collation<Context>(
 			}
 		}
 
-		let should_advertise =
-			per_relay_parent
-				.validator_group
-				.should_advertise_to(candidate_hash, peer_ids, &peer);
+		let Some(validator_group) = per_relay_parent.validator_group.get_mut(&core_index) else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?core_index,
+				"Skipping advertising to validator, validator group for core not found",
+			);
+			return
+		};
 
+		let should_advertise = validator_group.should_advertise_to(candidate_hash, peer_ids, &peer);
 		match should_advertise {
 			ShouldAdvertiseTo::Yes => {},
 			ShouldAdvertiseTo::NotAuthority | ShouldAdvertiseTo::AlreadyAdvertised => {
@@ -756,9 +806,7 @@ async fn advertise_collation<Context>(
 		))
 		.await;
 
-		per_relay_parent
-			.validator_group
-			.advertised_to_peer(candidate_hash, &peer_ids, peer);
+		validator_group.advertised_to_peer(candidate_hash, &peer_ids, peer);
 
 		advertisement_timeouts.push(ResetInterestTimeout::new(
 			*candidate_hash,
@@ -790,6 +838,7 @@ async fn process_msg<Context>(
 			pov,
 			parent_head_data,
 			result_sender,
+			core_index,
 		} => {
 			let _span1 = state
 				.span_per_relay_parent
@@ -820,6 +869,7 @@ async fn process_msg<Context>(
 						pov,
 						parent_head_data,
 						result_sender,
+						core_index,
 					)
 					.await?;
 				},
@@ -1053,7 +1103,7 @@ async fn handle_incoming_request<Context>(
 			};
 			let mode = per_relay_parent.prospective_parachains_mode;
 
-			let collation = match &req {
+			let collation_with_core = match &req {
 				VersionedCollationRequest::V1(_) if !mode.is_enabled() =>
 					per_relay_parent.collations.values_mut().next(),
 				VersionedCollationRequest::V2(req) =>
@@ -1070,22 +1120,24 @@ async fn handle_incoming_request<Context>(
 					return Ok(())
 				},
 			};
-			let (receipt, pov, parent_head_data) = if let Some(collation) = collation {
-				collation.status.advance_to_requested();
-				(
-					collation.receipt.clone(),
-					collation.pov.clone(),
-					collation.parent_head_data.clone(),
-				)
-			} else {
-				gum::warn!(
-					target: LOG_TARGET,
-					relay_parent = %relay_parent,
-					"received a `RequestCollation` for a relay parent we don't have collation stored.",
-				);
+			let (receipt, pov, parent_head_data) =
+				if let Some(collation_with_core) = collation_with_core {
+					let collation = collation_with_core.collation_mut();
+					collation.status.advance_to_requested();
+					(
+						collation.receipt.clone(),
+						collation.pov.clone(),
+						collation.parent_head_data.clone(),
+					)
+				} else {
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = %relay_parent,
+						"received a `RequestCollation` for a relay parent we don't have collation stored.",
+					);
 
-				return Ok(())
-			};
+					return Ok(())
+				};
 
 			state.metrics.on_collation_sent_requested();
 
@@ -1340,7 +1392,9 @@ where
 				.remove(removed)
 				.map(|per_relay_parent| per_relay_parent.collations)
 				.unwrap_or_default();
-			for collation in collations.into_values() {
+			for collation_with_core in collations.into_values() {
+				let collation = collation_with_core.collation();
+
 				let candidate_hash = collation.receipt.hash();
 				state.collation_result_senders.remove(&candidate_hash);
 				state.validator_groups_buf.remove_candidate(&candidate_hash);
@@ -1477,7 +1531,7 @@ async fn run_inner<Context>(
 					continue
 				};
 
-				let next_collation = {
+				let next_collation_with_core = {
 					let per_relay_parent = match state.per_relay_parent.get(&relay_parent) {
 						Some(per_relay_parent) => per_relay_parent,
 						None => continue,
@@ -1497,7 +1551,8 @@ async fn run_inner<Context>(
 					}
 				};
 
-				if let Some(collation) = next_collation {
+				if let Some(collation_with_core) = next_collation_with_core {
+					let collation = collation_with_core.collation();
 					let receipt = collation.receipt.clone();
 					let pov = collation.pov.clone();
 					let parent_head_data = collation.parent_head_data.clone();

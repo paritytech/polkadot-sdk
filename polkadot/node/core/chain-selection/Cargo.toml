@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }

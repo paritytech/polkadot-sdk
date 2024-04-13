@@ -27,7 +27,11 @@ pub enum Error {
 	#[error(transparent)]
 	Util(#[from] polkadot_node_subsystem_util::Error),
 	#[error(transparent)]
+	UtilRuntime(#[from] polkadot_node_subsystem_util::runtime::Error),
+	#[error(transparent)]
 	Erasure(#[from] polkadot_erasure_coding::Error),
+	#[error("Parachain backing state not available in runtime.")]
+	MissingParaBackingState,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

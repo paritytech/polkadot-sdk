@@ -18,27 +18,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 hex-literal = { version = "0.4.1" }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 snowbridge-core = { path = "../../../primitives/core", default-features = false }
 snowbridge-beacon-primitives = { path = "../../../primitives/beacon", default-features = false }
 
 [features]
 default = ["std"]
 std = [
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"sp-core/std",
 	"sp-std/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 ]

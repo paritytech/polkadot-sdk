@@ -292,7 +292,7 @@ impl GroupStatements {
 mod tests {
 	use super::*;
 
-	use polkadot_primitives::v6::{Hash, SigningContext, ValidatorPair};
+	use polkadot_primitives::v7::{Hash, SigningContext, ValidatorPair};
 	use sp_application_crypto::Pair as PairT;
 
 	#[test]
