@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712965516334,
+  "lastUpdate": 1712996962599,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3847,6 +3847,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16385189939999983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8220c980084e70be55d956a69c5ebeebe47c9b9c",
+          "message": "Fix zombienet-bridges-0001-asset-transfer-works (#4069)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/3999\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-13T07:04:26Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8220c980084e70be55d956a69c5ebeebe47c9b9c"
+        },
+        "date": 1712996936249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024639747866666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007197332400000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16856194333333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01473623273333334,
             "unit": "seconds"
           }
         ]
