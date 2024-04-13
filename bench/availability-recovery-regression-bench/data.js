@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712997272518,
+  "lastUpdate": 1713001905970,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3149,6 +3149,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.21315963479999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7c698502d12b317c29838bfa6c0b928377477b19",
+          "message": "sc_network_test: Announce only the highest block (#4111)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4100",
+          "timestamp": "2024-04-13T08:40:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7c698502d12b317c29838bfa6c0b928377477b19"
+        },
+        "date": 1713001878636,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.480885335666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17554544033333333,
             "unit": "seconds"
           }
         ]
