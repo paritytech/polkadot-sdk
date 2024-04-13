@@ -1587,6 +1587,7 @@ impl pallet_mmr::Config for Runtime {
 	type Hashing = Keccak256;
 	type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 	type WeightInfo = ();
 }
 

@@ -103,6 +103,24 @@ impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
 	}
 }
 
+/// Block hash provider for a given block number.
+pub trait BlockHashProvider<BlockNumber, BlockHash> {
+	fn block_hash(block_number: BlockNumber) -> BlockHash;
+}
+
+/// Default implementation of BlockHashProvider using frame_system.
+pub struct DefaultBlockHashProvider<T: frame_system::Config> {
+	_phantom: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
+	for DefaultBlockHashProvider<T>
+{
+	fn block_hash(block_number: BlockNumberFor<T>) -> T::Hash {
+		frame_system::Pallet::<T>::block_hash(block_number)
+	}
+}
+
 pub trait WeightInfo {
 	fn on_initialize(peaks: NodeIndex) -> Weight;
 }
@@ -176,6 +194,12 @@ pub mod pallet {
 		/// digest (see [`frame_system::Pallet::deposit_log`]) to make it available for Light
 		/// Clients. Hook complexity should be `O(1)`.
 		type OnNewRoot: primitives::OnNewRoot<HashOf<Self, I>>;
+
+		/// Block hash provider for a given block number.
+		type BlockHashProvider: BlockHashProvider<
+			BlockNumberFor<Self>,
+			<Self as frame_system::Config>::Hash,
+		>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
