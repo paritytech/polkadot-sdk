@@ -1406,6 +1406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1257" id="1257">1257</a>
 <a href="#1258" id="1258">1258</a>
 <a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1801,11 +1802,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			futures::executor::block_on(<span class="self">self</span>.block_import.import_block(import_block))
 				.expect(<span class="string">&quot;block_import failed&quot;</span>);
-			<span class="kw">if </span>announce_block {
-				<span class="self">self</span>.sync_service.announce_block(hash, <span class="prelude-val">None</span>);
-			}
 			hashes.push(hash);
 			at = hash;
+		}
+
+		<span class="kw">if </span>announce_block {
+			<span class="self">self</span>.sync_service.announce_block(at, <span class="prelude-val">None</span>);
 		}
 
 		<span class="kw">if </span>inform_sync_about_new_best_block {
