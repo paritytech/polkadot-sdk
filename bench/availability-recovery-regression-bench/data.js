@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713005196233,
+  "lastUpdate": 1713008888913,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3233,6 +3233,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.827565032533334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Przemek Rzad",
+            "username": "rzadp",
+            "email": "przemek@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1bca825cc27599dfea7b254d0ce00e3c51e632ea",
+          "message": "Use `master` environment in the synchronize templates workflow (#4114)",
+          "timestamp": "2024-04-13T11:00:45Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bca825cc27599dfea7b254d0ce00e3c51e632ea"
+        },
+        "date": 1713008862695,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.799656464333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20963609379999998,
             "unit": "seconds"
           }
         ]
