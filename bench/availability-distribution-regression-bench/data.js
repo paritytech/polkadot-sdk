@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712996962599,
+  "lastUpdate": 1713001606312,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3899,6 +3899,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.01473623273333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7c698502d12b317c29838bfa6c0b928377477b19",
+          "message": "sc_network_test: Announce only the highest block (#4111)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4100",
+          "timestamp": "2024-04-13T08:40:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7c698502d12b317c29838bfa6c0b928377477b19"
+        },
+        "date": 1713001579623,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014327371000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024315642399999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1660467554666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007398111666666677,
             "unit": "seconds"
           }
         ]
