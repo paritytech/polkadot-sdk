@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713008888913,
+  "lastUpdate": 1713012412571,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3275,6 +3275,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20963609379999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "30c58fa22ad9fc6630e07e43ee2307675462995a",
+          "message": "Deploy `pallet-parameters` to rococo and fix dynamic_params name expand (#4006)\n\nChanges:\n- Add pallet-parameters to Rococo to configure the NIS and preimage\npallet.\n- Fix names of expanded dynamic params. Apparently, `to_class_case`\nremoves suffix `s`, and `Nis` becomes `Ni` 😑. Now using\n`to_pascal_case`.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Alessandro Siniscalchi <asiniscalchi@gmail.com>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-13T11:20:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/30c58fa22ad9fc6630e07e43ee2307675462995a"
+        },
+        "date": 1713012386243,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.22164129346666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.845435249466666,
             "unit": "seconds"
           }
         ]
