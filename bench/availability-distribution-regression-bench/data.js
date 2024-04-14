@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713105006820,
+  "lastUpdate": 1713131128846,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4159,6 +4159,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16739014040000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "88fe94516cf7c802e20aae3846d684c108765757",
+          "message": "rococo_contracts: Adds missing migration (#4112)\n\nCo-authored-by: Liam Aharon <liam.aharon@hotmail.com>",
+          "timestamp": "2024-04-14T20:39:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/88fe94516cf7c802e20aae3846d684c108765757"
+        },
+        "date": 1713131101682,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013013171666666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1553870986666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024031249999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006353528399999996,
             "unit": "seconds"
           }
         ]
