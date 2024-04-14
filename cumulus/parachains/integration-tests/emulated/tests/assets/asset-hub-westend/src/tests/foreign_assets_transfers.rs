@@ -137,14 +137,13 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sender = AssetHubWestendSender::get();
 	let native_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let native_asset_location = v3::Location::try_from(RelayLocation::get()).unwrap();
+	let native_asset_location = RelayLocation::get();
 	let receiver = PenpalAReceiver::get();
 	let assets_owner = PenpalAssetOwner::get();
 	// Foreign asset used: bridged ROC
 	let foreign_amount_to_send = ASSET_HUB_WESTEND_ED * 10_000_000;
 	let roc_at_westend_parachains =
-		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
-	let roc_at_westend_parachains_latest: Location = roc_at_westend_parachains.try_into().unwrap();
+		Location::new(2, [Junction::GlobalConsensus(NetworkId::Rococo)]);
 
 	// Configure destination chain to trust AH as reserve of ROC
 	PenpalA::execute_with(|| {
@@ -157,14 +156,14 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		));
 	});
 	PenpalA::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
 		vec![],
 	);
 	AssetHubWestend::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone().try_into().unwrap(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
@@ -172,7 +171,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	);
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone().try_into().unwrap(),
 		sender.clone(),
 		foreign_amount_to_send * 2,
 	);
@@ -180,7 +179,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	// Assets to send
 	let assets: Vec<Asset> = vec![
 		(Parent, native_amount_to_send).into(),
-		(roc_at_westend_parachains_latest, foreign_amount_to_send).into(),
+		(roc_at_westend_parachains.clone(), foreign_amount_to_send).into(),
 	];
 	let fee_asset_id = AssetId(Parent.into());
 	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
@@ -204,15 +203,18 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let sender_balance_before = test.sender.balance;
 	let sender_rocs_before = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &sender)
+		<ForeignAssets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sender,
+		)
 	});
 	let receiver_assets_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location.into(), &receiver)
+		<ForeignAssets as Inspect<_>>::balance(native_asset_location.clone(), &receiver)
 	});
 	let receiver_rocs_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
 	// Set assertions and dispatchables
@@ -225,7 +227,10 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let sender_balance_after = test.sender.balance;
 	let sender_rocs_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &sender)
+		<ForeignAssets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sender,
+		)
 	});
 	let receiver_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
@@ -262,14 +267,13 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	let destination = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let sender = PenpalASender::get();
 	let native_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 10000;
-	let native_asset_location = v3::Location::try_from(RelayLocation::get()).unwrap();
+	let native_asset_location = RelayLocation::get();
 	let assets_owner = PenpalAssetOwner::get();
 
 	// Foreign asset used: bridged ROC
 	let foreign_amount_to_send = ASSET_HUB_WESTEND_ED * 10_000_000;
 	let roc_at_westend_parachains =
-		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
-	let roc_at_westend_parachains_latest: Location = roc_at_westend_parachains.try_into().unwrap();
+		Location::new(2, [Junction::GlobalConsensus(NetworkId::Rococo)]);
 
 	// Configure destination chain to trust AH as reserve of ROC
 	PenpalA::execute_with(|| {
@@ -282,14 +286,14 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		));
 	});
 	PenpalA::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
 		vec![],
 	);
 	AssetHubWestend::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone().try_into().unwrap(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
@@ -299,13 +303,13 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
-		native_asset_location,
+		native_asset_location.clone(),
 		sender.clone(),
 		native_amount_to_send * 2,
 	);
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone(),
 		sender.clone(),
 		foreign_amount_to_send * 2,
 	);
@@ -323,7 +327,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	)]);
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone().try_into().unwrap(),
 		sov_penpal_on_ahr,
 		foreign_amount_to_send * 2,
 	);
@@ -331,7 +335,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// Assets to send
 	let assets: Vec<Asset> = vec![
 		(Parent, native_amount_to_send).into(),
-		(roc_at_westend_parachains_latest, foreign_amount_to_send).into(),
+		(roc_at_westend_parachains.clone(), foreign_amount_to_send).into(),
 	];
 	let fee_asset_id = AssetId(Parent.into());
 	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
@@ -354,16 +358,19 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// Query initial balances
 	let sender_native_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(native_asset_location.clone(), &sender)
 	});
 	let sender_rocs_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &sender)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let receiver_native_before = test.receiver.balance;
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&receiver,
+		)
 	});
 
 	// Set assertions and dispatchables
@@ -379,12 +386,15 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	});
 	let sender_rocs_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &sender)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let receiver_native_after = test.receiver.balance;
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(
+			roc_at_westend_parachains.try_into().unwrap(),
+			&receiver,
+		)
 	});
 
 	// Sender's balance is reduced by amount sent plus delivery fees
@@ -413,8 +423,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	let sender = PenpalASender::get();
 	let wnd_to_send: Balance = WESTEND_ED * 10000;
 	let assets_owner = PenpalAssetOwner::get();
-	let wnd_location = v3::Location::try_from(RelayLocation::get()).unwrap();
-	let wnd_location_latest: Location = wnd_location.try_into().unwrap();
+	let wnd_location = RelayLocation::get();
 	let sender_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_of_sender_on_ah = AssetHubWestend::sovereign_account_id_of(sender_as_seen_by_ah);
 	let receiver_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalB::para_id());
@@ -434,24 +443,23 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 
 	// Register ROC as foreign asset and transfer it around the Westend ecosystem
 	let roc_at_westend_parachains =
-		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
-	let roc_at_westend_parachains_latest: Location = roc_at_westend_parachains.try_into().unwrap();
+		Location::new(2, [Junction::GlobalConsensus(NetworkId::Rococo)]);
 	AssetHubWestend::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone().try_into().unwrap(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
 		vec![],
 	);
 	PenpalA::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
 		vec![],
 	);
 	PenpalB::force_create_foreign_asset(
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone(),
 		assets_owner.clone(),
 		false,
 		ASSET_MIN_BALANCE,
@@ -461,13 +469,13 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
-		wnd_location,
+		wnd_location.clone(),
 		sender.clone(),
 		wnd_to_send * 2,
 	);
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone(),
 		sender.clone(),
 		roc_to_send * 2,
 	);
@@ -475,7 +483,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah.clone().into(), wnd_to_send * 2)]);
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
-		roc_at_westend_parachains,
+		roc_at_westend_parachains.clone().try_into().unwrap(),
 		sov_of_sender_on_ah.clone(),
 		roc_to_send * 2,
 	);
@@ -485,10 +493,10 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 
 	// Assets to send
 	let assets: Vec<Asset> = vec![
-		(wnd_location_latest.clone(), wnd_to_send).into(),
-		(roc_at_westend_parachains_latest, roc_to_send).into(),
+		(wnd_location.clone(), wnd_to_send).into(),
+		(roc_at_westend_parachains.clone(), roc_to_send).into(),
 	];
-	let fee_asset_id: AssetId = wnd_location_latest.into();
+	let fee_asset_id: AssetId = wnd_location.clone().into();
 	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
 
 	// Init Test
@@ -509,31 +517,37 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	// Query initial balances
 	let sender_wnds_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(wnd_location.clone(), &sender)
 	});
 	let sender_rocs_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &sender)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let wnds_in_sender_reserve_on_ah_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_of_sender_on_ah.clone()).free;
 	let rocs_in_sender_reserve_on_ah_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_westend_parachains, &sov_of_sender_on_ah)
+		<Assets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sov_of_sender_on_ah,
+		)
 	});
 	let wnds_in_receiver_reserve_on_ah_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_of_receiver_on_ah.clone()).free;
 	let rocs_in_receiver_reserve_on_ah_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_westend_parachains, &sov_of_receiver_on_ah)
+		<Assets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sov_of_receiver_on_ah,
+		)
 	});
 	let receiver_wnds_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(wnd_location.clone(), &receiver)
 	});
 	let receiver_rocs_before = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
 	// Set assertions and dispatchables
@@ -546,21 +560,27 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	// Query final balances
 	let sender_wnds_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location, &sender)
+		<ForeignAssets as Inspect<_>>::balance(wnd_location.clone(), &sender)
 	});
 	let sender_rocs_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &sender)
+		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let rocs_in_sender_reserve_on_ah_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_westend_parachains, &sov_of_sender_on_ah)
+		<Assets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sov_of_sender_on_ah,
+		)
 	});
 	let wnds_in_sender_reserve_on_ah_after =
 		<AssetHubWestend as Chain>::account_data_of(sov_of_sender_on_ah).free;
 	let rocs_in_receiver_reserve_on_ah_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
-		<Assets as Inspect<_>>::balance(roc_at_westend_parachains, &sov_of_receiver_on_ah)
+		<Assets as Inspect<_>>::balance(
+			roc_at_westend_parachains.clone().try_into().unwrap(),
+			&sov_of_receiver_on_ah,
+		)
 	});
 	let wnds_in_receiver_reserve_on_ah_after =
 		<AssetHubWestend as Chain>::account_data_of(sov_of_receiver_on_ah).free;
