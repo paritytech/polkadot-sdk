@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713012109374,
+  "lastUpdate": 1713105006820,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4107,6 +4107,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15674900779999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jonathan Udd",
+            "username": "jonathanudd",
+            "email": "jonathan@dwellir.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6688eac5ab21e7d9138b7ce6c90d1ce88d1f8962",
+          "message": "Adding Dwellir bootnodes for Coretime Westend, People Westend and Paseo (#4066)\n\nVerified by running a node using `--reserved-only` and\n`--reserved-nodes`.",
+          "timestamp": "2024-04-14T13:23:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6688eac5ab21e7d9138b7ce6c90d1ce88d1f8962"
+        },
+        "date": 1713104979823,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008329658933333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014857028399999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0243388844,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16739014040000003,
             "unit": "seconds"
           }
         ]
