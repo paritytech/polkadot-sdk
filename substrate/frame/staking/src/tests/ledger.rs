@@ -226,7 +226,7 @@ fn update_payee_migration_works() {
 
 #[test]
 fn deprecate_controller_batch_works_full_weight() {
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		// Given:
 
 		let start = 1001;
