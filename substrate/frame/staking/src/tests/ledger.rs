@@ -85,6 +85,49 @@ fn get_ledger_works() {
 }
 
 #[test]
+fn get_ledger_bad_state_fails() {
+	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+		setup_double_bonded_ledgers();
+
+		// Case 1: double bonded but not corrupted:
+		// stash 444 has controller 555:
+		assert_eq!(Bonded::<Test>::get(444), Some(555));
+		assert_eq!(Ledger::<Test>::get(555).unwrap().stash, 444);
+
+		// stash 444 is also a controller of 333:
+		assert_eq!(Bonded::<Test>::get(333), Some(444));
+		assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(333)), Some(444));
+		assert_eq!(Ledger::<Test>::get(444).unwrap().stash, 333);
+
+		// although 444 is double bonded (it is a controller and a stash of different ledgers),
+		// we can safely retrieve the ledger and mutate it since the correct ledger is
+		// returned.
+		let ledger_result = StakingLedger::<Test>::get(StakingAccount::Stash(444));
+		assert_eq!(ledger_result.unwrap().stash, 444); // correct ledger.
+
+		let ledger_result = StakingLedger::<Test>::get(StakingAccount::Controller(444));
+		assert_eq!(ledger_result.unwrap().stash, 333); // correct ledger.
+
+		// fetching ledger 333 by its stash works.
+		let ledger_result = StakingLedger::<Test>::get(StakingAccount::Stash(333));
+		assert_eq!(ledger_result.unwrap().stash, 333);
+
+		// Case 2: corrupted ledger bonding.
+		// in this case, we simulate what happens when fetching a ledger by stash returns a
+		// ledger with a different stash. when this happens, we return an error instead of the
+		// ledger to prevent ledger mutations.
+		let mut ledger = Ledger::<Test>::get(444).unwrap();
+		assert_eq!(ledger.stash, 333);
+		ledger.stash = 444;
+		Ledger::<Test>::insert(444, ledger);
+
+		// now, we are prevented from fetching the ledger by stash from 1. It's associated
+		// controller (2) is now bonding a ledger with a different stash (2, not 1).
+		assert!(StakingLedger::<Test>::get(StakingAccount::Stash(333)).is_err());
+	})
+}
+
+#[test]
 fn bond_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
@@ -104,6 +147,28 @@ fn bond_works() {
 		// once bonded, update works as expected.
 		ledger.legacy_claimed_rewards = bounded_vec![1];
 		assert_ok!(ledger.update());
+	})
+}
+
+#[test]
+fn bond_controller_cannot_be_stash_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
+			0,
+			10,
+			RewardDestination::Staked,
+			false,
+		)
+		.unwrap();
+
+		assert_eq!(Bonded::<Test>::get(stash), Some(controller));
+		assert_eq!(Ledger::<Test>::get(controller).map(|l| l.stash), Some(stash));
+
+		// existing controller should not be able become a stash.
+		assert_noop!(
+			Staking::bond(RuntimeOrigin::signed(controller), 10, RewardDestination::Staked),
+			Error::<Test>::AlreadyPaired,
+		);
 	})
 }
 
