@@ -20141,6 +20141,7 @@ dependencies = [
  "parity-wasm",
  "polkavm-linker",
  "sc-executor",
+ "sp-core",
  "sp-io",
  "sp-maybe-compressed-blob",
  "sp-tracing 16.0.0",

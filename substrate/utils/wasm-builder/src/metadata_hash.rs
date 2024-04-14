@@ -18,27 +18,38 @@
 use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
-use sc_executor::{ WasmExecutor, Runtime };
+use sc_executor::WasmExecutor;
+use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
 use std::path::Path;
 
-type HostFunctions = (
-sp_io::allocator::HostFunctions, sp_io::logging::HostFunctions, sp_io::storage::HostFunctions,
-);
+type HostFunctions =
+	(sp_io::allocator::HostFunctions, sp_io::logging::HostFunctions, sp_io::storage::HostFunctions);
 
 pub fn generate_hash(wasm: &Path) -> [u8; 32] {
 	sp_tracing::try_init_simple();
 
 	let wasm = std::fs::read(wasm).expect("Reads wasm");
 
-	let executor = WasmExecutor::builder().with_allow_missing_host_functions(yes).build();
+	let executor = WasmExecutor::<HostFunctions>::builder()
+		.with_allow_missing_host_functions(true)
+		.build();
 
-	let runtime_blob = RuntimeBlob::new(&wasm).unwrap();
-	let metadata =
-		executor
-		.call(&runtime_blob, "Metadata_metadata_at_version", &15u32.encode())
+	let metadata = executor
+		.call(
+			&mut sp_io::TestExternalities::default().ext(),
+			&RuntimeCode {
+				code_fetcher: &WrappedRuntimeCode(wasm.into()),
+				heap_pages: None,
+				hash: vec![1, 2, 3],
+			},
+			"Metadata_metadata_at_version",
+			&15u32.encode(),
+			CallContext::Offchain,
+		)
+		.0
 		.expect("Calls `Metadata_metadata`");
 
-	let metadata = Option::<Vec::<u8>>::decode(&mut &metadata[..]).unwrap().unwrap();
+	let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..]).unwrap().unwrap();
 
 	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..]).unwrap().1;
 
