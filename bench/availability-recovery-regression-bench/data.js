@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713012412571,
+  "lastUpdate": 1713105309456,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3317,6 +3317,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.845435249466666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jonathan Udd",
+            "username": "jonathanudd",
+            "email": "jonathan@dwellir.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6688eac5ab21e7d9138b7ce6c90d1ce88d1f8962",
+          "message": "Adding Dwellir bootnodes for Coretime Westend, People Westend and Paseo (#4066)\n\nVerified by running a node using `--reserved-only` and\n`--reserved-nodes`.",
+          "timestamp": "2024-04-14T13:23:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6688eac5ab21e7d9138b7ce6c90d1ce88d1f8962"
+        },
+        "date": 1713105281792,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2237714726666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.86077245186667,
             "unit": "seconds"
           }
         ]
