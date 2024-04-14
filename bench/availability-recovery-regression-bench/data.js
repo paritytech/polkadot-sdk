@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713105309456,
+  "lastUpdate": 1713131430900,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3359,6 +3359,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.86077245186667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "88fe94516cf7c802e20aae3846d684c108765757",
+          "message": "rococo_contracts: Adds missing migration (#4112)\n\nCo-authored-by: Liam Aharon <liam.aharon@hotmail.com>",
+          "timestamp": "2024-04-14T20:39:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/88fe94516cf7c802e20aae3846d684c108765757"
+        },
+        "date": 1713131403550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.722635476533329,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20363307246666668,
             "unit": "seconds"
           }
         ]
