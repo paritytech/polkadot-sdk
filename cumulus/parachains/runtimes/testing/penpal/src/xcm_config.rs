@@ -50,11 +50,11 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, CurrencyAdapter, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, LocalMint,
-	NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -310,8 +310,7 @@ pub type Reserves = (
 	AssetPrefixFrom<EthereumLocation, SystemAssetHubLocation>,
 );
 
-pub type TrustedTeleporters =
-	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>;
+pub type TrustedTeleporters = AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
