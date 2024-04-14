@@ -329,125 +329,63 @@ fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
 		assert_eq!(ledger_updated.stash, stash);
 	})
 }
+#[test]
+fn deprecate_controller_batch_with_bad_state_ok() {
+	ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+		setup_double_bonded_ledgers();
 
-	#[test]
-	fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
-			// Given:
+		// now let's deprecate all the controllers for all the existing ledgers.
+		let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInDeprecationBatch> =
+			BoundedVec::try_from(vec![333, 444, 555, 777]).unwrap();
 
-			let stash: u64 = 1000;
-			let ctlr: u64 = 1001;
+		assert_ok!(Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers));
 
-			Ledger::<Test>::insert(
-				ctlr,
-				StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
-			);
-			Bonded::<Test>::insert(stash, ctlr);
-			#[allow(deprecated)]
-			Payee::<Test>::insert(stash, RewardDestination::Controller);
+		assert_eq!(
+			*staking_events().last().unwrap(),
+			Event::ControllerBatchDeprecated { failures: 0 }
+		);
+	})
+}
 
-			// When:
+#[test]
+fn deprecate_controller_batch_with_bad_state_failures() {
+	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+		setup_double_bonded_ledgers();
 
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(vec![ctlr]).unwrap();
+		// now let's deprecate all the controllers for all the existing ledgers.
+		let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInDeprecationBatch> =
+			BoundedVec::try_from(vec![777, 555, 444, 333]).unwrap();
 
-			let result =
-				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
-			assert_ok!(result);
-			assert_eq!(
-				result.unwrap().actual_weight.unwrap(),
-				<Test as Config>::WeightInfo::deprecate_controller_batch(1 as u32)
-			);
+		assert_ok!(Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers));
 
-			// Then:
+		assert_eq!(
+			*staking_events().last().unwrap(),
+			Event::ControllerBatchDeprecated { failures: 2 }
+		);
+	})
+}
 
-			// Esure deprecation did not happen.
-			assert_eq!(Ledger::<Test>::get(ctlr).is_some(), true);
+#[test]
+fn set_controller_with_bad_state_ok() {
+	ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+		setup_double_bonded_ledgers();
 
-			// Bonded still keyed by controller.
-			assert_eq!(Bonded::<Test>::get(stash), Some(ctlr));
+		// in this case, setting controller works due to the ordering of the calls.
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(444)));
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(555)));
+	})
+}
 
-			// Ledger is still keyed by controller.
-			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
-			assert_eq!(ledger_updated.stash, stash);
-		})
-	}
+#[test]
+fn set_controller_with_bad_state_fails() {
+	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+		setup_double_bonded_ledgers();
 
-	#[test]
-	fn deprecate_controller_batch_with_bad_state_ok() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// now let's deprecate all the controllers for all the existing ledgers.
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(vec![333, 444, 555, 777]).unwrap();
-
-			assert_ok!(Staking::deprecate_controller_batch(
-				RuntimeOrigin::root(),
-				bounded_controllers
-			));
-
-			assert_eq!(
-				*staking_events().last().unwrap(),
-				Event::ControllerBatchDeprecated { failures: 0 }
-			);
-		})
-	}
-
-	#[test]
-	fn deprecate_controller_batch_with_bad_state_failures() {
-		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// now let's deprecate all the controllers for all the existing ledgers.
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(vec![777, 555, 444, 333]).unwrap();
-
-			assert_ok!(Staking::deprecate_controller_batch(
-				RuntimeOrigin::root(),
-				bounded_controllers
-			));
-
-			assert_eq!(
-				*staking_events().last().unwrap(),
-				Event::ControllerBatchDeprecated { failures: 2 }
-			);
-		})
-	}
-
-	#[test]
-	fn set_controller_with_bad_state_ok() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// in this case, setting controller works due to the ordering of the calls.
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(444)));
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(555)));
-		})
-	}
-
-	#[test]
-	fn set_controller_with_bad_state_fails() {
-		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// setting the controller of ledger associated with stash 555 fails since its stash is a
-			// controller of another ledger.
-			assert_noop!(
-				Staking::set_controller(RuntimeOrigin::signed(555)),
-				Error::<Test>::BadState
-			);
-			assert_noop!(
-				Staking::set_controller(RuntimeOrigin::signed(444)),
-				Error::<Test>::BadState
-			);
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
-		})
-	}
+		// setting the controller of ledger associated with stash 555 fails since its stash is a
+		// controller of another ledger.
+		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(555)), Error::<Test>::BadState);
+		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(444)), Error::<Test>::BadState);
+		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+	})
+}
