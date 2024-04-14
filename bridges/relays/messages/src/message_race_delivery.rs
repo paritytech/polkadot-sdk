@@ -446,7 +446,7 @@ where
 		))
 	}
 
-	/// Returns lastest confirmed message at source chain, given source block.
+	/// Returns latest confirmed message at source chain, given source block.
 	fn latest_confirmed_nonce_at_source(&self, at: &SourceHeaderIdOf<P>) -> Option<MessageNonce> {
 		self.latest_confirmed_nonces_at_source
 			.iter()
