@@ -18,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = "6.1"
 chrono = "0.4"
-clap = { version = "4.5.1", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 comfy-table = { version = "7.1.0", default-features = false }
-handlebars = "4.2.2"
+handlebars = "5.1.0"
 Inflector = "0.11.4"
 itertools = "0.10.3"
 lazy_static = "1.4.0"
@@ -37,6 +37,7 @@ frame-benchmarking = { path = "../../../frame/benchmarking" }
 frame-support = { path = "../../../frame/support" }
 frame-system = { path = "../../../frame/system" }
 sc-block-builder = { path = "../../../client/block-builder" }
+sc-chain-spec = { path = "../../../client/chain-spec", default-features = false }
 sc-cli = { path = "../../../client/cli", default-features = false }
 sc-client-api = { path = "../../../client/api" }
 sc-client-db = { path = "../../../client/db", default-features = false }
@@ -48,6 +49,7 @@ sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-core = { path = "../../../primitives/core" }
 sp-database = { path = "../../../primitives/database" }
 sp-externalities = { path = "../../../primitives/externalities" }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }

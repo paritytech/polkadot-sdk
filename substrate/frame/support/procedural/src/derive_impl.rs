@@ -279,7 +279,7 @@ fn test_runtime_type_with_doc() {
 }
 
 #[test]
-fn test_disambugation_path() {
+fn test_disambiguation_path() {
 	let foreign_impl: ItemImpl = parse_quote!(impl SomeTrait for SomeType {});
 	let default_impl_path: Path = parse_quote!(SomeScope::SomeType);
 

@@ -25,12 +25,8 @@ use crate::{
 };
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::DispatchInfo,
-	ensure,
-	pallet_prelude::{DispatchResult, DispatchResultWithPostInfo},
-	parameter_types,
-	traits::Get,
-	weights::Weight,
+	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
+	traits::Get, weights::Weight,
 };
 use pallet_contracts_proc_macro::define_env;
 use pallet_contracts_uapi::{CallFlags, ReturnFlags};
@@ -41,9 +37,6 @@ use sp_runtime::{
 };
 use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
-use xcm::VersionedXcm;
-
-type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
@@ -245,7 +238,7 @@ pub enum RuntimeCosts {
 	/// Weight of calling `account_reentrance_count`
 	AccountEntranceCount,
 	/// Weight of calling `instantiation_nonce`
-	InstantationNonce,
+	InstantiationNonce,
 	/// Weight of calling `lock_delegate_dependency`
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
@@ -337,7 +330,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => s.ecdsa_to_eth_address,
 			ReentrantCount => s.reentrance_count,
 			AccountEntranceCount => s.account_reentrance_count,
-			InstantationNonce => s.instantiation_nonce,
+			InstantiationNonce => s.instantiation_nonce,
 			LockDelegateDependency => s.lock_delegate_dependency,
 			UnlockDelegateDependency => s.unlock_delegate_dependency,
 		}
@@ -376,29 +369,6 @@ impl CallType {
 /// the beginning of the API entry point.
 fn already_charged(_: u32) -> Option<RuntimeCosts> {
 	None
-}
-
-/// Ensure that the XCM program is executable, by checking that it does not contain any [`Transact`]
-/// instruction with a call that is not allowed by the CallFilter.
-fn ensure_executable<T: Config>(message: &VersionedXcm<CallOf<T>>) -> DispatchResult {
-	use frame_support::traits::Contains;
-	use xcm::prelude::{Transact, Xcm};
-
-	let mut message: Xcm<CallOf<T>> =
-		message.clone().try_into().map_err(|_| Error::<T>::XCMDecodeFailed)?;
-
-	message.iter_mut().try_for_each(|inst| -> DispatchResult {
-		let Transact { ref mut call, .. } = inst else { return Ok(()) };
-		let call = call.ensure_decoded().map_err(|_| Error::<T>::XCMDecodeFailed)?;
-
-		if !<T as Config>::CallFilter::contains(call) {
-			return Err(frame_system::Error::<T>::CallFiltered.into())
-		}
-
-		Ok(())
-	})?;
-
-	Ok(())
 }
 
 /// Can only be used for one call.
@@ -2112,16 +2082,13 @@ pub mod env {
 		msg_len: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::DispatchInfo;
-		use xcm::VersionedXcm;
 		use xcm_builder::{ExecuteController, ExecuteControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let message: VersionedXcm<CallOf<E::T>> =
-			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
-		ensure_executable::<E::T>(&message)?;
+		let message = ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
 
 		let execute_weight =
-			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
+			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute_blob();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
@@ -2130,9 +2097,9 @@ pub mod env {
 			RuntimeCosts::CallXcmExecute,
 			|ctx| {
 				let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
-				let weight_used = <<E::T as Config>::Xcm>::execute(
+				let weight_used = <<E::T as Config>::Xcm>::execute_blob(
 					origin,
-					Box::new(message),
+					message,
 					weight.saturating_sub(execute_weight),
 				)?;
 
@@ -2152,19 +2119,18 @@ pub mod env {
 		msg_len: u32,
 		output_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		use xcm::{VersionedLocation, VersionedXcm};
+		use xcm::VersionedLocation;
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let dest: VersionedLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
 
-		let message: VersionedXcm<()> =
-			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
-		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
+		let message = ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
+		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send_blob();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
 
-		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
+		match <<E::T as Config>::Xcm>::send_blob(origin, dest.into(), message) {
 			Ok(message_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &message_id.encode())?;
 				Ok(ReturnErrorCode::Success)
@@ -2298,7 +2264,7 @@ pub mod env {
 	/// Returns a nonce that is unique per contract instantiation.
 	/// See [`pallet_contracts_uapi::HostFn::instantiation_nonce`].
 	fn instantiation_nonce(ctx: _, _memory: _) -> Result<u64, TrapReason> {
-		ctx.charge_gas(RuntimeCosts::InstantationNonce)?;
+		ctx.charge_gas(RuntimeCosts::InstantiationNonce)?;
 		Ok(ctx.ext.nonce())
 	}
 

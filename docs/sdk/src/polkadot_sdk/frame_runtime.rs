@@ -162,7 +162,7 @@ pub mod runtime {
 	);
 
 	// These `impl` blocks specify the parameters of each pallet's `trait Config`.
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}

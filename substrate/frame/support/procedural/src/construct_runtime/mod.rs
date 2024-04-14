@@ -24,7 +24,7 @@
 //!  - Implicitly: `System: frame_system`
 //!  - Explicitly: `System: frame_system::{Pallet, Call}`
 //!
-//! The `construct_runtime` transitions from the implicit definition to the explict one.
+//! The `construct_runtime` transitions from the implicit definition to the explicit one.
 //! From the explicit state, Substrate expands the pallets with additional information
 //! that is to be included in the runtime metadata. This expansion makes visible some extra
 //! parts of the pallets, mainly the `Error` if defined. The expanded state looks like
@@ -55,7 +55,7 @@
 //!  +----------+     +------------------+
 //! ```
 //!
-//! When all pallet parts are implcit, then the `construct_runtime!` macro expands to its final
+//! When all pallet parts are implicit, then the `construct_runtime!` macro expands to its final
 //! state, the `ExplicitExpanded`. Otherwise, all implicit parts are converted to an explicit
 //! expanded part allow the `construct_runtime!` to expand any remaining explicit parts to an
 //! explicit expanded part.
@@ -202,14 +202,14 @@
 //! Similarly to the previous transition, the macro expansion transforms `System:
 //! frame_system::{Pallet, Call}` into  `System: frame_system expanded::{Error} ::{Pallet, Call}`.
 //! The `expanded` section adds extra parts that the Substrate would like to expose for each pallet
-//! by default. This is done to expose the approprite types for metadata construction.
+//! by default. This is done to expose the appropriate types for metadata construction.
 //!
 //! This time, instead of calling `tt_default_parts` we are using the `tt_extra_parts` macro.
 //! This macro returns the ` :: expanded { Error }` list of additional parts we would like to
 //! expose.
 
-mod expand;
-mod parse;
+pub(crate) mod expand;
+pub(crate) mod parse;
 
 use crate::pallet::parse::helper::two128_str;
 use cfg_expr::Predicate;
@@ -515,7 +515,7 @@ fn construct_runtime_final_expansion(
 	Ok(res)
 }
 
-fn decl_all_pallets<'a>(
+pub(crate) fn decl_all_pallets<'a>(
 	runtime: &'a Ident,
 	pallet_declarations: impl Iterator<Item = &'a Pallet>,
 	features: &HashSet<&str>,
@@ -624,7 +624,8 @@ fn decl_all_pallets<'a>(
 		#( #all_pallets_without_system )*
 	)
 }
-fn decl_pallet_runtime_setup(
+
+pub(crate) fn decl_pallet_runtime_setup(
 	runtime: &Ident,
 	pallet_declarations: &[Pallet],
 	scrate: &TokenStream2,
@@ -730,7 +731,7 @@ fn decl_pallet_runtime_setup(
 	)
 }
 
-fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
+pub(crate) fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
 	quote!(
 		#[cfg(test)]
 		mod __construct_runtime_integrity_test {
@@ -745,7 +746,7 @@ fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
 	)
 }
 
-fn decl_static_assertions(
+pub(crate) fn decl_static_assertions(
 	runtime: &Ident,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
@@ -776,7 +777,7 @@ fn decl_static_assertions(
 	}
 }
 
-fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
+pub(crate) fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
 	let max_pallet_num = {
 		if cfg!(feature = "tuples-96") {
 			96

@@ -25,7 +25,7 @@ proc-macro-crate = "3.0.0"
 
 [dev-dependencies]
 parity-scale-codec = "3.6.1"
-scale-info = "2.10.0"
+scale-info = "2.11.1"
 sp-arithmetic = { path = "../../../primitives/arithmetic" }
 # used by generate_solution_type:
 frame-election-provider-support = { path = ".." }

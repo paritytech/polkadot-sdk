@@ -115,7 +115,7 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = 1.0)]
 	/// Max candidate to be signed in a single approval.
 	pub coalesce_std_dev: f32,
-	/// The maximum tranche diff between approvals coalesced toghther.
+	/// The maximum tranche diff between approvals coalesced together.
 	pub coalesce_tranche_diff: u32,
 	#[clap(short, long, default_value_t = false)]
 	/// Enable assignments v2.
@@ -170,7 +170,7 @@ struct BlockTestData {
 	total_candidates_before: u64,
 	/// The votes we sent.
 	/// votes[validator_index][candidate_index] tells if validator sent vote for candidate.
-	/// We use this to mark the test as succesfull if GetApprovalSignatures returns all the votes
+	/// We use this to mark the test as successful if GetApprovalSignatures returns all the votes
 	/// from here.
 	votes: Arc<Vec<Vec<AtomicBool>>>,
 }
@@ -237,7 +237,7 @@ struct GeneratedState {
 }
 
 /// Approval test state used by all mock subsystems to be able to answer messages emitted
-/// by the approval-voting and approval-distribution-subystems.
+/// by the approval-voting and approval-distribution-subsystems.
 ///
 /// This gets cloned across all mock subsystems, so if there is any information that gets
 /// updated between subsystems, they would have to be wrapped in Arc's.
@@ -498,7 +498,7 @@ struct PeerMessageProducer {
 
 impl PeerMessageProducer {
 	/// Generates messages by spawning a blocking task in the background which begins creating
-	/// the assignments/approvals and peer view changes at the begining of each block.
+	/// the assignments/approvals and peer view changes at the beginning of each block.
 	fn produce_messages(
 		mut self,
 		env: &TestEnvironment,
@@ -740,7 +740,7 @@ impl PeerMessageProducer {
 		}
 	}
 
-	// Initializes the candidates test data. This is used for bookeeping if more assignments and
+	// Initializes the candidates test data. This is used for bookkeeping if more assignments and
 	// approvals would be needed.
 	fn initialize_candidates_test_data(
 		&self,
@@ -767,7 +767,7 @@ impl PeerMessageProducer {
 }
 
 /// Helper function to build an overseer with the real implementation for `ApprovalDistribution` and
-/// `ApprovalVoting` subystems and mock subsytems for all others.
+/// `ApprovalVoting` subsystems and mock subsystems for all others.
 fn build_overseer(
 	state: &ApprovalTestState,
 	network: &NetworkEmulatorHandle,
@@ -936,7 +936,7 @@ pub async fn bench_approvals_run(
 	for block_num in 0..env.config().num_blocks {
 		let mut current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 
-		// Wait untill the time arrieves at the first slot under test.
+		// Wait until the time arrives at the first slot under test.
 		while current_slot < state.generated_state.initial_slot {
 			sleep(Duration::from_millis(5)).await;
 			current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
@@ -961,7 +961,7 @@ pub async fn bench_approvals_run(
 	}
 
 	// Wait for all blocks to be approved before exiting.
-	// This is an invariant of the benchmark, if this does not happen something went teribbly wrong.
+	// This is an invariant of the benchmark, if this does not happen something went terribly wrong.
 	while state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst) <
 		env.config().num_blocks as u32
 	{

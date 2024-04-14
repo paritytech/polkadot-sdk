@@ -125,11 +125,6 @@ pub use sp_arithmetic::{
 	Perquintill, Rational128, Rounding, UpperOf,
 };
 
-pub use transaction_validity::{
-	InvalidTransaction, TransactionSource, TransactionValidityError, UnknownTransaction,
-	ValidTransaction,
-};
-
 pub use either::Either;
 
 /// The number of bytes of the module-specific `error` field defined in [`ModuleError`].
@@ -448,21 +443,21 @@ impl std::fmt::Display for MultiSigner {
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
-		match self {
-			Self::Ed25519(ref sig) => match ed25519::Public::from_slice(signer.as_ref()) {
+		match (self, signer) {
+			(Self::Ed25519(ref sig), who) => match ed25519::Public::from_slice(who.as_ref()) {
 				Ok(signer) => sig.verify(msg, &signer),
 				Err(()) => false,
 			},
-			Self::Sr25519(ref sig) => match sr25519::Public::from_slice(signer.as_ref()) {
+			(Self::Sr25519(ref sig), who) => match sr25519::Public::from_slice(who.as_ref()) {
 				Ok(signer) => sig.verify(msg, &signer),
 				Err(()) => false,
 			},
-			Self::Ecdsa(ref sig) => {
+			(Self::Ecdsa(ref sig), who) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
 				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
 					Ok(pubkey) =>
 						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(signer),
+							<dyn AsRef<[u8; 32]>>::as_ref(who),
 					_ => false,
 				}
 			},
@@ -949,13 +944,9 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
 impl traits::Extrinsic for OpaqueExtrinsic {
 	type Call = ();
 	type SignaturePayload = ();
-	fn is_bare(&self) -> bool {
-		false
-	}
 }
 
 /// Print something that implements `Printable` from the runtime.

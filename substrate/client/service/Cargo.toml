@@ -30,7 +30,7 @@ runtime-benchmarks = [
 [dependencies]
 jsonrpsee = { version = "0.22", features = ["server"] }
 thiserror = { workspace = true }
-futures = "0.3.21"
+futures = "0.3.30"
 rand = "0.8.5"
 parking_lot = "0.12.1"
 log = { workspace = true, default-features = true }
@@ -54,10 +54,10 @@ sp-consensus = { path = "../../primitives/consensus/common" }
 sc-consensus = { path = "../consensus/common" }
 sp-storage = { path = "../../primitives/storage" }
 sc-network = { path = "../network" }
-sc-network-bitswap = { path = "../network/bitswap" }
 sc-network-common = { path = "../network/common" }
 sc-network-light = { path = "../network/light" }
 sc-network-sync = { path = "../network/sync" }
+sc-network-types = { path = "../network/types" }
 sc-network-transactions = { path = "../network/transactions" }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
@@ -79,7 +79,7 @@ sc-tracing = { path = "../tracing" }
 sc-sysinfo = { path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
 tempfile = "3.1.0"
 directories = "5.0.1"

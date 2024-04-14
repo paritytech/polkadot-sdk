@@ -35,8 +35,11 @@ use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
 use sp_core::{crypto::KeyTypeId, H256};
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
-	curve::PiecewiseLinear, generic::UncheckedExtrinsic, impl_opaque_keys,
-	testing::UintAuthorityId, traits::OpaqueKeys, BuildStorage, DigestItem, Perbill,
+	curve::PiecewiseLinear,
+	impl_opaque_keys,
+	testing::{TestXt, UintAuthorityId},
+	traits::OpaqueKeys,
+	BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -63,7 +66,7 @@ impl_opaque_keys! {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -74,7 +77,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
 parameter_types! {
