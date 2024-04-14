@@ -217,19 +217,19 @@ pub trait FrozenBalance<AssetId, AccountId, Balance> {
 	/// In special cases (privileged intervention) the account balance may also go below the sum.
 	///
 	/// If `None` is returned, then nothing special is enforced.
-	fn frozen_balance(asset: AssetId, who: &AccountId) -> Option<Balance>;
+	fn frozen_balance(asset: &AssetId, who: &AccountId) -> Option<Balance>;
 
 	/// Called after an account has been removed.
 	///
 	/// NOTE: It is possible that the asset does no longer exist when this hook is called.
-	fn died(asset: AssetId, who: &AccountId);
+	fn died(asset: &AssetId, who: &AccountId);
 }
 
 impl<AssetId, AccountId, Balance> FrozenBalance<AssetId, AccountId, Balance> for () {
-	fn frozen_balance(_: AssetId, _: &AccountId) -> Option<Balance> {
+	fn frozen_balance(_: &AssetId, _: &AccountId) -> Option<Balance> {
 		None
 	}
-	fn died(_: AssetId, _: &AccountId) {}
+	fn died(_: &AssetId, _: &AccountId) {}
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]

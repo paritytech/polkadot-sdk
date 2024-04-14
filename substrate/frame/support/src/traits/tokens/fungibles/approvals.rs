@@ -22,7 +22,7 @@
 use crate::dispatch::DispatchResult;
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	// Check the amount approved by an owner to be spent by a delegate
-	fn allowance(asset: Self::AssetId, owner: &AccountId, delegate: &AccountId) -> Self::Balance;
+	fn allowance(asset: &Self::AssetId, owner: &AccountId, delegate: &AccountId) -> Self::Balance;
 }
 
 pub trait Mutate<AccountId>: Inspect<AccountId> {

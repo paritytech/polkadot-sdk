@@ -59,12 +59,12 @@ impl<T: Config<I>, I: 'static> core::ops::DerefMut for ExtraMutator<T, I> {
 
 impl<T: Config<I>, I: 'static> ExtraMutator<T, I> {
 	pub(super) fn maybe_new(
-		id: T::AssetId,
+		id: &T::AssetId,
 		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<ExtraMutator<T, I>> {
-		if let Some(a) = Account::<T, I>::get(&id, who.borrow()) {
+		if let Some(a) = Account::<T, I>::get(id, who.borrow()) {
 			Some(ExtraMutator::<T, I> {
-				id,
+				id: id.clone(),
 				who: who.borrow().clone(),
 				original: a.extra,
 				pending: None,

@@ -52,16 +52,16 @@ pub trait Inspect<AccountId>: Sized {
 	type Balance: Balance;
 
 	/// The total amount of issuance in the system.
-	fn total_issuance(asset: Self::AssetId) -> Self::Balance;
+	fn total_issuance(asset: &Self::AssetId) -> Self::Balance;
 
 	/// The total amount of issuance in the system excluding those which are controlled by the
 	/// system.
-	fn active_issuance(asset: Self::AssetId) -> Self::Balance {
+	fn active_issuance(asset: &Self::AssetId) -> Self::Balance {
 		Self::total_issuance(asset)
 	}
 
 	/// The minimum balance any single account may have.
-	fn minimum_balance(asset: Self::AssetId) -> Self::Balance;
+	fn minimum_balance(asset: &Self::AssetId) -> Self::Balance;
 
 	/// Get the total amount of funds whose ultimate beneficial ownership can be determined as
 	/// `who`.
@@ -74,14 +74,14 @@ pub trait Inspect<AccountId>: Sized {
 	///
 	/// For the amount of the balance which may eventually be free to be removed from the account,
 	/// use `balance()`.
-	fn total_balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance;
+	fn total_balance(asset: &Self::AssetId, who: &AccountId) -> Self::Balance;
 
 	/// Get the balance of `who` which does not include funds which are exclusively allocated to
 	/// subsystems of the chain ("on hold" or "reserved").
 	///
 	/// In general this isn't especially useful outside of tests, and for practical purposes, you'll
 	/// want to use `reducible_balance()`.
-	fn balance(asset: Self::AssetId, who: &AccountId) -> Self::Balance;
+	fn balance(asset: &Self::AssetId, who: &AccountId) -> Self::Balance;
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully based on whether the
 	/// account should be kept alive (`preservation`) or whether we are willing to force the
@@ -90,7 +90,7 @@ pub trait Inspect<AccountId>: Sized {
 	///
 	/// Always less than `free_balance()`.
 	fn reducible_balance(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		preservation: Preservation,
 		force: Fortitude,
@@ -103,7 +103,7 @@ pub trait Inspect<AccountId>: Sized {
 	/// - `amount`: How much should the balance be increased?
 	/// - `mint`: Will `amount` be minted to deposit it into `account`?
 	fn can_deposit(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 		provenance: Provenance,
@@ -112,13 +112,13 @@ pub trait Inspect<AccountId>: Sized {
 	/// Returns `Failed` if the `asset` balance of `who` may not be decreased by `amount`, otherwise
 	/// the consequence.
 	fn can_withdraw(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> WithdrawConsequence<Self::Balance>;
 
 	/// Returns `true` if an `asset` exists.
-	fn asset_exists(asset: Self::AssetId) -> bool;
+	fn asset_exists(asset: &Self::AssetId) -> bool;
 }
 
 /// Special dust type which can be type-safely converted into a `Credit`.
@@ -147,10 +147,8 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	///
 	/// This should not be reimplemented.
 	fn handle_raw_dust(asset: Self::AssetId, amount: Self::Balance) {
-		Self::handle_dust(Dust(
-			asset.clone(),
-			amount.min(Self::minimum_balance(asset).saturating_sub(One::one())),
-		))
+		let minimum_balance = Self::minimum_balance(&asset).saturating_sub(One::one());
+		Self::handle_dust(Dust(asset, amount.min(minimum_balance)))
 	}
 
 	/// Do something with the dust which has been destroyed from the system. `Dust` can be converted
@@ -169,13 +167,13 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	/// If this cannot be done for some reason (e.g. because the account cannot be created, deleted
 	/// or would overflow) then an `Err` is returned.
 	fn write_balance(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> Result<Option<Self::Balance>, DispatchError>;
 
 	/// Set the total issuance to `amount`.
-	fn set_total_issuance(asset: Self::AssetId, amount: Self::Balance);
+	fn set_total_issuance(asset: &Self::AssetId, amount: Self::Balance);
 
 	/// Reduce the balance of `who` by `amount`.
 	///
@@ -188,22 +186,22 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	/// `Self::minimum_balance() - 1` greater than `amount` in the case that the reduction caused
 	/// the account to be deleted.
 	fn decrease_balance(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		mut amount: Self::Balance,
 		precision: Precision,
 		preservation: Preservation,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let old_balance = Self::balance(asset.clone(), who);
-		let reducible = Self::reducible_balance(asset.clone(), who, preservation, force);
+		let old_balance = Self::balance(asset, who);
+		let reducible = Self::reducible_balance(asset, who, preservation, force);
 		match precision {
 			BestEffort => amount = amount.min(reducible),
 			Exact => ensure!(reducible >= amount, TokenError::FundsUnavailable),
 		}
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
-		if let Some(dust) = Self::write_balance(asset.clone(), who, new_balance)? {
-			Self::handle_dust(Dust(asset, dust));
+		if let Some(dust) = Self::write_balance(asset, who, new_balance)? {
+			Self::handle_dust(Dust(asset.clone(), dust));
 		}
 		Ok(old_balance.saturating_sub(new_balance))
 	}
@@ -215,18 +213,18 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	/// Minimum balance will be respected and an error will be returned if
 	/// `amount < Self::minimum_balance()` when the account of `who` is zero.
 	fn increase_balance(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 		precision: Precision,
 	) -> Result<Self::Balance, DispatchError> {
-		let old_balance = Self::balance(asset.clone(), who);
+		let old_balance = Self::balance(asset, who);
 		let new_balance = if let BestEffort = precision {
 			old_balance.saturating_add(amount)
 		} else {
 			old_balance.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
 		};
-		if new_balance < Self::minimum_balance(asset.clone()) {
+		if new_balance < Self::minimum_balance(asset) {
 			// Attempt to increase from 0 to below minimum -> stays at zero.
 			if let BestEffort = precision {
 				Ok(Self::Balance::default())
@@ -237,8 +235,8 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 			if new_balance == old_balance {
 				Ok(Self::Balance::default())
 			} else {
-				if let Some(dust) = Self::write_balance(asset.clone(), who, new_balance)? {
-					Self::handle_dust(Dust(asset, dust));
+				if let Some(dust) = Self::write_balance(asset, who, new_balance)? {
+					Self::handle_dust(Dust(asset.clone(), dust));
 				}
 				Ok(new_balance.saturating_sub(old_balance))
 			}
@@ -246,10 +244,10 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	}
 
 	/// Reduce the active issuance by some amount.
-	fn deactivate(_asset: Self::AssetId, _: Self::Balance) {}
+	fn deactivate(_asset: &Self::AssetId, _: Self::Balance) {}
 
 	/// Increase the active issuance by some amount, up to the outstanding amount reduced.
-	fn reactivate(_asset: Self::AssetId, _: Self::Balance) {}
+	fn reactivate(_asset: &Self::AssetId, _: Self::Balance) {}
 }
 
 /// Trait for providing a basic fungible asset.
@@ -260,18 +258,15 @@ where
 	/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn't
 	/// possible then an `Err` is returned and nothing is changed.
 	fn mint_into(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> Result<Self::Balance, DispatchError> {
-		Self::total_issuance(asset.clone())
+		Self::total_issuance(asset)
 			.checked_add(&amount)
 			.ok_or(ArithmeticError::Overflow)?;
-		let actual = Self::increase_balance(asset.clone(), who, amount, Exact)?;
-		Self::set_total_issuance(
-			asset.clone(),
-			Self::total_issuance(asset.clone()).saturating_add(actual),
-		);
+		let actual = Self::increase_balance(asset, who, amount, Exact)?;
+		Self::set_total_issuance(asset, Self::total_issuance(asset).saturating_add(actual));
 		Self::done_mint_into(asset, who, amount);
 		Ok(actual)
 	}
@@ -280,23 +275,19 @@ where
 	/// minimum-balance requirements, burning the tokens. If that isn't possible then an `Err` is
 	/// returned and nothing is changed. If successful, the amount of tokens reduced is returned.
 	fn burn_from(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let actual = Self::reducible_balance(asset.clone(), who, Expendable, force).min(amount);
+		let actual = Self::reducible_balance(asset, who, Expendable, force).min(amount);
 		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
-		Self::total_issuance(asset.clone())
+		Self::total_issuance(asset)
 			.checked_sub(&actual)
 			.ok_or(ArithmeticError::Overflow)?;
-		let actual =
-			Self::decrease_balance(asset.clone(), who, actual, BestEffort, Expendable, force)?;
-		Self::set_total_issuance(
-			asset.clone(),
-			Self::total_issuance(asset.clone()).saturating_sub(actual),
-		);
+		let actual = Self::decrease_balance(asset, who, actual, BestEffort, Expendable, force)?;
+		Self::set_total_issuance(asset, Self::total_issuance(asset).saturating_sub(actual));
 		Self::done_burn_from(asset, who, actual);
 		Ok(actual)
 	}
@@ -312,21 +303,17 @@ where
 	/// Because of this expectation, any metadata associated with the asset is expected to survive
 	/// the suspect-resume cycle.
 	fn shelve(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> Result<Self::Balance, DispatchError> {
-		let actual = Self::reducible_balance(asset.clone(), who, Expendable, Polite).min(amount);
+		let actual = Self::reducible_balance(asset, who, Expendable, Polite).min(amount);
 		ensure!(actual == amount, TokenError::FundsUnavailable);
-		Self::total_issuance(asset.clone())
+		Self::total_issuance(asset)
 			.checked_sub(&actual)
 			.ok_or(ArithmeticError::Overflow)?;
-		let actual =
-			Self::decrease_balance(asset.clone(), who, actual, BestEffort, Expendable, Polite)?;
-		Self::set_total_issuance(
-			asset.clone(),
-			Self::total_issuance(asset.clone()).saturating_sub(actual),
-		);
+		let actual = Self::decrease_balance(asset, who, actual, BestEffort, Expendable, Polite)?;
+		Self::set_total_issuance(asset, Self::total_issuance(asset).saturating_sub(actual));
 		Self::done_shelve(asset, who, actual);
 		Ok(actual)
 	}
@@ -342,18 +329,15 @@ where
 	/// Because of this expectation, any metadata associated with the asset is expected to survive
 	/// the suspect-resume cycle.
 	fn restore(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> Result<Self::Balance, DispatchError> {
-		Self::total_issuance(asset.clone())
+		Self::total_issuance(asset)
 			.checked_add(&amount)
 			.ok_or(ArithmeticError::Overflow)?;
-		let actual = Self::increase_balance(asset.clone(), who, amount, Exact)?;
-		Self::set_total_issuance(
-			asset.clone(),
-			Self::total_issuance(asset.clone()).saturating_add(actual),
-		);
+		let actual = Self::increase_balance(asset, who, amount, Exact)?;
+		Self::set_total_issuance(asset, Self::total_issuance(asset).saturating_add(actual));
 		Self::done_restore(asset, who, amount);
 		Ok(actual)
 	}
@@ -363,23 +347,23 @@ where
 	/// A transfer where the source and destination account are identical is treated as No-OP after
 	/// checking the preconditions.
 	fn transfer(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		source: &AccountId,
 		dest: &AccountId,
 		amount: Self::Balance,
 		preservation: Preservation,
 	) -> Result<Self::Balance, DispatchError> {
-		let _extra = Self::can_withdraw(asset.clone(), source, amount)
-			.into_result(preservation != Expendable)?;
-		Self::can_deposit(asset.clone(), dest, amount, Extant).into_result()?;
+		let _extra =
+			Self::can_withdraw(asset, source, amount).into_result(preservation != Expendable)?;
+		Self::can_deposit(asset, dest, amount, Extant).into_result()?;
 		if source == dest {
 			return Ok(amount)
 		}
 
-		Self::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)?;
+		Self::decrease_balance(asset, source, amount, BestEffort, preservation, Polite)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.
-		let _ = Self::increase_balance(asset.clone(), dest, amount, BestEffort);
+		let _ = Self::increase_balance(asset, dest, amount, BestEffort);
 		Self::done_transfer(asset, source, dest, amount);
 		Ok(amount)
 	}
@@ -389,8 +373,8 @@ where
 	/// error reporting.
 	///
 	/// Returns the new balance.
-	fn set_balance(asset: Self::AssetId, who: &AccountId, amount: Self::Balance) -> Self::Balance {
-		let b = Self::balance(asset.clone(), who);
+	fn set_balance(asset: &Self::AssetId, who: &AccountId, amount: Self::Balance) -> Self::Balance {
+		let b = Self::balance(asset, who);
 		if b > amount {
 			Self::burn_from(asset, who, b - amount, BestEffort, Force).map(|d| b.saturating_sub(d))
 		} else {
@@ -398,12 +382,12 @@ where
 		}
 		.unwrap_or(b)
 	}
-	fn done_mint_into(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
-	fn done_burn_from(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
-	fn done_shelve(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
-	fn done_restore(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+	fn done_mint_into(_asset: &Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+	fn done_burn_from(_asset: &Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+	fn done_shelve(_asset: &Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+	fn done_restore(_asset: &Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
 	fn done_transfer(
-		_asset: Self::AssetId,
+		_asset: &Self::AssetId,
 		_source: &AccountId,
 		_dest: &AccountId,
 		_amount: Self::Balance,
@@ -418,7 +402,7 @@ impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::AssetId, U::Bal
 	for IncreaseIssuance<AccountId, U>
 {
 	fn handle(asset: U::AssetId, amount: U::Balance) {
-		U::set_total_issuance(asset.clone(), U::total_issuance(asset).saturating_add(amount))
+		U::set_total_issuance(&asset, U::total_issuance(&asset).saturating_add(amount))
 	}
 }
 
@@ -429,7 +413,7 @@ impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::AssetId, U::Bal
 	for DecreaseIssuance<AccountId, U>
 {
 	fn handle(asset: U::AssetId, amount: U::Balance) {
-		U::set_total_issuance(asset.clone(), U::total_issuance(asset).saturating_sub(amount))
+		U::set_total_issuance(&asset, U::total_issuance(&asset).saturating_sub(amount))
 	}
 }
 
@@ -449,14 +433,15 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is infallible, but doesn't guarantee that the entire `amount` is burnt, for example
 	/// in the case of underflow.
-	fn rescind(asset: Self::AssetId, amount: Self::Balance) -> Debt<AccountId, Self> {
-		let old = Self::total_issuance(asset.clone());
+	fn rescind(asset: &Self::AssetId, amount: Self::Balance) -> Debt<AccountId, Self> {
+		let old = Self::total_issuance(asset);
 		let new = old.saturating_sub(amount);
-		Self::set_total_issuance(asset.clone(), new);
+		Self::set_total_issuance(asset, new);
 		let delta = old - new;
-		Self::done_rescind(asset.clone(), delta);
+		Self::done_rescind(asset, delta);
 		Imbalance::<Self::AssetId, Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(
-			asset, delta,
+			asset.clone(),
+			delta,
 		)
 	}
 
@@ -466,14 +451,15 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	///
 	/// This is infallible, but doesn't guarantee that the entire `amount` is issued, for example
 	/// in the case of overflow.
-	fn issue(asset: Self::AssetId, amount: Self::Balance) -> Credit<AccountId, Self> {
-		let old = Self::total_issuance(asset.clone());
+	fn issue(asset: &Self::AssetId, amount: Self::Balance) -> Credit<AccountId, Self> {
+		let old = Self::total_issuance(asset);
 		let new = old.saturating_add(amount);
-		Self::set_total_issuance(asset.clone(), new);
+		Self::set_total_issuance(asset, new);
 		let delta = new - old;
-		Self::done_issue(asset.clone(), delta);
+		Self::done_issue(asset, delta);
 		Imbalance::<Self::AssetId, Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(
-			asset, delta,
+			asset.clone(),
+			delta,
 		)
 	}
 
@@ -486,10 +472,10 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	/// pair, for example in the case where the amounts would cause overflow or underflow in
 	/// [`Balanced::issue`] or [`Balanced::rescind`].
 	fn pair(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		amount: Self::Balance,
 	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
-		let issued = Self::issue(asset.clone(), amount);
+		let issued = Self::issue(asset, amount);
 		let rescinded = Self::rescind(asset, amount);
 		// Need to check amount in case by some edge case both issued and rescinded are below
 		// `amount` by the exact same value
@@ -511,15 +497,16 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	/// If the operation is successful, this will return `Ok` with a `Debt` of the total value
 	/// added to the account.
 	fn deposit(
-		asset: Self::AssetId,
+		asset: &Self::AssetId,
 		who: &AccountId,
 		value: Self::Balance,
 		precision: Precision,
 	) -> Result<Debt<AccountId, Self>, DispatchError> {
-		let increase = Self::increase_balance(asset.clone(), who, value, precision)?;
-		Self::done_deposit(asset.clone(), who, increase);
+		let increase = Self::increase_balance(asset, who, value, precision)?;
+		Self::done_deposit(asset, who, increase);
 		Ok(Imbalance::<Self::AssetId, Self::Balance, Self::OnDropDebt, Self::OnDropCredit>::new(
-			asset, increase,
+			asset.clone(),
+			increase,
 		))
 	}
 
@@ -544,9 +531,8 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		preservation: Preservation,
 		force: Fortitude,
 	) -> Result<Credit<AccountId, Self>, DispatchError> {
-		let decrease =
-			Self::decrease_balance(asset.clone(), who, value, precision, preservation, force)?;
-		Self::done_withdraw(asset.clone(), who, decrease);
+		let decrease = Self::decrease_balance(&asset, who, value, precision, preservation, force)?;
+		Self::done_withdraw(&asset, who, decrease);
 		Ok(Imbalance::<Self::AssetId, Self::Balance, Self::OnDropCredit, Self::OnDropDebt>::new(
 			asset, decrease,
 		))
@@ -563,7 +549,7 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		credit: Credit<AccountId, Self>,
 	) -> Result<(), Credit<AccountId, Self>> {
 		let v = credit.peek();
-		let debt = match Self::deposit(credit.asset(), who, v, Exact) {
+		let debt = match Self::deposit(&credit.asset(), who, v, Exact) {
 			Err(_) => return Err(credit),
 			Ok(d) => d,
 		};
@@ -604,10 +590,10 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		}
 	}
 
-	fn done_rescind(_asset: Self::AssetId, _amount: Self::Balance) {}
-	fn done_issue(_asset: Self::AssetId, _amount: Self::Balance) {}
-	fn done_deposit(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
-	fn done_withdraw(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+	fn done_rescind(_asset: &Self::AssetId, _amount: Self::Balance) {}
+	fn done_issue(_asset: &Self::AssetId, _amount: Self::Balance) {}
+	fn done_deposit(_asset: &Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
+	fn done_withdraw(_asset: &Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
 }
 
 /// Dummy implementation of [`Inspect`]
@@ -615,20 +601,20 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 impl<AccountId> Inspect<AccountId> for () {
 	type AssetId = u32;
 	type Balance = u32;
-	fn total_issuance(_: Self::AssetId) -> Self::Balance {
+	fn total_issuance(_: &Self::AssetId) -> Self::Balance {
 		0
 	}
-	fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+	fn minimum_balance(_: &Self::AssetId) -> Self::Balance {
 		0
 	}
-	fn total_balance(_: Self::AssetId, _: &AccountId) -> Self::Balance {
+	fn total_balance(_: &Self::AssetId, _: &AccountId) -> Self::Balance {
 		0
 	}
-	fn balance(_: Self::AssetId, _: &AccountId) -> Self::Balance {
+	fn balance(_: &Self::AssetId, _: &AccountId) -> Self::Balance {
 		0
 	}
 	fn reducible_balance(
-		_: Self::AssetId,
+		_: &Self::AssetId,
 		_: &AccountId,
 		_: Preservation,
 		_: Fortitude,
@@ -636,7 +622,7 @@ impl<AccountId> Inspect<AccountId> for () {
 		0
 	}
 	fn can_deposit(
-		_: Self::AssetId,
+		_: &Self::AssetId,
 		_: &AccountId,
 		_: Self::Balance,
 		_: Provenance,
@@ -644,13 +630,13 @@ impl<AccountId> Inspect<AccountId> for () {
 		DepositConsequence::Success
 	}
 	fn can_withdraw(
-		_: Self::AssetId,
+		_: &Self::AssetId,
 		_: &AccountId,
 		_: Self::Balance,
 	) -> WithdrawConsequence<Self::Balance> {
 		WithdrawConsequence::Success
 	}
-	fn asset_exists(_: Self::AssetId) -> bool {
+	fn asset_exists(_: &Self::AssetId) -> bool {
 		false
 	}
 }
@@ -660,13 +646,13 @@ impl<AccountId> Inspect<AccountId> for () {
 impl<AccountId> Unbalanced<AccountId> for () {
 	fn handle_dust(_: Dust<AccountId, Self>) {}
 	fn write_balance(
-		_: Self::AssetId,
+		_: &Self::AssetId,
 		_: &AccountId,
 		_: Self::Balance,
 	) -> Result<Option<Self::Balance>, DispatchError> {
 		Ok(None)
 	}
-	fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {}
+	fn set_total_issuance(_: &Self::AssetId, _: Self::Balance) {}
 }
 
 /// Dummy implementation of [`Mutate`]

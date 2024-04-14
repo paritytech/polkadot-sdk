@@ -39,6 +39,7 @@ use sp_runtime::{DispatchError, DispatchResult, Saturating, TokenError};
 
 use super::*;
 
+// TODO
 /// Trait for inspecting a fungible asset whose accounts support partitioning and slashing.
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	/// An identifier for a hold. Used for disambiguating different holds so that
@@ -106,7 +107,7 @@ pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	) -> DispatchResult {
 		ensure!(Self::hold_available(asset.clone(), reason, who), TokenError::CannotCreateHold);
 		ensure!(
-			amount <= Self::reducible_balance(asset, who, Protect, Force),
+			amount <= Self::reducible_balance(&asset, who, Protect, Force),
 			TokenError::FundsUnavailable
 		);
 		Ok(())
@@ -265,7 +266,7 @@ pub trait Mutate<AccountId>:
 
 		Self::ensure_can_hold(asset.clone(), reason, who, amount)?;
 		// Should be infallible now, but we proceed softly anyway.
-		Self::decrease_balance(asset.clone(), who, amount, Exact, Protect, Force)?;
+		Self::decrease_balance(&asset, who, amount, Exact, Protect, Force)?;
 		Self::increase_balance_on_hold(asset.clone(), reason, who, amount, BestEffort)?;
 		Self::done_hold(asset, reason, who, amount);
 		Ok(())
@@ -290,7 +291,7 @@ pub trait Mutate<AccountId>:
 		// We want to make sure we can deposit the amount in advance. If we can't then something is
 		// very wrong.
 		ensure!(
-			Self::can_deposit(asset.clone(), who, amount, Extant) == Success,
+			Self::can_deposit(&asset, who, amount, Extant) == Success,
 			TokenError::CannotCreate
 		);
 		// Get the amount we can actually take from the hold. This might be less than what we want
@@ -298,7 +299,7 @@ pub trait Mutate<AccountId>:
 		let amount = Self::decrease_balance_on_hold(asset.clone(), reason, who, amount, precision)?;
 		// Increase the main balance by what we took. We always do a best-effort here because we
 		// already checked that we can deposit before.
-		let actual = Self::increase_balance(asset.clone(), who, amount, BestEffort)?;
+		let actual = Self::increase_balance(&asset, who, amount, BestEffort)?;
 		Self::done_release(asset, reason, who, actual);
 		Ok(actual)
 	}
@@ -329,10 +330,7 @@ pub trait Mutate<AccountId>:
 			ensure!(amount <= liquid, TokenError::Frozen);
 		}
 		let amount = Self::decrease_balance_on_hold(asset.clone(), reason, who, amount, precision)?;
-		Self::set_total_issuance(
-			asset.clone(),
-			Self::total_issuance(asset.clone()).saturating_sub(amount),
-		);
+		Self::set_total_issuance(&asset, Self::total_issuance(&asset).saturating_sub(amount));
 		Self::done_burn_held(asset, reason, who, amount);
 		Ok(amount)
 	}
@@ -396,7 +394,7 @@ pub trait Mutate<AccountId>:
 		// We want to make sure we can deposit the amount in advance. If we can't then something is
 		// very wrong.
 		ensure!(
-			Self::can_deposit(asset.clone(), dest, amount, Extant) == Success,
+			Self::can_deposit(&asset, dest, amount, Extant) == Success,
 			TokenError::CannotCreate
 		);
 		ensure!(
@@ -409,7 +407,7 @@ pub trait Mutate<AccountId>:
 		let actual = if mode == OnHold {
 			Self::increase_balance_on_hold(asset.clone(), reason, dest, amount, precision)?
 		} else {
-			Self::increase_balance(asset.clone(), dest, amount, precision)?
+			Self::increase_balance(&asset, dest, amount, precision)?
 		};
 		Self::done_transfer_on_hold(asset, reason, source, dest, actual);
 		Ok(actual)
@@ -444,11 +442,11 @@ pub trait Mutate<AccountId>:
 	) -> Result<Self::Balance, DispatchError> {
 		ensure!(Self::hold_available(asset.clone(), reason, dest), TokenError::CannotCreateHold);
 		ensure!(
-			Self::can_deposit(asset.clone(), dest, amount, Extant) == Success,
+			Self::can_deposit(&asset, dest, amount, Extant) == Success,
 			TokenError::CannotCreate
 		);
 		let actual =
-			Self::decrease_balance(asset.clone(), source, amount, precision, expendability, force)?;
+			Self::decrease_balance(&asset, source, amount, precision, expendability, force)?;
 		Self::increase_balance_on_hold(asset.clone(), reason, dest, actual, precision)?;
 		Self::done_transfer_on_hold(asset, reason, source, dest, actual);
 		Ok(actual)
