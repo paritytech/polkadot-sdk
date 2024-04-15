@@ -627,6 +627,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -663,6 +664,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -707,6 +709,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -716,6 +719,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -736,6 +740,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -758,6 +763,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -767,6 +773,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -776,6 +783,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -785,6 +793,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -794,6 +803,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -803,6 +813,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -812,6 +823,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -821,6 +833,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -855,6 +868,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -884,6 +898,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -948,6 +963,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -974,6 +990,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// The same argument as for `seal_return` is true here.
@@ -1112,6 +1129,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// Overhead of calling the function without any topic.
@@ -1144,6 +1162,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// Benchmark the overhead that topics generate.
@@ -1181,6 +1200,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// Benchmark debug_message call with zero input data.
@@ -1214,6 +1234,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1264,6 +1285,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 		Ok(())
 	}
@@ -1328,6 +1350,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1370,6 +1393,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1413,6 +1437,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1467,6 +1492,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1508,6 +1534,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1568,6 +1595,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1617,6 +1645,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 
 		Ok(())
 	}
@@ -1671,6 +1700,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1712,6 +1742,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1771,6 +1802,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1820,6 +1852,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -1871,6 +1904,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 
 		for account in &accounts {
 			assert_eq!(T::Currency::total_balance(account), value);
@@ -1951,6 +1985,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2006,6 +2041,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2061,6 +2097,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2169,6 +2206,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		for addr in &addresses {
 			ContractInfoOf::<T>::get(&addr).ok_or("Contract should have been instantiated")?;
 		}
@@ -2244,6 +2282,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2255,6 +2294,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// `n`: Input to hash in bytes
@@ -2265,6 +2305,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
@@ -2275,6 +2316,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// `n`: Input to hash in bytes
@@ -2285,6 +2327,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
@@ -2295,6 +2338,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// `n`: Input to hash in bytes
@@ -2305,6 +2349,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// Only the overhead of calling the function itself with minimal arguments.
@@ -2315,6 +2360,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// `n`: Input to hash in bytes
@@ -2325,6 +2371,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2372,6 +2419,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2429,6 +2477,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2479,6 +2528,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2519,6 +2569,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2560,6 +2611,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2602,6 +2654,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2660,6 +2713,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2717,6 +2771,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 		Ok(())
 	}
 
@@ -2738,6 +2793,7 @@ mod benchmarks {
 		{
 			func.call();
 		}
+		func.verify();
 	}
 
 	// We load `i64` values from random linear memory locations and store the loaded
