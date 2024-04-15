@@ -41,7 +41,10 @@ pub use crate::{
 };
 use async_trait::async_trait;
 use futures::{
-	channel::oneshot,
+	channel::{
+		mpsc::{channel, Sender},
+		oneshot,
+	},
 	future::{self, ready},
 	prelude::*,
 };
@@ -243,6 +246,7 @@ where
 		let maybe_watchers = futures::future::join_all(results).await;
 		log::info!("submit_and_watch: maybe_watchers: {}", maybe_watchers.len());
 
+		//todo: maybe try_fold + ControlFlow ?
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
 			if r.is_err() && v.is_ok() {
 				r = v;
@@ -266,7 +270,7 @@ where
 
 	/// Finds the best existing view to clone from along the path.
 	/// Allows to include all the transactions from the imported blocks (that are on the retracted
-	/// path). Tip of retracted fork is most recent block processed by txpool.
+	/// path). Tip of retracted fork is usually most recent block processed by txpool.
 	///
 	/// ```text
 	/// Tree route from R1 to E2.
@@ -277,7 +281,7 @@ where
 	/// ```
 	/// ```text
 	/// Search path is:
-	/// [R1, R2, R3, C, E1, E2]
+	/// [R1, R2, R3, C, E1]
 	/// ```
 	fn find_best_view(&self, tree_route: &TreeRoute<Block>) -> Option<Arc<View<PoolApi>>> {
 		let views = self.views.read();
@@ -505,11 +509,13 @@ where
 	// todo: metrics
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi, Block>>,
+
+	most_recent_view: RwLock<Option<Block::Hash>>,
+	import_notification_sinks: Mutex<Vec<Sender<graph::ExtrinsicHash<PoolApi>>>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
 	// options: Options,
 	// listener: RwLock<Listener<ExtrinsicHash<B>, B>>,
-	// import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	// rotator: PoolRotator<ExtrinsicHash<B>>,
 }
 
@@ -536,6 +542,39 @@ where
 				finalized_hash,
 			))),
 			revalidation_queue: Arc::from(view_revalidation::RevalidationQueue::new()),
+			most_recent_view: RwLock::from(None),
+			import_notification_sinks: Default::default(),
+		}
+	}
+
+	pub fn new_with_background_queue(
+		options: graph::Options,
+		is_validator: IsValidator,
+		pool_api: Arc<PoolApi>,
+		// todo: prometheus: Option<&PrometheusRegistry>,
+		spawner: impl SpawnEssentialNamed,
+		best_block_number: NumberFor<Block>,
+		best_block_hash: Block::Hash,
+		finalized_hash: Block::Hash,
+	) -> Self {
+		let listener = Arc::from(MultiViewListener::new());
+		let (revalidation_queue, background_task) =
+			view_revalidation::RevalidationQueue::new_with_worker();
+
+		spawner.spawn_essential("txpool-background", Some("transaction-pool"), background_task);
+
+		Self {
+			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
+			api: pool_api.clone(),
+			view_store: Arc::new(ViewStore::new(pool_api, listener)),
+			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
+			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
+				best_block_hash,
+				finalized_hash,
+			))),
+			revalidation_queue: Arc::from(revalidation_queue),
+			most_recent_view: RwLock::from(None),
+			import_notification_sinks: Default::default(),
 		}
 	}
 
@@ -877,18 +916,49 @@ where
 		// self.metrics
 		// 	.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));
 
-		unimplemented!()
+		// todo: what to do here?
+		// unimplemented!()
+		Default::default()
 	}
 
+	// todo: probably API change to:
+	// status(Hash) -> Option<PoolStatus>
 	fn status(&self) -> PoolStatus {
-		// self.pool.validated_pool().status()
-		unimplemented!()
+		self.most_recent_view
+			.read()
+			.map(|hash| self.view_store.status()[&hash].clone())
+			.unwrap_or(PoolStatus { ready: 0, ready_bytes: 0, future: 0, future_bytes: 0 })
 	}
 
-	fn import_notification_stream(&self) -> ImportNotificationStream<TxHash<Self>> {
-		// self.pool.validated_pool().import_notification_stream()
-		unimplemented!()
+	/// Return an event stream of notifications for when transactions are imported to the pool.
+	///
+	/// Consumers of this stream should use the `ready` method to actually get the
+	/// pending transactions in the right order.
+	fn import_notification_stream(&self) -> ImportNotificationStream<ExtrinsicHash<PoolApi>> {
+		//todo:
+		const CHANNEL_BUFFER_SIZE: usize = 1024;
+
+		let (sink, stream) = channel(CHANNEL_BUFFER_SIZE);
+		self.import_notification_sinks.lock().push(sink);
+		stream
 	}
+	// if let base::Imported::Ready { ref hash, .. } = imported {
+	// 	let sinks = &mut self.import_notification_sinks.lock();
+	// 	sinks.retain_mut(|sink| match sink.try_send(*hash) {
+	// 		Ok(()) => true,
+	// 		Err(e) =>
+	// 			if e.is_full() {
+	// 				log::warn!(
+	// 					target: LOG_TARGET,
+	// 					"[{:?}] Trying to notify an import but the channel is full",
+	// 					hash,
+	// 				);
+	// 				true
+	// 			} else {
+	// 				false
+	// 			},
+	// 	});
+	// }
 
 	fn hash_of(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api().hash_and_length(xt).0
@@ -896,7 +966,7 @@ where
 
 	fn on_broadcasted(&self, propagations: HashMap<TxHash<Self>, Vec<String>>) {
 		// self.pool.validated_pool().on_broadcasted(propagations)
-		unimplemented!()
+		// unimplemented!()
 	}
 
 	// todo: api change?
@@ -996,6 +1066,7 @@ where
 		};
 
 		if let Some(view) = new_view {
+			self.most_recent_view.write().replace(view.at.hash);
 			self.revalidation_queue.revalidate_later(view).await;
 		}
 	}
@@ -1336,5 +1407,13 @@ where
 	Client: sc_client_api::BlockchainEvents<Block>,
 	Pool: MaintainedTransactionPool<Block = Block>,
 {
-	unimplemented!();
+	let import_stream = client
+		.import_notification_stream()
+		.filter_map(|n| ready(n.try_into().ok()))
+		.fuse();
+	let finality_stream = client.finality_notification_stream().map(Into::into).fuse();
+
+	futures::stream::select(import_stream, finality_stream)
+		.for_each(|evt| txpool.maintain(evt))
+		.await
 }

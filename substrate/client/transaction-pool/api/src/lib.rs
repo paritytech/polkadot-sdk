@@ -36,7 +36,7 @@ pub use sp_runtime::transaction_validity::{
 };
 
 /// Transaction pool status.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PoolStatus {
 	/// Number of transactions in the ready queue.
 	pub ready: usize,

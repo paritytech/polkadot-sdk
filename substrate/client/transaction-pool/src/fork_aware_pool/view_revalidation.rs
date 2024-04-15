@@ -61,7 +61,7 @@ struct RevalidationWorker<Block: BlockT> {
 }
 
 // todo: ??? (remove?)
-// impl<Api: ChainApi> Unpin for RevalidationWorker<Api> {}
+// impl<Block: BlockT> Unpin for RevalidationWorker<Block> {}
 
 /// todo: doc
 ///
