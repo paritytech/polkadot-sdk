@@ -46,6 +46,21 @@ use sp_runtime::{
 	DispatchError, DispatchResult,
 };
 
+/// Either explicit account reference or `RewardsAccountParams`.
+#[derive(Clone, Debug)]
+pub enum ExplicitOrAccountParams<AccountId> {
+	/// Explicit account reference.
+	Explicit(AccountId),
+	/// Account, referenced using `RewardsAccountParams`.
+	Params(RewardsAccountParams),
+}
+
+impl<AccountId> From<RewardsAccountParams> for ExplicitOrAccountParams<AccountId> {
+	fn from(params: RewardsAccountParams) -> Self {
+		ExplicitOrAccountParams::Params(params)
+	}
+}
+
 /// Relayer registration.
 #[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct Registration<BlockNumber, Balance> {
@@ -90,7 +105,7 @@ pub trait StakeAndSlash<AccountId, BlockNumber, Balance> {
 	/// Returns `Ok(_)` with non-zero balance if we have failed to repatriate some portion of stake.
 	fn repatriate_reserved(
 		relayer: &AccountId,
-		beneficiary: RewardsAccountParams,
+		beneficiary: ExplicitOrAccountParams<AccountId>,
 		amount: Balance,
 	) -> Result<Balance, DispatchError>;
 }
@@ -113,7 +128,7 @@ where
 
 	fn repatriate_reserved(
 		_relayer: &AccountId,
-		_beneficiary: RewardsAccountParams,
+		_beneficiary: ExplicitOrAccountParams<AccountId>,
 		_amount: Balance,
 	) -> Result<Balance, DispatchError> {
 		Ok(Zero::zero())

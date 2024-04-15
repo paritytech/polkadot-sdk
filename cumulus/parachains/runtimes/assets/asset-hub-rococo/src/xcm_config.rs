@@ -82,8 +82,6 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
-	pub PoolAssetsPalletLocationV3: xcm::v3::Location =
-		xcm::v3::Junction::PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
@@ -179,6 +177,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
 	Balance,
+	xcm::v3::Location,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -581,7 +580,11 @@ impl xcm_executor::Config for XcmConfig {
 			WeightToFee,
 			crate::NativeAndAssets,
 			(
-				TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance>,
+				TrustBackedAssetsAsLocation<
+					TrustBackedAssetsPalletLocation,
+					Balance,
+					xcm::v3::Location,
+				>,
 				ForeignAssetsConvertedConcreteId,
 			),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
