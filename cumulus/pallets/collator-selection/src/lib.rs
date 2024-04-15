@@ -81,6 +81,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::marker::PhantomData;
+use frame_support::traits::TypedGet;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -979,5 +981,17 @@ pub mod pallet {
 		fn end_session(_: SessionIndex) {
 			// we don't care.
 		}
+	}
+}
+
+/// [`TypedGet`] implementation to get the AccountId of the StakingPot.
+pub struct StakingPotAccountId<R>(PhantomData<R>);
+impl<R> TypedGet for StakingPotAccountId<R>
+where
+	R: crate::Config,
+{
+	type Type = <R as frame_system::Config>::AccountId;
+	fn get() -> Self::Type {
+		<crate::Pallet<R>>::account_id()
 	}
 }

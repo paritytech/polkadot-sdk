@@ -61,9 +61,9 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex,
+	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
+	Header, IndexedVec, MultiDisputeStatementSet, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
 	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };

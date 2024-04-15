@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{self, SetGoAhead},
+	paras::{self, UpgradeStrategy},
 	scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
@@ -458,7 +458,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		// unlike most drain methods, drained elements are not cleared on `Drop` of the iterator
 		// and require consumption.
-		for _ in <PendingAvailability<T>>::drain() {}
+		for _ in PendingAvailability::<T>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
 	}
@@ -506,9 +506,9 @@ impl<T: Config> Pallet<T> {
 
 		let mut freed_cores = vec![];
 
-		let pending_paraids: Vec<_> = <PendingAvailability<T>>::iter_keys().collect();
+		let pending_paraids: Vec<_> = PendingAvailability::<T>::iter_keys().collect();
 		for paraid in pending_paraids {
-			<PendingAvailability<T>>::mutate(paraid, |candidates| {
+			PendingAvailability::<T>::mutate(paraid, |candidates| {
 				if let Some(candidates) = candidates {
 					let mut last_enacted_index: Option<usize> = None;
 
@@ -595,8 +595,8 @@ impl<T: Config> Pallet<T> {
 			return Ok(ProcessedCandidates::default())
 		}
 
-		let now = <frame_system::Pallet<T>>::block_number();
-		let validators = shared::Pallet::<T>::active_validator_keys();
+		let now = frame_system::Pallet::<T>::block_number();
+		let validators = shared::ActiveValidatorKeys::<T>::get();
 
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
@@ -626,7 +626,7 @@ impl<T: Config> Pallet<T> {
 				// group assigned to core at block `N + 1`. Thus,
 				// `relay_parent_number + 1` will always land in the current
 				// session.
-				let group_idx = <scheduler::Pallet<T>>::group_assigned_to_core(
+				let group_idx = scheduler::Pallet::<T>::group_assigned_to_core(
 					*core,
 					relay_parent_number + One::one(),
 				)
@@ -656,7 +656,7 @@ impl<T: Config> Pallet<T> {
 				core_indices.push((*core, *para_id));
 
 				// Update storage now
-				<PendingAvailability<T>>::mutate(&para_id, |pending_availability| {
+				PendingAvailability::<T>::mutate(&para_id, |pending_availability| {
 					let new_candidate = CandidatePendingAvailability {
 						core: *core,
 						hash: candidate_hash,
@@ -696,11 +696,11 @@ impl<T: Config> Pallet<T> {
 
 	// Get the latest backed output head data of this para.
 	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
-		match <PendingAvailability<T>>::get(para_id).and_then(|pending_candidates| {
+		match PendingAvailability::<T>::get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			Some(head_data) => Some(head_data),
-			None => <paras::Pallet<T>>::para_head(para_id),
+			None => paras::Heads::<T>::get(para_id),
 		}
 	}
 
@@ -710,12 +710,12 @@ impl<T: Config> Pallet<T> {
 		group_vals: Vec<ValidatorIndex>,
 		core_index_enabled: bool,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
-		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
+		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
 		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 		let signing_context = SigningContext {
 			parent_hash: backed_candidate.descriptor().relay_parent,
-			session_index: shared::Pallet::<T>::session_index(),
+			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
 		let (validator_indices, _) =
@@ -773,7 +773,7 @@ impl<T: Config> Pallet<T> {
 		relay_parent_number: BlockNumberFor<T>,
 		validation_outputs: primitives::CandidateCommitments,
 	) -> bool {
-		let prev_context = <paras::Pallet<T>>::para_most_recent_context(para_id);
+		let prev_context = paras::MostRecentContext::<T>::get(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
 		if check_ctx
@@ -810,7 +810,7 @@ impl<T: Config> Pallet<T> {
 	) -> Weight {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		T::RewardValidators::reward_backing(
 			backers
@@ -832,19 +832,19 @@ impl<T: Config> Pallet<T> {
 		let mut weight = T::DbWeight::get().reads_writes(1, 0);
 		if let Some(new_code) = commitments.new_validation_code {
 			// Block number of candidate's inclusion.
-			let now = <frame_system::Pallet<T>>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 
-			weight.saturating_add(<paras::Pallet<T>>::schedule_code_upgrade(
+			weight.saturating_add(paras::Pallet::<T>::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
 				&config,
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			));
 		}
 
 		// enact the messaging facet of the candidate.
-		weight.saturating_accrue(<dmp::Pallet<T>>::prune_dmq(
+		weight.saturating_accrue(dmp::Pallet::<T>::prune_dmq(
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
 		));
@@ -852,11 +852,11 @@ impl<T: Config> Pallet<T> {
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
 		));
-		weight.saturating_accrue(<hrmp::Pallet<T>>::prune_hrmp(
+		weight.saturating_accrue(hrmp::Pallet::<T>::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
 		));
-		weight.saturating_accrue(<hrmp::Pallet<T>>::queue_outbound_hrmp(
+		weight.saturating_accrue(hrmp::Pallet::<T>::queue_outbound_hrmp(
 			receipt.descriptor.para_id,
 			commitments.horizontal_messages,
 		));
@@ -868,7 +868,7 @@ impl<T: Config> Pallet<T> {
 			backing_group,
 		));
 
-		weight.saturating_add(<paras::Pallet<T>>::note_new_head(
+		weight.saturating_add(paras::Pallet::<T>::note_new_head(
 			receipt.descriptor.para_id,
 			commitments.head_data,
 			relay_parent_number,
@@ -887,7 +887,7 @@ impl<T: Config> Pallet<T> {
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Cannot send UMP messages while off-boarding.
-		if <paras::Pallet<T>>::is_offboarding(para) {
+		if paras::Pallet::<T>::is_offboarding(para) {
 			ensure!(upward_messages.is_empty(), UmpAcceptanceCheckErr::IsOffboarding);
 		}
 
@@ -975,7 +975,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns a vector of cleaned-up core IDs.
 	pub(crate) fn free_timedout() -> Vec<CoreIndex> {
-		let timeout_pred = <scheduler::Pallet<T>>::availability_timeout_predicate();
+		let timeout_pred = scheduler::Pallet::<T>::availability_timeout_predicate();
 
 		let timed_out: Vec<_> = Self::free_failed_cores(
 			|candidate| timeout_pred(candidate.backed_in_number).timed_out,
@@ -1028,7 +1028,7 @@ impl<T: Config> Pallet<T> {
 	) -> impl Iterator<Item = CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
 		let mut earliest_dropped_indices: BTreeMap<ParaId, usize> = BTreeMap::new();
 
-		for (para_id, pending_candidates) in <PendingAvailability<T>>::iter() {
+		for (para_id, pending_candidates) in PendingAvailability::<T>::iter() {
 			// We assume that pending candidates are stored in dependency order. So we need to store
 			// the earliest dropped candidate. All others that follow will get freed as well.
 			let mut earliest_dropped_idx = None;
@@ -1051,7 +1051,7 @@ impl<T: Config> Pallet<T> {
 
 		for (para_id, earliest_dropped_idx) in earliest_dropped_indices {
 			// Do cleanups and record the cleaned up cores
-			<PendingAvailability<T>>::mutate(&para_id, |record| {
+			PendingAvailability::<T>::mutate(&para_id, |record| {
 				if let Some(record) = record {
 					let cleaned_up = record.drain(earliest_dropped_idx..);
 					cleaned_up_cores.extend(cleaned_up);
@@ -1070,7 +1070,7 @@ impl<T: Config> Pallet<T> {
 	/// them. This should generally not be used but it is useful during execution of Runtime APIs,
 	/// where the changes to the state are expected to be discarded directly after.
 	pub(crate) fn force_enact(para: ParaId) {
-		<PendingAvailability<T>>::mutate(&para, |candidates| {
+		PendingAvailability::<T>::mutate(&para, |candidates| {
 			if let Some(candidates) = candidates {
 				for candidate in candidates.drain(..) {
 					let receipt = CommittedCandidateReceipt {
@@ -1096,7 +1096,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
-		<PendingAvailability<T>>::get(&para).and_then(|p| {
+		PendingAvailability::<T>::get(&para).and_then(|p| {
 			p.get(0).map(|p| CommittedCandidateReceipt {
 				descriptor: p.descriptor.clone(),
 				commitments: p.commitments.clone(),
@@ -1104,12 +1104,30 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Returns all the `CommittedCandidateReceipt` pending availability for the para provided, if
+	/// any.
+	pub(crate) fn candidates_pending_availability(
+		para: ParaId,
+	) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+		<PendingAvailability<T>>::get(&para)
+			.map(|candidates| {
+				candidates
+					.into_iter()
+					.map(|candidate| CommittedCandidateReceipt {
+						descriptor: candidate.descriptor.clone(),
+						commitments: candidate.commitments.clone(),
+					})
+					.collect()
+			})
+			.unwrap_or_default()
+	}
+
 	/// Returns the metadata around the first candidate pending availability for the
 	/// para provided, if any.
 	pub(crate) fn pending_availability(
 		para: ParaId,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		<PendingAvailability<T>>::get(&para).and_then(|p| p.get(0).cloned())
+		PendingAvailability::<T>::get(&para).and_then(|p| p.get(0).cloned())
 	}
 
 	/// Returns the metadata around the candidate pending availability occupying the supplied core,
@@ -1118,7 +1136,7 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		core: CoreIndex,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		<PendingAvailability<T>>::get(&para)
+		PendingAvailability::<T>::get(&para)
 			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
@@ -1156,7 +1174,7 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 		#[allow(deprecated)]
 		well_known_keys::relay_dispatch_queue_size_typed(para).set((count, size));
 
-		let config = <configuration::Pallet<T>>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let remaining_count = config.max_upward_queue_count.saturating_sub(count);
 		let remaining_size = config.max_upward_queue_size.saturating_sub(size);
 		well_known_keys::relay_dispatch_queue_remaining_capacity(para)
@@ -1172,7 +1190,7 @@ pub(crate) struct CandidateCheckContext<T: Config> {
 
 impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn new(prev_context: Option<BlockNumberFor<T>>) -> Self {
-		Self { config: <configuration::Pallet<T>>::config(), prev_context }
+		Self { config: configuration::ActiveConfig::<T>::get(), prev_context }
 	}
 
 	/// Execute verification of the candidate.
@@ -1221,7 +1239,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			Error::<T>::NotCollatorSigned,
 		);
 
-		let validation_code_hash = <paras::Pallet<T>>::current_code_hash(para_id)
+		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(
@@ -1291,7 +1309,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
 			ensure!(
-				<paras::Pallet<T>>::can_upgrade_validation_code(para_id),
+				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
@@ -1301,14 +1319,14 @@ impl<T: Config> CandidateCheckContext<T> {
 		}
 
 		// check if the candidate passes the messaging acceptance criteria
-		<dmp::Pallet<T>>::check_processed_downward_messages(
+		dmp::Pallet::<T>::check_processed_downward_messages(
 			para_id,
 			relay_parent_number,
 			processed_downward_messages,
 		)?;
 		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages)?;
-		<hrmp::Pallet<T>>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)?;
-		<hrmp::Pallet<T>>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)?;
+		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)?;
+		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)?;
 
 		Ok(())
 	}

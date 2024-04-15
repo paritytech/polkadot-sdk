@@ -560,7 +560,7 @@ pub mod pallet {
 				if !remaining.is_zero() {
 					Self::halt("not enough balance to unreserve");
 				} else {
-					log!(info, "unstaked {:?}, outcome: {:?}", stash, result);
+					log!(debug, "unstaked {:?}, outcome: {:?}", stash, result);
 					Self::deposit_event(Event::<T>::Unstaked { stash, result });
 				}
 			};

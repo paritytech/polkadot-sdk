@@ -36,6 +36,8 @@ mod tick_impls;
 mod types;
 mod utility_impls;
 
+pub mod runtime_api;
+
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -132,7 +134,7 @@ pub mod pallet {
 	pub type AllowedRenewals<T> =
 		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
 
-	/// The current (unassigned) Regions.
+	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
 	pub type Regions<T> = StorageMap<_, Blake2_128Concat, RegionId, RegionRecordOf<T>, OptionQuery>;
 
@@ -474,6 +476,8 @@ pub mod pallet {
 		AlreadyExpired,
 		/// The configuration could not be applied because it is invalid.
 		InvalidConfig,
+		/// The revenue must be claimed for 1 or more timeslices.
+		NoClaimTimeslices,
 	}
 
 	#[pallet::hooks]
@@ -548,16 +552,27 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `initial_price`: The price of Bulk Coretime in the first sale.
-		/// - `core_count`: The number of cores which can be allocated.
+		/// - `total_core_count`: This is the total number of cores the relay chain should have
+		/// after the sale concludes.
+		///
+		/// NOTE: This function does not actually request that new core count from the relay chain.
+		/// You need to make sure to call `request_core_count` afterwards to bring the relay chain
+		/// in sync.
+		///
+		/// When to call the function depends on the new core count. If it is larger than what it
+		/// was before, you can call it immediately or even before `start_sales` as non allocated
+		/// cores will just be `Idle`. If you are actually reducing the number of cores, you should
+		/// call `request_core_count`, right before the next sale, to avoid shutting down tasks too
+		/// early.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::start_sales((*core_count).into()))]
+		#[pallet::weight(T::WeightInfo::start_sales((*total_core_count).into()))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
 			initial_price: BalanceOf<T>,
-			core_count: CoreIndex,
+			total_core_count: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(initial_price, core_count)?;
+			Self::do_start_sales(initial_price, total_core_count)?;
 			Ok(Pays::No.into())
 		}
 
@@ -680,13 +695,12 @@ pub mod pallet {
 
 		/// Claim the revenue owed from inclusion in the Instantaneous Coretime Pool.
 		///
-		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The Region which was assigned to the Pool.
-		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This may
-		///   effect the weight of the call but should be ideally made equivalent to the length of
-		///   the Region `region_id`. If it is less than this, then further dispatches will be
-		///   required with the `region_id` which makes up any remainders of the region to be
-		///   collected.
+		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This
+		///   must be greater than 0. This may affect the weight of the call but should be ideally
+		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
+		///   will be required with the same `region_id` to claim revenue for the remainder.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(*max_timeslices))]
 		pub fn claim_revenue(
