@@ -104,7 +104,7 @@ parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 }
 
 pub type SovereignAccountOf =

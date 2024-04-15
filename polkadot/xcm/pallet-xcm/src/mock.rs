@@ -413,7 +413,7 @@ parameter_types! {
 		)),
 	};
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = GlobalConsensus(ByGenesis([0; 32])).into();
 	pub UnitWeightCost: u64 = 1_000;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
