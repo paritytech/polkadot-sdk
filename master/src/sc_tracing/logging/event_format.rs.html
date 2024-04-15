@@ -462,6 +462,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -485,6 +488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>regex::Regex;
 <span class="kw">use </span>std::fmt::{<span class="self">self</span>, Write};
 <span class="kw">use </span>tracing::{Event, Level, Subscriber};
+<span class="kw">use </span>tracing_log::NormalizeEvent;
 <span class="kw">use </span>tracing_subscriber::{
 	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
 	registry::LookupSpan,
@@ -524,10 +528,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FormatFields&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;static</span>,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>writer = <span class="kw-2">&amp;mut </span>ControlCodeSanitizer::new(!<span class="self">self</span>.enable_color, writer);
+		<span class="kw">let </span>normalized_meta = event.normalized_metadata();
+		<span class="kw">let </span>meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 		time::write(<span class="kw-2">&amp;</span><span class="self">self</span>.timer, <span class="kw-2">&amp;mut </span>format::Writer::new(<span class="kw-2">&amp;mut </span>writer), <span class="self">self</span>.enable_color)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span><span class="self">self</span>.display_level {
-			<span class="kw">let </span>fmt_level = FmtLevel::new(event.metadata().level(), <span class="self">self</span>.enable_color);
+			<span class="kw">let </span>fmt_level = FmtLevel::new(meta.level(), <span class="self">self</span>.enable_color);
 			<span class="macro">write!</span>(writer, <span class="string">&quot;{} &quot;</span>, fmt_level)<span class="question-mark">?</span>;
 		}
 
@@ -545,7 +551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if </span><span class="self">self</span>.display_target {
-			<span class="macro">write!</span>(writer, <span class="string">&quot;{}: &quot;</span>, event.metadata().target())<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(writer, <span class="string">&quot;{}: &quot;</span>, meta.target())<span class="question-mark">?</span>;
 		}
 
 		<span class="comment">// Custom code to display node name
