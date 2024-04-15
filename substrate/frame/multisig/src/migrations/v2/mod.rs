@@ -32,14 +32,13 @@ pub mod weights;
 /// Before running this migration, the storage alias defined here represents the
 /// `on_chain` storage.
 mod v1 {
-	use crate::pallet::Config;
-	use frame_support::pallet_prelude::*;
-	use frame_support::storage_alias;
+	use frame_support::{pallet_prelude::*, storage_alias};
+	use frame_system::Config as SystemConfig;
 
-	use crate::{BalanceOf, BlockNumberFor, Timepoint};
+	use crate::{pallet::Config, BalanceOf, BlockNumberFor, Pallet, Timepoint};
 
 	/// An open multisig operation.
-	#[derive(Decode)]
+	#[derive(Decode, Encode)]
 	pub struct OldMultisig<BlockNumber, Balance, AccountId, MaxApprovals>
 	where
 		MaxApprovals: Get<u32>,
@@ -58,15 +57,19 @@ mod v1 {
 	pub type Multisigs<T: Config> = StorageDoubleMap<
 		Pallet<T>,
 		Twox64Concat,
-		T::AccountId,
+		<T as SystemConfig>::AccountId,
 		Blake2_128Concat,
 		[u8; 32],
-		OldMultisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
+		OldMultisig<
+			BlockNumberFor<T>,
+			BalanceOf<T>,
+			<T as SystemConfig>::AccountId,
+			<T as Config>::MaxSignatories,
+		>,
 	>;
 }
 
-use crate::MaxEncodedLen;
-use crate::{Decode, Encode};
+use crate::{Decode, Encode, MaxEncodedLen};
 // TODO: did not want to touch frame/support/src/migrations.rs
 // so I moved it here, please double check
 #[derive(MaxEncodedLen, Encode, Decode)]
@@ -133,7 +136,8 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV2<T, 
 
 			// If there's a next item in the iterator, perform the migration.
 			if let Some((last_key1, last_key2, value)) = iter.next() {
-				// Migrate the `when` field (`Timepoint<BlockNumber>`) -> `maybe_when` (`Option<Timepoint<BlockNumber>>`)
+				// Migrate the `when` field (`Timepoint<BlockNumber>`) -> `maybe_when`
+				// (`Option<Timepoint<BlockNumber>>`)
 				let new_multisig = Multisig {
 					maybe_when: Some(value.when),
 					deposit: value.deposit,
@@ -143,7 +147,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV2<T, 
 
 				// We can just insert here since the old and the new map share the same key-space.
 				// Otherwise it would have to invert the concat hash function and re-hash it.
-				Multisigs::<T>::insert(last_key1, last_key2, new_multisig);
+				Multisigs::<T>::insert(last_key1.clone(), last_key2, new_multisig);
 				cursor = Some((last_key1, last_key2)) // Return the processed key as the new cursor.
 			} else {
 				cursor = None; // Signal that the migration is complete (no more items to process).
