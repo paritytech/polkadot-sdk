@@ -26,6 +26,25 @@ use sp_runtime::{
 	transaction_validity::{TransactionValidityError, UnknownTransaction},
 };
 
+pub struct EncodeNoneToEmpty(Option<[u8; 32]>);
+
+impl Encode for EncodeNoneToEmpty {
+	fn encode(&self) -> Vec<u8> {
+		match self.0 {
+			Some(hash) => hash.encode(),
+			None => Vec::new(),
+		}
+	}
+}
+
+impl TypeInfo for EncodeNoneToEmpty {
+	type Identity = <[u8; 32] as TypeInfo>::Identity;
+
+	fn type_info() -> scale_info::Type {
+		<[u8; 32]>::type_info()
+	}
+}
+
 /// Genesis hash check to provide replay protection between different networks.
 ///
 /// # Transaction Validity
@@ -36,31 +55,31 @@ use sp_runtime::{
 #[scale_info(skip_type_params(T))]
 pub struct CheckMetadataHash<T> {
 	_phantom: core::marker::PhantomData<T>,
-	enable: bool,
+	mode: u8,
 }
 
 impl<T> CheckMetadataHash<T> {
 	/// Creates new `SignedExtension` to check metadata hash.
 	pub fn new(enable: bool) -> Self {
-		Self { _phantom: core::marker::PhantomData, enable }
+		Self { _phantom: core::marker::PhantomData, mode: if enable { 1 } else { 0 } }
 	}
 }
 
 impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 	type AccountId = T::AccountId;
 	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = Option<[u8; 32]>;
+	type AdditionalSigned = EncodeNoneToEmpty;
 	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		if self.enable {
+		if self.mode == 1 {
 			match option_env!("RUNTIME_METADATA_HASH") {
-				Some(hash) => Ok(Some(array_bytes::hex2array_unchecked(hash))),
+				Some(hash) => Ok(EncodeNoneToEmpty(Some(array_bytes::hex2array_unchecked(hash)))),
 				None => Err(UnknownTransaction::CannotLookup.into()),
 			}
 		} else {
-			Ok(None)
+			Ok(EncodeNoneToEmpty(None))
 		}
 	}
 
