@@ -237,7 +237,7 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
-# Fetch the release artifacts like binary and sigantures from S3. Assumes the ENV are set:
+# Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
@@ -369,7 +369,7 @@ function relative_parent() {
 # used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
 # podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
 function find_runtimes() {
-    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
+    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches '[frame_support::runtime]!' -- '*lib.rs'))
     re=".*-runtime$"
     JSON=$(jq --null-input '{ "include": [] }')
 
@@ -433,4 +433,14 @@ check_release_id() {
       exit 1
   fi
 
+}
+
+# Get latest release tag
+#
+# input: none
+# output: latest_release_tag
+get_latest_release_tag() {
+    TOKEN="Authorization: Bearer $GITHUB_TOKEN"
+    latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
+    printf $latest_release_tag
 }

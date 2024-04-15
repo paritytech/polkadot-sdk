@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 cfg-if = "1.0"
 cpu-time = "1.0.0"
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.152"
 thiserror = { workspace = true }

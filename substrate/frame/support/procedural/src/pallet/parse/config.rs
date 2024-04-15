@@ -275,7 +275,8 @@ fn check_event_type(
 }
 
 /// Check that the path to `frame_system::Config` is valid, this is that the path is just
-/// `frame_system::Config` or when using the `frame` crate it is `frame::xyz::frame_system::Config`.
+/// `frame_system::Config` or when using the `frame` crate it is
+/// `polkadot_sdk_frame::xyz::frame_system::Config`.
 fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
 	// Check if `frame_system` is actually 'frame_system'.
 	if path.segments.iter().all(|s| s.ident != "frame_system") {
@@ -293,7 +294,7 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 			// `frame` re-exports it as such.
 				syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed"),
 			(_, _) =>
-			// They are either both `frame_system` or both `frame::xyz::frame_system`.
+			// They are either both `frame_system` or both `polkadot_sdk_frame::xyz::frame_system`.
 				frame_system.clone(),
 		};
 
@@ -516,14 +517,28 @@ mod tests {
 
 	#[test]
 	fn has_expected_system_config_works_with_frame() {
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::deps::frame_system))
+				.unwrap();
+		assert!(has_expected_system_config(path.clone(), &frame_system));
+
 		let frame_system =
 			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
-		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
 
 	#[test]
 	fn has_expected_system_config_works_with_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::deps::frame_system))
+				.unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::deps::frame_system::Config))
+				.unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+
 		let frame_system =
 			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
 		let path =
@@ -534,6 +549,13 @@ mod tests {
 	#[test]
 	fn has_expected_system_config_works_with_other_frame_full_path() {
 		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::xyz::frame_system::Config))
+				.unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+
+		let frame_system =
 			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
 		let path =
 			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
@@ -543,18 +565,21 @@ mod tests {
 	#[test]
 	fn has_expected_system_config_does_not_works_with_mixed_frame_full_path() {
 		let frame_system =
-			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::xyz::frame_system)).unwrap();
 		let path =
-			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::deps::frame_system::Config))
+				.unwrap();
 		assert!(!has_expected_system_config(path, &frame_system));
 	}
 
 	#[test]
 	fn has_expected_system_config_does_not_works_with_other_mixed_frame_full_path() {
 		let frame_system =
-			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::deps::frame_system))
+				.unwrap();
 		let path =
-			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::xyz::frame_system::Config))
+				.unwrap();
 		assert!(!has_expected_system_config(path, &frame_system));
 	}
 
@@ -562,7 +587,8 @@ mod tests {
 	fn has_expected_system_config_does_not_work_with_frame_full_path_if_not_frame_crate() {
 		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
 		let path =
-			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(polkadot_sdk_frame::deps::frame_system::Config))
+				.unwrap();
 		assert!(!has_expected_system_config(path, &frame_system));
 	}
 

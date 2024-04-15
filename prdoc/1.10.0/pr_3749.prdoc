@@ -1,0 +1,47 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-xcm: deprecate execute and send in favor of execute_blob and send_blob"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      pallet-xcm's extrinsics `execute` and `send` have been marked as deprecated.
+      Please change their usage to the new `execute_blob` and `send_blob`.
+      The migration from the old extrinsic to the new is very simple.
+      If you have your message `xcm: VersionedXcm<Call>`, then instead of passing in
+      `Box::new(xcm)` to both `execute` and `send`, you would pass in
+      `xcm.encode().try_into()` and handle the potential error of its encoded length
+      being bigger than `MAX_XCM_ENCODED_SIZE`.
+
+      pallet-contracts takes the XCM encoded now as well. It follows the same API as
+      `execute_blob` and `send_blob`.
+  - audience: Runtime User
+    description: |
+      pallet-xcm has a new pair of extrinsics, `execute_blob` and `send_blob`.
+      These are meant to be used instead of `execute` and `send`, which are now deprecated
+      and will be removed eventually.
+      These new extrinsics just require you to input the encoded XCM.
+      There's a new utility in PolkadotJS Apps for encoding XCMs you can use:
+      https://polkadot.js.org/apps/#/utilities/xcm
+      Just pass in the encoded XCM to the new extrinsics and you're done.
+
+      pallet-contracts takes the XCM encoded now as well. It follows the same API as
+      `execute_blob` and `send_blob`.
+
+crates:
+- name: pallet-xcm
+- name: staging-xcm
+- name: staging-xcm-builder
+- name: pallet-contracts
+- name: asset-hub-rococo-runtime
+- name: asset-hub-westend-runtime
+- name: bridge-hub-rococo-runtime
+- name: bridge-hub-westend-runtime
+- name: collectives-westend-runtime
+- name: coretime-rococo-runtime
+- name: coretime-westend-runtime
+- name: people-rococo-runtime
+- name: people-westend-runtime
+- name: rococo-runtime
+- name: westend-runtime

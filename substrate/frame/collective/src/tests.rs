@@ -87,7 +87,7 @@ parameter_types! {
 	pub static MaxProposalWeight: Weight = default_max_proposal_weight();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -995,7 +995,7 @@ fn motions_all_first_vote_free_works() {
 			Collective::vote(RuntimeOrigin::signed(3), hash, 0, false);
 		assert_eq!(vote_rval.unwrap().pays_fee, Pays::Yes);
 
-		// Test close() Extrincis | Check DispatchResultWithPostInfo with Pay Info
+		// Test close() Extrinsics | Check DispatchResultWithPostInfo with Pay Info
 
 		let proposal_weight = proposal.get_dispatch_info().weight;
 		let close_rval: DispatchResultWithPostInfo =

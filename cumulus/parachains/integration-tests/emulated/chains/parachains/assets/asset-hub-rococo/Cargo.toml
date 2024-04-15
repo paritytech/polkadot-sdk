@@ -17,9 +17,12 @@ sp-core = { path = "../../../../../../../../substrate/primitives/core", default-
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
 # Cumulus
-parachains-common = { path = "../../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../../common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 asset-hub-rococo-runtime = { path = "../../../../../../runtimes/assets/asset-hub-rococo" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
 testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../../../../../polkadot/xcm", default-features = false }

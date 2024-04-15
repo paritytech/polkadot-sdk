@@ -19,7 +19,7 @@ use std::collections::HashSet;
 use futures::{executor, future, Future};
 
 use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
-use polkadot_primitives::{CoreState, Hash};
+use polkadot_primitives::{Block, CoreState, Hash};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_subsystem_test_helpers as test_helpers;
@@ -44,9 +44,14 @@ fn test_harness<T: Future<Output = ()>>(
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
 
-	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (chunk_req_receiver, chunk_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = AvailabilityDistributionSubsystem::new(
 		keystore,
 		IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },

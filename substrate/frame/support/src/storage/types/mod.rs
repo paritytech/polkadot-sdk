@@ -195,7 +195,7 @@ mod test {
 			// result query returns error
 			assert_eq!(C::get(), Err(()));
 
-			// value query with custom onempty returns 42
+			// value query with custom on empty returns 42
 			assert_eq!(D::get(), 42);
 		});
 	}

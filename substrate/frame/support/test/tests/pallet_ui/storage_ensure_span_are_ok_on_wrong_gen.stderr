@@ -13,8 +13,8 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
              Box<T>
-             Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Rc<T>
              Arc<T>
    = note: required for `Bar` to implement `Decode`
    = note: required for `Bar` to implement `FullCodec`
@@ -65,8 +65,8 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
              bytes::bytes::Bytes
              Cow<'a, T>
              parity_scale_codec::Ref<'a, T, U>
-             Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Rc<T>
              Arc<T>
              Vec<T>
            and $N others
@@ -106,8 +106,8 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
              Box<T>
-             Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Rc<T>
              Arc<T>
    = note: required for `Bar` to implement `Decode`
    = note: required for `Bar` to implement `FullCodec`
@@ -148,8 +148,8 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
              bytes::bytes::Bytes
              Cow<'a, T>
              parity_scale_codec::Ref<'a, T, U>
-             Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Rc<T>
              Arc<T>
              Vec<T>
            and $N others
@@ -168,8 +168,8 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
              Box<T>
-             Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Rc<T>
              Arc<T>
    = note: required for `Bar` to implement `Decode`
    = note: required for `Bar` to implement `FullCodec`
@@ -210,8 +210,8 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
              bytes::bytes::Bytes
              Cow<'a, T>
              parity_scale_codec::Ref<'a, T, U>
-             Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Rc<T>
              Arc<T>
              Vec<T>
            and $N others

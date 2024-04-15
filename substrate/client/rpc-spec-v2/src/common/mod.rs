@@ -13,5 +13,6 @@
 
 //! Common types and functionality for the RPC-V2 spec.
 
+pub mod connections;
 pub mod events;
 pub mod storage;

@@ -122,7 +122,7 @@ impl MockAuthorityDiscovery {
 		self.authorities.lock().clone()
 	}
 
-	fn add_more_authorties(
+	fn add_more_authorities(
 		&self,
 		new_known: Vec<AuthorityDiscoveryId>,
 	) -> HashMap<PeerId, HashSet<AuthorityDiscoveryId>> {
@@ -720,7 +720,7 @@ fn issues_update_authorities_after_session() {
 
 			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
 			// 4. Connect more authorities except one
-			let newly_added = authority_discovery_mock.add_more_authorties(unknown_at_session);
+			let newly_added = authority_discovery_mock.add_more_authorities(unknown_at_session);
 			let mut newly_added_iter = newly_added.iter();
 			let unconnected_at_last_retry = newly_added_iter
 				.next()
