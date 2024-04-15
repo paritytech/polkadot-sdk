@@ -33,20 +33,21 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::CollationResult;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId};
+use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
 
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_consensus_aura::{AuraApi, SlotDuration};
+use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_state_machine::Backend as _;
 use std::{convert::TryFrom, sync::Arc, time::Duration};
 
 use crate::collator as collator_util;
@@ -73,8 +74,6 @@ pub struct Params<BI, CIDP, Client, RClient, SO, Proposer, CS> {
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
-	/// The length of slots in this chain.
-	pub slot_duration: SlotDuration,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// The underlying block proposer this should call into.
@@ -100,6 +99,7 @@ where
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -172,6 +172,22 @@ where
 				continue
 			}
 
+			let Ok(Some(code)) =
+				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
+					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
+				})
+			else {
+				continue;
+			};
+
+			super::check_validation_code_or_log(
+				&ValidationCode::from(code).hash(),
+				params.para_id,
+				&params.relay_client,
+				*request.relay_parent(),
+			)
+			.await;
+
 			let relay_parent_header =
 				match params.relay_client.header(RBlockId::hash(*request.relay_parent())).await {
 					Err(e) => reject_with_error!(e),
@@ -179,11 +195,16 @@ where
 					Ok(Some(h)) => h,
 				};
 
+			let slot_duration = match params.para_client.runtime_api().slot_duration(parent_hash) {
+				Ok(d) => d,
+				Err(e) => reject_with_error!(e),
+			};
+
 			let claim = match collator_util::claim_slot::<_, _, P>(
 				&*params.para_client,
 				parent_hash,
 				&relay_parent_header,
-				params.slot_duration,
+				slot_duration,
 				params.relay_chain_slot_duration,
 				&params.keystore,
 			)

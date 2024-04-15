@@ -18,6 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
 use sp_runtime_interface::runtime_interface;
@@ -35,7 +36,8 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
 	fn storage_proof_size(&mut self) -> u64 {
-		self.extension::<ProofSizeExt>().map_or(u64::MAX, |e| e.storage_proof_size())
+		self.extension::<ProofSizeExt>()
+			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
 	}
 }
 

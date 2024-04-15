@@ -19,6 +19,7 @@
 
 use crate::CoreIndex;
 use sp_arithmetic::{traits::One, FixedU64};
+use sp_runtime::Saturating;
 
 /// Type for determining how to set price.
 pub trait AdaptPrice {
@@ -49,14 +50,24 @@ impl AdaptPrice for () {
 pub struct Linear;
 impl AdaptPrice for Linear {
 	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		FixedU64::from(2) - when
+		FixedU64::from(2).saturating_sub(when)
 	}
 	fn adapt_price(sold: CoreIndex, target: CoreIndex, limit: CoreIndex) -> FixedU64 {
 		if sold <= target {
-			FixedU64::from_rational(sold.into(), target.into())
+			// Range of [0.5, 1.0].
+			FixedU64::from_rational(1, 2).saturating_add(FixedU64::from_rational(
+				sold.into(),
+				target.saturating_mul(2).into(),
+			))
 		} else {
-			FixedU64::one() +
-				FixedU64::from_rational((sold - target).into(), (limit - target).into())
+			// Range of (1.0, 2].
+
+			// Unchecked math: In this branch we know that sold > target. The limit must be >= sold
+			// by construction, and thus target must be < limit.
+			FixedU64::one().saturating_add(FixedU64::from_rational(
+				(sold - target).into(),
+				(limit - target).into(),
+			))
 		}
 	}
 }
@@ -80,5 +91,24 @@ mod tests {
 				}
 			}
 		}
+	}
+
+	#[test]
+	fn linear_bound_check() {
+		// Using constraints from pallet implementation i.e. `limit >= sold`.
+		// Check extremes
+		let limit = 10;
+		let target = 5;
+
+		// Maximally sold: `sold == limit`
+		assert_eq!(Linear::adapt_price(limit, target, limit), FixedU64::from_float(2.0));
+		// Ideally sold: `sold == target`
+		assert_eq!(Linear::adapt_price(target, target, limit), FixedU64::one());
+		// Minimally sold: `sold == 0`
+		assert_eq!(Linear::adapt_price(0, target, limit), FixedU64::from_float(0.5));
+		// Optimistic target: `target == limit`
+		assert_eq!(Linear::adapt_price(limit, limit, limit), FixedU64::one());
+		// Pessimistic target: `target == 0`
+		assert_eq!(Linear::adapt_price(limit, 0, limit), FixedU64::from_float(2.0));
 	}
 }

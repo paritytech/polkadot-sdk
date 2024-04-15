@@ -27,6 +27,7 @@ pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../../polkadot/primitives" }
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain" }
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }

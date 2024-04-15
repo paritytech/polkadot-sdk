@@ -34,8 +34,8 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
-use libp2p::{core::multiaddr, identity::PublicKey, multihash::Multihash, Multiaddr, PeerId};
-use multihash_codetable::{Code, MultihashDigest};
+use linked_hash_set::LinkedHashSet;
+use multihash::{Code, Multihash, MultihashDigest};
 
 use log::{debug, error, log_enabled};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -43,8 +43,10 @@ use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
 
 use sc_network::{
-	event::DhtEvent, KademliaKey, NetworkDHTProvider, NetworkSigner, NetworkStateInfo, Signature,
+	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
+	NetworkStateInfo,
 };
+use sc_network_types::PeerId;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
@@ -107,27 +109,38 @@ pub enum Role {
 ///    network peerset.
 ///
 ///    5. Allow querying of the collected addresses via the [`crate::Service`].
-pub struct Worker<Client, Network, Block, DhtEventStream> {
+pub struct Worker<Client, Block, DhtEventStream> {
 	/// Channel receiver for messages send by a [`crate::Service`].
 	from_service: Fuse<mpsc::Receiver<ServicetoWorkerMsg>>,
 
 	client: Arc<Client>,
 
-	network: Arc<Network>,
+	network: Arc<dyn NetworkProvider>,
 
 	/// Channel we receive Dht events on.
 	dht_event_rx: DhtEventStream,
 
 	/// Interval to be proactive, publishing own addresses.
 	publish_interval: ExpIncInterval,
+
 	/// Pro-actively publish our own addresses at this interval, if the keys in the keystore
 	/// have changed.
 	publish_if_changed_interval: ExpIncInterval,
+
 	/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	latest_published_keys: HashSet<AuthorityId>,
+	/// List of the kademlia keys that have been published at the latest publication.
+	/// Used to associate DHT events with our published records.
+	latest_published_kad_keys: HashSet<KademliaKey>,
+
 	/// Same value as in the configuration.
 	publish_non_global_ips: bool,
+
+	/// Public addresses set by the node operator to always publish first in the authority
+	/// discovery DHT record.
+	public_addresses: LinkedHashSet<Multiaddr>,
+
 	/// Same value as in the configuration.
 	strict_record_validation: bool,
 
@@ -136,6 +149,7 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 
 	/// Queue of throttled lookups pending to be passed to the network.
 	pending_lookups: Vec<AuthorityId>,
+
 	/// Set of in-flight lookups.
 	in_flight_lookups: HashMap<KademliaKey, AuthorityId>,
 
@@ -179,10 +193,9 @@ where
 	}
 }
 
-impl<Client, Network, Block, DhtEventStream> Worker<Client, Network, Block, DhtEventStream>
+impl<Client, Block, DhtEventStream> Worker<Client, Block, DhtEventStream>
 where
 	Block: BlockT + Unpin + 'static,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery<Block> + 'static,
 	DhtEventStream: Stream<Item = DhtEvent> + Unpin,
 {
@@ -190,7 +203,7 @@ where
 	pub(crate) fn new(
 		from_service: mpsc::Receiver<ServicetoWorkerMsg>,
 		client: Arc<Client>,
-		network: Arc<Network>,
+		network: Arc<dyn NetworkProvider>,
 		dht_event_rx: DhtEventStream,
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
@@ -224,6 +237,29 @@ where
 			None => None,
 		};
 
+		let public_addresses = {
+			let local_peer_id: Multihash = network.local_peer_id().into();
+
+			config
+				.public_addresses
+				.into_iter()
+				.map(|mut address| {
+					if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+						if peer_id != local_peer_id {
+							error!(
+								target: LOG_TARGET,
+								"Discarding invalid local peer ID in public address {address}.",
+							);
+						}
+						// Always discard `/p2p/...` protocol for proper address comparison (local
+						// peer id will be added before publishing).
+						address.pop();
+					}
+					address
+				})
+				.collect()
+		};
+
 		Worker {
 			from_service: from_service.fuse(),
 			client,
@@ -232,7 +268,9 @@ where
 			publish_interval,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
+			latest_published_kad_keys: HashSet::new(),
 			publish_non_global_ips: config.publish_non_global_ips,
+			public_addresses,
 			strict_record_validation: config.strict_record_validation,
 			query_interval,
 			pending_lookups: Vec::new(),
@@ -304,17 +342,39 @@ where
 	}
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
-		let peer_id: Multihash = self.network.local_peer_id().into();
+		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
-		self.network
-			.external_addresses()
+		let addresses = self
+			.public_addresses
+			.clone()
 			.into_iter()
-			.filter(move |a| {
+			.chain(self.network.external_addresses().into_iter().filter_map(|mut address| {
+				// Make sure the reported external address does not contain `/p2p/...` protocol.
+				if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+					if peer_id != *local_peer_id.as_ref() {
+						error!(
+							target: LOG_TARGET,
+							"Network returned external address '{address}' with peer id \
+							 not matching the local peer id '{local_peer_id}'.",
+						);
+						debug_assert!(false);
+					}
+					address.pop();
+				}
+
+				if self.public_addresses.contains(&address) {
+					// Already added above.
+					None
+				} else {
+					Some(address)
+				}
+			}))
+			.filter(move |address| {
 				if publish_non_global_ips {
 					return true
 				}
 
-				a.iter().all(|p| match p {
+				address.iter().all(|protocol| match protocol {
 					// The `ip_network` library is used because its `is_global()` method is stable,
 					// while `is_global()` in the standard library currently isn't.
 					multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
@@ -322,13 +382,18 @@ where
 					_ => true,
 				})
 			})
-			.map(move |a| {
-				if a.iter().any(|p| matches!(p, multiaddr::Protocol::P2p(_))) {
-					a
-				} else {
-					a.with(multiaddr::Protocol::P2p(peer_id))
-				}
-			})
+			.collect::<Vec<_>>();
+
+		debug!(
+			target: LOG_TARGET,
+			"Authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'",
+		);
+
+		// The address must include the local peer id.
+		let local_peer_id: Multihash = local_peer_id.into();
+		addresses
+			.into_iter()
+			.map(move |a| a.with(multiaddr::Protocol::P2p(local_peer_id)))
 	}
 
 	/// Publish own public addresses.
@@ -341,13 +406,26 @@ where
 			Role::Discover => return Ok(()),
 		};
 
-		let keys = Worker::<Client, Network, Block, DhtEventStream>::get_own_public_keys_within_authority_set(
-			key_store.clone(),
-			self.client.as_ref(),
-		).await?.into_iter().collect::<HashSet<_>>();
+		let keys =
+			Worker::<Client, Block, DhtEventStream>::get_own_public_keys_within_authority_set(
+				key_store.clone(),
+				self.client.as_ref(),
+			)
+			.await?
+			.into_iter()
+			.collect::<HashSet<_>>();
 
-		if only_if_changed && keys == self.latest_published_keys {
-			return Ok(())
+		if only_if_changed {
+			// If the authority keys did not change and the `publish_if_changed_interval` was
+			// triggered then do nothing.
+			if keys == self.latest_published_keys {
+				return Ok(())
+			}
+
+			// We have detected a change in the authority keys, reset the timers to
+			// publish and gather data faster.
+			self.publish_interval.set_to_start();
+			self.query_interval.set_to_start();
 		}
 
 		let addresses = serialize_addresses(self.addresses_to_publish());
@@ -360,7 +438,7 @@ where
 		}
 
 		let serialized_record = serialize_authority_record(addresses)?;
-		let peer_signature = sign_record_with_peer_id(&serialized_record, self.network.as_ref())?;
+		let peer_signature = sign_record_with_peer_id(&serialized_record, &self.network)?;
 
 		let keys_vec = keys.iter().cloned().collect::<Vec<_>>();
 
@@ -370,6 +448,8 @@ where
 			key_store.as_ref(),
 			keys_vec,
 		)?;
+
+		self.latest_published_kad_keys = kv_pairs.iter().map(|(k, _)| k.clone()).collect();
 
 		for (key, value) in kv_pairs.into_iter() {
 			self.network.put_value(key, value);
@@ -472,6 +552,10 @@ where
 				}
 			},
 			DhtEvent::ValuePut(hash) => {
+				if !self.latest_published_kad_keys.contains(&hash) {
+					return;
+				}
+
 				// Fast forward the exponentially increasing interval to the configured maximum. In
 				// case this was the first successful address publishing there is no need for a
 				// timely retry.
@@ -484,6 +568,11 @@ where
 				debug!(target: LOG_TARGET, "Successfully put hash '{:?}' on Dht.", hash)
 			},
 			DhtEvent::ValuePutFailed(hash) => {
+				if !self.latest_published_kad_keys.contains(&hash) {
+					// Not a value we have published or received multiple times.
+					return;
+				}
+
 				if let Some(metrics) = &self.metrics {
 					metrics.dht_event_received.with_label_values(&["value_put_failed"]).inc();
 				}
@@ -549,12 +638,15 @@ where
 				// properly signed by the owner of the PeerId
 
 				if let Some(peer_signature) = peer_signature {
-					let public_key = PublicKey::try_decode_protobuf(&peer_signature.public_key)
-						.map_err(Error::ParsingLibp2pIdentity)?;
-					let signature = Signature { public_key, bytes: peer_signature.signature };
-
-					if !signature.verify(record, &remote_peer_id) {
-						return Err(Error::VerifyingDhtPayload)
+					match self.network.verify(
+						remote_peer_id.into(),
+						&peer_signature.public_key,
+						&peer_signature.signature,
+						&record,
+					) {
+						Ok(true) => {},
+						Ok(false) => return Err(Error::VerifyingDhtPayload),
+						Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
 					}
 				} else if self.strict_record_validation {
 					return Err(Error::MissingPeerIdSignature)
@@ -616,9 +708,15 @@ where
 /// NetworkProvider provides [`Worker`] with all necessary hooks into the
 /// underlying Substrate networking. Using this trait abstraction instead of
 /// `sc_network::NetworkService` directly is necessary to unit test [`Worker`].
-pub trait NetworkProvider: NetworkDHTProvider + NetworkStateInfo + NetworkSigner {}
+pub trait NetworkProvider:
+	NetworkDHTProvider + NetworkStateInfo + NetworkSigner + Send + Sync
+{
+}
 
-impl<T> NetworkProvider for T where T: NetworkDHTProvider + NetworkStateInfo + NetworkSigner {}
+impl<T> NetworkProvider for T where
+	T: NetworkDHTProvider + NetworkStateInfo + NetworkSigner + Send + Sync
+{
+}
 
 fn hash_authority_id(id: &[u8]) -> KademliaKey {
 	KademliaKey::new(&Code::Sha2_256.digest(id).digest())
@@ -656,7 +754,7 @@ fn sign_record_with_peer_id(
 	network: &impl NetworkSigner,
 ) -> Result<schema::PeerSignature> {
 	let signature = network
-		.sign_with_local_identity(serialized_record)
+		.sign_with_local_identity(serialized_record.to_vec())
 		.map_err(|e| Error::CannotSign(format!("{} (network packet)", e)))?;
 	let public_key = signature.public_key.encode_protobuf();
 	let signature = signature.bytes;
@@ -770,7 +868,7 @@ impl Metrics {
 
 // Helper functions for unit testing.
 #[cfg(test)]
-impl<Block, Client, Network, DhtEventStream> Worker<Client, Network, Block, DhtEventStream> {
+impl<Block, Client, DhtEventStream> Worker<Client, Block, DhtEventStream> {
 	pub(crate) fn inject_addresses(&mut self, authority: AuthorityId, addresses: Vec<Multiaddr>) {
 		self.addr_cache.insert(authority, addresses);
 	}

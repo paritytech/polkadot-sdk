@@ -21,6 +21,7 @@ do
 done
 
 export POLKADOT_SDK_PATH=`realpath ${BASH_SOURCE%/*}/../..`
+export FRAMEWORK_PATH=`realpath ${BASH_SOURCE%/*}/framework`
 
 # set path to binaries
 if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then

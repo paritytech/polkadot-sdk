@@ -17,11 +17,15 @@
 
 //! # Balances Pallet
 //!
-//! The Balances pallet provides functionality for handling accounts and balances.
+//! The Balances pallet provides functionality for handling accounts and balances for a single
+//! token.
 //!
-//! - [`Config`]
-//! - [`Call`]
-//! - [`Pallet`]
+//! It makes heavy use of concepts such as Holds and Freezes from the
+//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! as a prerequisite to understanding this pallet.
+//!
+//! Also see the [`frame_tokens`] reference docs for higher level information regarding the
+//! place of this palet in FRAME.
 //!
 //! ## Overview
 //!
@@ -38,42 +42,30 @@
 //!
 //! ### Terminology
 //!
-//! - **Existential Deposit:** The minimum balance required to create or keep an account open. This
-//!   prevents "dust accounts" from filling storage. When the free plus the reserved balance (i.e.
-//!   the total balance) fall below this, then the account is said to be dead; and it loses its
-//!   functionality as well as any prior history and all information on it is removed from the
-//!   chain's state. No account should ever have a total balance that is strictly between 0 and the
-//!   existential deposit (exclusive). If this ever happens, it indicates either a bug in this
-//!   pallet or an erroneous raw mutation of storage.
-//!
-//! - **Total Issuance:** The total number of units in existence in a system.
-//!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
-//!
-//! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only
-//!   balance that matters for most operations.
-//!
-//! - **Reserved Balance:** Reserved balance still belongs to the account holder, but is suspended.
-//!   Reserved balance can still be slashed, but only after all the free balance has been slashed.
-//!
-//! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite
-//!   accounting (i.e. a difference between total issuance and account balances). Functions that
-//! result in an imbalance will return an object of the `Imbalance` trait that can be managed within
-//! your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
-//! book-keeping such as total issuance.)
-//!
-//! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block
-//!   number. Multiple locks always operate over the same funds, so they "overlay" rather than
-//! "stack".
+//!   its total balance has become less than the Existential Deposit.
 //!
 //! ### Implementations
 //!
-//! The Balances pallet provides implementations for the following traits. If these traits provide
-//! the functionality that you need, then you can avoid coupling with the Balances pallet.
+//! The Balances pallet provides implementations for the following [`fungible`] traits. If these
+//! traits provide the functionality that you need, then you should avoid tight coupling with the
+//! Balances pallet.
 //!
-//! - [`Currency`]: Functions for dealing with a
-//! fungible assets system.
+//! - [`fungible::Inspect`]
+//! - [`fungible::Mutate`]
+//! - [`fungible::Unbalanced`]
+//! - [`fungible::Balanced`]
+//! - [`fungible::BalancedHold`]
+//! - [`fungible::InspectHold`]
+//! - [`fungible::MutateHold`]
+//! - [`fungible::InspectFreeze`]
+//! - [`fungible::MutateFreeze`]
+//! - [`fungible::Imbalance`]
+//!
+//! It also implements the following [`Currency`] related traits, however they are deprecated and
+//! will eventually be removed.
+//!
+//! - [`Currency`]: Functions for dealing with a fungible assets system.
 //! - [`ReservableCurrency`]
 //! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
@@ -82,14 +74,6 @@
 //! - [`Imbalance`](frame_support::traits::Imbalance): Functions for handling
 //! imbalances between total issuance in the system and account balances. Must be used when a
 //! function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! - `transfer_allow_death` - Transfer some liquid free balance to another account.
-//! - `force_set_balance` - Set the balances of a given account. The origin of this call must be
-//!   root.
 //!
 //! ## Usage
 //!
@@ -151,8 +135,11 @@
 //! * Total issued balanced of all accounts should be less than `Config::Balance::max_value()`.
 //! * Existential Deposit is set to a value greater than zero.
 //!
-//! Note, you may find the Balances pallet still functions with an ED of zero in some circumstances,
-//! however this is not a configuration which is generally supported, nor will it be.
+//! Note, you may find the Balances pallet still functions with an ED of zero when the
+//! `insecure_zero_ed` cargo feature is enabled. However this is not a configuration which is
+//! generally supported, nor will it be.
+//!
+//! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
 mod benchmarking;
@@ -219,7 +206,7 @@ pub mod pallet {
 
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -308,10 +295,14 @@ pub mod pallet {
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
+		///
+		/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxLocks: Get<u32>;
 
 		/// The maximum number of named reserves that can exist on an account.
+		///
+		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
 
@@ -320,7 +311,7 @@ pub mod pallet {
 		type MaxFreezes: Get<u32>;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
 		frame_support::traits::StorageVersion::new(1);
 
@@ -455,6 +446,8 @@ pub mod pallet {
 
 	/// Any liquidity locks on some account balances.
 	/// NOTE: Should only be accessed when setting, changing and freeing a lock.
+	///
+	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
 	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -466,6 +459,8 @@ pub mod pallet {
 	>;
 
 	/// Named reserves on some account balances.
+	///
+	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
 	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -677,7 +672,7 @@ pub mod pallet {
 		///
 		/// This will waive the transaction fee if at least all but 10% of the accounts needed to
 		/// be upgraded. (We let some not have to be upgraded just in order to allow for the
-		/// possibililty of churn).
+		/// possibility of churn).
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::upgrade_accounts(who.len() as u32))]
 		pub fn upgrade_accounts(
@@ -905,14 +900,14 @@ pub mod pallet {
 			Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> { Ok(f(a)) })
 		}
 
-		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disnabled.
+		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
 		#[cfg(not(feature = "insecure_zero_ed"))]
 		fn have_providers_or_no_zero_ed(_: &T::AccountId) -> bool {
 			true
 		}
 
-		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disnabled.
+		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
 		#[cfg(feature = "insecure_zero_ed")]
 		fn have_providers_or_no_zero_ed(who: &T::AccountId) -> bool {

@@ -185,6 +185,16 @@ async fn activate_leaf(
 			}
 		);
 
+		// Node features request from runtime: all features are disabled.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+			) if parent == hash => {
+				tx.send(Ok(Default::default())).unwrap();
+			}
+		);
+
 		// Check if subsystem job issues a request for the minimum backing votes.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -305,10 +315,11 @@ async fn assert_hypothetical_frontier_requests(
 			) => {
 				let idx = match expected_requests.iter().position(|r| r.0 == request) {
 					Some(idx) => idx,
-					None => panic!(
+					None =>
+						panic!(
 						"unexpected hypothetical frontier request, no match found for {:?}",
 						request
-					),
+						),
 				};
 				let resp = std::mem::take(&mut expected_requests[idx].1);
 				tx.send(resp).unwrap();
@@ -1268,6 +1279,7 @@ fn concurrent_dependent_candidates() {
 		let statement_b = CandidateBackingMessage::Statement(leaf_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_a }).await;
+
 		// At this point the subsystem waits for response, the previous message is received,
 		// send a second one without blocking.
 		let _ = virtual_overseer
@@ -1388,7 +1400,19 @@ fn concurrent_dependent_candidates() {
 					assert_eq!(sess_idx, 1);
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_parent,
+					RuntimeApiRequest::ValidatorGroups(tx),
+				)) => {
+					tx.send(Ok(test_state.validator_groups.clone())).unwrap();
+				},
 
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_parent,
+					RuntimeApiRequest::AvailabilityCores(tx),
+				)) => {
+					tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+				},
 				_ => panic!("unexpected message received from overseer: {:?}", msg),
 			}
 		}
@@ -1419,7 +1443,6 @@ fn seconding_sanity_check_occupy_same_depth() {
 		let leaf_parent = get_parent_hash(leaf_hash);
 
 		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
-
 		let min_block_number = LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN;
 		let min_relay_parents = vec![(para_id_a, min_block_number), (para_id_b, min_block_number)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
@@ -1555,13 +1578,14 @@ fn occupied_core_assignment() {
 		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
 		const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
 		let para_id = test_state.chain_ids[0];
+		let previous_para_id = test_state.chain_ids[1];
 
 		// Set the core state to occupied.
 		let mut candidate_descriptor = ::test_helpers::dummy_candidate_descriptor(Hash::zero());
-		candidate_descriptor.para_id = para_id;
+		candidate_descriptor.para_id = previous_para_id;
 		test_state.availability_cores[0] = CoreState::Occupied(OccupiedCore {
 			group_responsible: Default::default(),
-			next_up_on_available: None,
+			next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
 			occupied_since: 100_u32,
 			time_out_at: 200_u32,
 			next_up_on_time_out: None,

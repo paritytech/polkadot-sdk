@@ -110,7 +110,7 @@ fn cannot_register_if_head() {
 			stashes: bounded_vec![(1, Deposit::get())],
 			checked: bounded_vec![],
 		});
-		// Controller attempts to regsiter
+		// Controller attempts to register
 		assert_noop!(
 			FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)),
 			Error::<T>::AlreadyHead

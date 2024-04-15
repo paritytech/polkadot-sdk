@@ -13,16 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod foreign_assets_transfers;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
-
-use crate::*;
-emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_hub!(
-	PenpalA,
-	AssetHubRococo,
-	ROCOCO_ED,
-	testnet_parachains_constants::rococo::fee::WeightToFee
-);
