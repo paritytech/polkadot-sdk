@@ -128,7 +128,7 @@ pub struct PoolStakerInfo<Balance> {
 	reward_per_token_paid: Balance,
 }
 
-/// The state and configuration an incentive pool.
+/// The state and configuration of an incentive pool.
 #[derive(Debug, Clone, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The asset staked in this pool.
