@@ -38,7 +38,7 @@ pub trait Create<AccountId>: Inspect<AccountId> {
 pub trait Refund<AccountId> {
 	/// Means of identifying one asset class from another.
 	type AssetId: AssetId;
-	/// Scalar type for representing balance of an account.
+	/// Scalar type for representing deposit balance of an account.
 	type Balance: Balance;
 	/// Returns the amount of account deposit and depositor address, if any.
 	fn deposit_held(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
