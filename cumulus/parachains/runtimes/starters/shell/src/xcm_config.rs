@@ -30,7 +30,7 @@ use xcm_builder::{
 
 parameter_types! {
 	pub const RococoLocation: Location = Location::parent();
-	pub const RococoNetwork = NetworkId::Rococo;
+	pub const RococoNetwork: NetworkId = NetworkId::Rococo;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RococoNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
