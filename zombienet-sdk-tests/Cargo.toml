@@ -1,0 +1,18 @@
+[package]
+name = "zombienet-sdk-tests"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+serde_json = { version = "1.0.114", default-features = false }
+subxt = { version = "0.33.0", default-features = false, features = ["native"] }
+subxt-signer = { version = "0.33.0" }
+tokio = "1.35.0"
+tracing-subscriber = "0.3.18"
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk", rev = "c70e180" }
+# zombienet-sdk = { path = "../../zombienet-sdk/crates/sdk" }
+log = { version = "0.4" }
+parity-scale-codec = { version = "3.6.9", features = ["derive", "parity-scale-codec-derive"] }
+anyhow = "1.0.82"
