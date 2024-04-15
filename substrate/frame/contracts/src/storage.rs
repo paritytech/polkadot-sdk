@@ -108,6 +108,11 @@ impl<T: Config> ContractInfo<T> {
 		Ok(contract)
 	}
 
+	/// Returns the number of locked delegate dependencies.
+	pub fn delegate_dependencies_count(&self) -> usize {
+		self.delegate_dependencies.len()
+	}
+
 	/// Associated child trie unique id is built from the hash part of the trie id.
 	pub fn child_trie_info(&self) -> ChildInfo {
 		ChildInfo::new_default(self.trie_id.as_ref())
@@ -322,7 +327,8 @@ impl<T: Config> ContractInfo<T> {
 				KillStorageResult::SomeRemaining(_) => return weight_limit,
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
-					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed);
+					// charge at least one key even if none were removed.
+					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed.max(1));
 				},
 			};
 		}

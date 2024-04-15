@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # import common functions
-source "${BASH_SOURCE%/*}/../../utils/bridges.sh"
+source "$FRAMEWORK_PATH/utils/bridges.sh"
 
 # Expected sovereign accounts.
 #
@@ -24,12 +24,6 @@ source "${BASH_SOURCE%/*}/../../utils/bridges.sh"
 #						 &MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }).unwrap()
 #				 ).to_ss58check_with_version(42_u16.into())
 #		);
-#		println!("GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT=\"{}\"",
-#				 frame_support::sp_runtime::AccountId32::new(
-#					 GlobalConsensusParachainConvertsFor::<UniversalLocationAHW, [u8; 32]>::convert_location(
-#						 &MultiLocation { parents: 2, interior: X2(GlobalConsensus(Rococo), Parachain(1000)) }).unwrap()
-#				 ).to_ss58check_with_version(42_u16.into())
-#		);
 #		println!("ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND=\"{}\"",
 #				 frame_support::sp_runtime::AccountId32::new(
 #					 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
@@ -44,12 +38,6 @@ source "${BASH_SOURCE%/*}/../../utils/bridges.sh"
 #						 &MultiLocation { parents: 2, interior: X1(GlobalConsensus(Westend)) }).unwrap()
 #				 ).to_ss58check_with_version(42_u16.into())
 #		);
-#		println!("GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT=\"{}\"",
-#				 frame_support::sp_runtime::AccountId32::new(
-#					 GlobalConsensusParachainConvertsFor::<UniversalLocationAHR, [u8; 32]>::convert_location(
-#						 &MultiLocation { parents: 2, interior: X2(GlobalConsensus(Westend), Parachain(1000)) }).unwrap()
-#				 ).to_ss58check_with_version(42_u16.into())
-#		);
 #		println!("ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO=\"{}\"",
 #				 frame_support::sp_runtime::AccountId32::new(
 #					 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
@@ -58,10 +46,8 @@ source "${BASH_SOURCE%/*}/../../utils/bridges.sh"
 #		);
 #	}
 GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT="5GxRGwT8bU1JeBPTUXc7LEjZMxNrK8MyL2NJnkWFQJTQ4sii"
-GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT="5CfNu7eH3SJvqqPt3aJh38T8dcFvhGzEohp9tsd41ANhXDnQ"
 ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT="5He2Qdztyxxa4GoagY6q1jaiLMmKy1gXS7PdZkhfj8ZG9hk5"
-GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT="5GUD9X494SnhfBTNReHwhV1599McpyVrAqFY6WnTfVQVYNUM"
 ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 
 # Expected sovereign accounts for rewards on BridgeHubs.
@@ -201,12 +187,6 @@ case "$1" in
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
-      # drip SA which holds reserves
-      transfer_balance \
-          "ws://127.0.0.1:9910" \
-          "//Alice" \
-          "$GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -266,12 +246,6 @@ case "$1" in
           "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
-      # drip SA which holds reserves
-      transfer_balance \
-          "ws://127.0.0.1:9010" \
-          "//Alice" \
-          "$GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \
@@ -319,6 +293,7 @@ case "$1" in
           $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
+      amount=$2
       ensure_polkadot_js_api
       # send ROCs to Alice account on AHW
       limited_reserve_transfer_assets \
@@ -326,11 +301,12 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 5000000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
           "Unlimited"
       ;;
   withdraw-reserve-assets-from-asset-hub-rococo-local)
+      amount=$2
       ensure_polkadot_js_api
       # send back only 100000000000 wrappedWNDs to Alice account on AHW
       limited_reserve_transfer_assets \
@@ -338,11 +314,12 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 3000000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
           "Unlimited"
       ;;
   reserve-transfer-assets-from-asset-hub-westend-local)
+      amount=$2
       ensure_polkadot_js_api
       # send WNDs to Alice account on AHR
       limited_reserve_transfer_assets \
@@ -350,11 +327,12 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 5000000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
           "Unlimited"
       ;;
   withdraw-reserve-assets-from-asset-hub-westend-local)
+      amount=$2
       ensure_polkadot_js_api
       # send back only 100000000000 wrappedROCs to Alice account on AHR
       limited_reserve_transfer_assets \
@@ -362,7 +340,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } } }, "fun": { "Fungible": 3000000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } } }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
           "Unlimited"
       ;;

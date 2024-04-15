@@ -45,6 +45,10 @@ mod should_execute;
 pub use should_execute::{CheckSuspension, Properties, ShouldExecute};
 mod transact_asset;
 pub use transact_asset::TransactAsset;
+mod hrmp;
+pub use hrmp::{
+	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
+};
 mod weight;
 #[deprecated = "Use `sp_runtime::traits::` instead"]
 pub use sp_runtime::traits::{Identity, TryConvertInto as JustTry};

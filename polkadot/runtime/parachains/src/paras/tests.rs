@@ -17,7 +17,7 @@
 use super::*;
 use frame_support::{assert_err, assert_ok, assert_storage_noop};
 use keyring::Sr25519Keyring;
-use primitives::{BlockNumber, PARACHAIN_KEY_TYPE_ID};
+use primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use sc_keystore::LocalKeystore;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
@@ -451,7 +451,7 @@ fn code_upgrade_applied_after_delay() {
 				new_code.clone(),
 				1,
 				&Configuration::config(),
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -521,7 +521,7 @@ fn code_upgrade_applied_after_delay() {
 }
 
 #[test]
-fn code_upgrade_applied_without_setting_go_ahead_signal() {
+fn upgrade_strategy_apply_at_expected_block_works() {
 	let code_retention_period = 10;
 	let validation_upgrade_delay = 5;
 	let validation_upgrade_cooldown = 10;
@@ -560,77 +560,42 @@ fn code_upgrade_applied_without_setting_go_ahead_signal() {
 		run_to_block(2, Some(vec![1]));
 		assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
 
-		let (expected_at, next_possible_upgrade_at) = {
-			// this parablock is in the context of block 1.
-			let expected_at = 1 + validation_upgrade_delay;
-			let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
-			// `set_go_ahead` parameter set to `false` which prevents signaling the parachain
-			// with the `GoAhead` signal.
-			Paras::schedule_code_upgrade(
-				para_id,
-				new_code.clone(),
-				1,
-				&Configuration::config(),
-				SetGoAhead::No,
-			);
-			// Include votes for super-majority.
-			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+		// this parablock is in the context of block 1.
+		let expected_at = 1 + validation_upgrade_delay;
+		let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
+		// `set_go_ahead` parameter set to `false` which prevents signaling the parachain
+		// with the `GoAhead` signal.
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&Configuration::config(),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		);
+		// Include votes for super-majority.
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().any(|(id, _)| *id == para_id));
 
-			Paras::note_new_head(para_id, Default::default(), 1);
-
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
-			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
-			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
-			assert_eq!(UpcomingUpgrades::<Test>::get(), vec![]);
-			assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
-			assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
-			check_code_is_stored(&original_code);
-			check_code_is_stored(&new_code);
-
-			(expected_at, next_possible_upgrade_at)
-		};
-
+		// Going to the expected block triggers the upgrade directly.
 		run_to_block(expected_at, None);
 
-		// the candidate is in the context of the parent of `expected_at`,
-		// thus does not trigger the code upgrade. However, now the `UpgradeGoAheadSignal`
-		// should not be set.
-		{
-			Paras::note_new_head(para_id, Default::default(), expected_at - 1);
+		// Reporting a head doesn't change anything.
+		Paras::note_new_head(para_id, Default::default(), expected_at - 1);
 
-			assert!(Paras::past_code_meta(&para_id).most_recent_change().is_none());
-			assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(expected_at));
-			assert_eq!(FutureCodeHash::<Test>::get(&para_id), Some(new_code.hash()));
-			assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
-			assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
-			check_code_is_stored(&original_code);
-			check_code_is_stored(&new_code);
-		}
-
-		run_to_block(expected_at + 1, None);
-
-		// the candidate is in the context of `expected_at`, and triggers
-		// the upgrade.
-		{
-			Paras::note_new_head(para_id, Default::default(), expected_at);
-
-			assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
-			assert_eq!(
-				PastCodeHash::<Test>::get(&(para_id, expected_at)),
-				Some(original_code.hash()),
-			);
-			assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
-			assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
-			assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
-			assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
-			assert_eq!(
-				UpgradeRestrictionSignal::<Test>::get(&para_id),
-				Some(UpgradeRestriction::Present),
-			);
-			assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
-			check_code_is_stored(&original_code);
-			check_code_is_stored(&new_code);
-		}
+		assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
+		assert_eq!(PastCodeHash::<Test>::get(&(para_id, expected_at)), Some(original_code.hash()));
+		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().all(|(id, _)| *id != para_id));
+		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
+		assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
+		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
+		assert_eq!(
+			UpgradeRestrictionSignal::<Test>::get(&para_id),
+			Some(UpgradeRestriction::Present),
+		);
+		assert_eq!(UpgradeCooldowns::<Test>::get(), vec![(para_id, next_possible_upgrade_at)]);
+		check_code_is_stored(&original_code);
+		check_code_is_stored(&new_code);
 
 		run_to_block(next_possible_upgrade_at + 1, None);
 
@@ -688,7 +653,7 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 				new_code.clone(),
 				1,
 				&Configuration::config(),
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -772,7 +737,7 @@ fn submit_code_change_when_not_allowed_is_err() {
 			new_code.clone(),
 			1,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -790,7 +755,7 @@ fn submit_code_change_when_not_allowed_is_err() {
 			newer_code.clone(),
 			2,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert_eq!(
 			FutureCodeUpgrades::<Test>::get(&para_id),
@@ -854,7 +819,7 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			new_code.clone(),
 			0,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -879,7 +844,7 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			newer_code.clone(),
 			30,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(0 + validation_upgrade_delay));
 	});
@@ -909,7 +874,10 @@ fn full_parachain_cleanup_storage() {
 				minimum_validation_upgrade_delay: 2,
 				// Those are not relevant to this test. However, HostConfiguration is still a
 				// subject for the consistency check.
-				paras_availability_period: 1,
+				scheduler_params: SchedulerParams {
+					paras_availability_period: 1,
+					..Default::default()
+				},
 				..Default::default()
 			},
 		},
@@ -937,7 +905,7 @@ fn full_parachain_cleanup_storage() {
 				new_code.clone(),
 				1,
 				&Configuration::config(),
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -1033,7 +1001,7 @@ fn cannot_offboard_ongoing_pvf_check() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1191,7 +1159,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 			new_code.clone(),
 			0,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -1207,7 +1175,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		assert_eq!(Paras::past_code_meta(&para_id).upgrade_times, vec![upgrade_at(4, 10)]);
 		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
 
-		// Make sure that the old code is available **before** the code retion period passes.
+		// Make sure that the old code is available **before** the code retention period passes.
 		run_to_block(10 + code_retention_period, None);
 		assert_eq!(Paras::code_by_hash(&old_code.hash()), Some(old_code.clone()));
 		assert_eq!(Paras::code_by_hash(&new_code.hash()), Some(new_code.clone()));
@@ -1300,7 +1268,7 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 			validation_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1410,7 +1378,7 @@ fn pvf_check_upgrade_reject() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		check_code_is_stored(&new_code);
 
@@ -1596,7 +1564,7 @@ fn include_pvf_check_statement_refunds_weight() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 
 		let mut stmts = IntoIterator::into_iter([0, 1, 2, 3])
@@ -1697,7 +1665,7 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 			validation_code.clone(),
 			1,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
@@ -1714,7 +1682,7 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 
 #[test]
 fn increase_code_ref_doesnt_have_allergy_on_add_trusted_validation_code() {
-	// Verify that accidential calling of increase_code_ref or decrease_code_ref does not lead
+	// Verify that accidental calling of increase_code_ref or decrease_code_ref does not lead
 	// to a disaster.
 	// NOTE that this test is extra paranoid, as it is not really possible to hit
 	// `decrease_code_ref` without calling `increase_code_ref` first.
@@ -1768,7 +1736,7 @@ fn add_trusted_validation_code_insta_approval() {
 			validation_code.clone(),
 			1,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
@@ -1810,7 +1778,7 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 			validation_code.clone(),
 			1,
 			&Configuration::config(),
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 

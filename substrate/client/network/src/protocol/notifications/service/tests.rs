@@ -437,7 +437,7 @@ async fn peer_disconnects_then_async_notification_is_sent() {
 		notif.send_async_notification(&peer_id, vec![1, 3, 3, 7]).await
 	{
 	} else {
-		panic!("invalid state after calling `send_async_notificatio()` on closed connection")
+		panic!("invalid state after calling `send_async_notification()` on closed connection")
 	}
 }
 

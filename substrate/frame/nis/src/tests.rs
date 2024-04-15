@@ -414,7 +414,7 @@ fn thaw_respects_transfers() {
 		assert_eq!(Balances::reserved_balance(&1), 0);
 		assert_eq!(Balances::reserved_balance(&2), 40);
 
-		// Transfering the receipt...
+		// Transferring the receipt...
 		assert_noop!(Nis::thaw_private(signed(1), 0, None), Error::<Test>::NotOwner);
 
 		// ...and thawing is possible.

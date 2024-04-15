@@ -19,12 +19,12 @@
 use super::*;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
-	traits::OnRuntimeUpgrade, weights::Weight,
+	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
 
 /// Old/legacy assignment representation (v0).
 ///
-/// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
+/// `Assignment` used to be a concrete type with the same layout V0Assignment, identical on all
 /// assignment providers. This can be removed once storage has been migrated.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
 struct V0Assignment {
@@ -105,7 +105,8 @@ mod v0 {
 // - Assignments only consist of `ParaId`, `Assignment` is a concrete type (Same as V0Assignment).
 mod v1 {
 	use frame_support::{
-		pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+		pallet_prelude::ValueQuery, storage_alias, traits::UncheckedOnRuntimeUpgrade,
+		weights::Weight,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -164,7 +165,7 @@ mod v1 {
 
 	/// Migration to V1
 	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV1<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
@@ -302,7 +303,7 @@ mod v2 {
 	/// Migration to V2
 	pub struct UncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV2<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 

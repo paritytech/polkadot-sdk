@@ -100,7 +100,7 @@ fn cryptos_are_compatible() {
 	let sp_core_signature = sp_core_secret.sign(message); // no error expected...
 
 	assert!(sp_core::ed25519::Pair::verify(
-		&sp_core::ed25519::Signature::from_slice(&libp2p_signature).unwrap(),
+		&sp_core::ed25519::Signature::try_from(libp2p_signature.as_slice()).unwrap(),
 		message,
 		&sp_core_public
 	));

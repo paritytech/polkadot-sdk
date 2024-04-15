@@ -1,0 +1,62 @@
+[package]
+name = "minimal-template-node"
+description = "A minimal Substrate-based Substrate node, ready for hacking."
+version = "0.0.0"
+license = "MIT-0"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+clap = { version = "4.5.3", features = ["derive"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
+futures-timer = "3.0.1"
+jsonrpsee = { version = "0.22", features = ["server"] }
+serde_json = { workspace = true, default-features = true }
+
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-executor = { path = "../../../substrate/client/executor" }
+sc-network = { path = "../../../substrate/client/network" }
+sc-service = { path = "../../../substrate/client/service" }
+sc-telemetry = { path = "../../../substrate/client/telemetry" }
+sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
+sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
+sc-consensus = { path = "../../../substrate/client/consensus/common" }
+sc-consensus-manual-seal = { path = "../../../substrate/client/consensus/manual-seal" }
+sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
+sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
+sc-offchain = { path = "../../../substrate/client/offchain" }
+sc-client-api = { path = "../../../substrate/client/api" }
+
+sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sp-block-builder = { path = "../../../substrate/primitives/block-builder" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+
+substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
+
+# Once the native runtime is gone, there should be little to no dependency on FRAME here, and
+# certainly no dependency on the runtime.
+frame = { path = "../../../substrate/frame", features = [
+	"experimental",
+	"runtime",
+] }
+runtime = { package = "minimal-template-runtime", path = "../runtime" }
+
+[build-dependencies]
+substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
+
+[features]
+default = []

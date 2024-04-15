@@ -51,7 +51,7 @@ mod benchmarks {
 		set_foo(RawOrigin::Root, value, 10u128); // The execution phase is just running `set_foo` extrinsic call
 
 		// This is the optional benchmark verification phase, asserting certain states.
-		assert_eq!(Pallet::<T>::foo(), Some(value))
+		assert_eq!(Foo::<T>::get(), Some(value))
 	}
 
 	// This line generates test cases for benchmarking, and could be run by:

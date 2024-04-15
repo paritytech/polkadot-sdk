@@ -40,10 +40,12 @@ git checkout "$branch_name"
 
 # remove everything we think is not required for our needs
 rm -rf rust-toolchain.toml
+rm -rf codecov.yml
 rm -rf $SNOWBRIDGE_FOLDER/.cargo
 rm -rf $SNOWBRIDGE_FOLDER/.github
 rm -rf $SNOWBRIDGE_FOLDER/SECURITY.md
 rm -rf $SNOWBRIDGE_FOLDER/.gitignore
+rm -rf $SNOWBRIDGE_FOLDER/rustfmt.toml
 rm -rf $SNOWBRIDGE_FOLDER/templates
 rm -rf $SNOWBRIDGE_FOLDER/pallets/ethereum-client/fuzz
 
@@ -77,4 +79,10 @@ git fetch parity master
 git checkout parity/master -- .github
 git add -- .github
 
+git commit -m "cleanup branch"
+
+# Fetch the latest from parity master
+echo "Fetching latest from Parity master. Resolve merge conflicts, if there are any."
+git fetch parity master
+git merge parity/master
 echo "OK"

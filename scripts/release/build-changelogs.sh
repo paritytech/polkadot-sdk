@@ -48,6 +48,7 @@ for audience in "${audiences[@]}"; do
     echo "Processing audience: $audience ($audience_id)"
     export TARGET_AUDIENCE=$audience
     tera -t "${TEMPLATE_AUDIENCE}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/relnote_${audience_id}.md"
+    cat "$OUTPUT/relnote_${audience_id}.md" >> "$OUTPUT/relnote_combined.md"
 done
 
 # Show the files

@@ -527,12 +527,12 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
 			// Lets calculate amount needed
-			let asset_amount_needed =
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
+			let asset_amount_needed
+				= ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
 					foreign_location,
-					bought,
+					bought
 				)
-				.expect("failed to compute");
+			.expect("failed to compute");
 
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;

@@ -528,7 +528,7 @@ mod tests {
 		assert!(res.is_some());
 
 		// does not verify with default out-of-the-box verification
-		assert!(!ecdsa_bls377::Pair::verify(&res.clone().unwrap(), &msg[..], &pair.public()));
+		assert!(!ecdsa_bls377::Pair::verify(&res.unwrap(), &msg[..], &pair.public()));
 
 		// should verify using keccak256 as hasher
 		assert!(ecdsa_bls377::Pair::verify_with_hasher::<KeccakHasher>(

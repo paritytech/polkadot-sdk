@@ -13,8 +13,8 @@ name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.74"
-clap = { version = "4.5.1", features = ["derive"] }
+async-trait = "0.1.79"
+clap = { version = "4.5.3", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
 jsonrpsee = { version = "0.22", features = ["server"] }
@@ -81,13 +81,13 @@ cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-no
 cumulus-client-pov-recovery = { path = "../../client/pov-recovery" }
 cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-primitives-storage-weight-reclaim = { path = "../../primitives/storage-weight-reclaim" }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 
 [dev-dependencies]
 futures = "0.3.28"
 portpicker = "0.1.1"
 rococo-parachain-runtime = { path = "../../parachains/runtimes/testing/rococo-parachain" }
-pallet-im-online = { path = "../../../substrate/frame/im-online" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
 cumulus-test-client = { path = "../client" }
@@ -105,7 +105,6 @@ runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",

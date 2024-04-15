@@ -298,16 +298,23 @@ impl PalletCmd {
 		// Convert `Vec<u8>` to `String` for better readability.
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
-			.map(|b| {
+			.map(|(pallet, extrinsic, components, pov_modes)| {
+				let pallet_name =
+					String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
+				let extrinsic_name =
+					String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
 				(
-					b.0,
-					b.1,
-					b.2,
-					b.3.into_iter()
+					pallet,
+					extrinsic,
+					components,
+					pov_modes
+						.into_iter()
 						.map(|(p, s)| {
 							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
 						})
 						.collect(),
+					pallet_name,
+					extrinsic_name,
 				)
 			})
 			.collect();
@@ -329,12 +336,12 @@ impl PalletCmd {
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
 
-		for (pallet, extrinsic, components, _) in benchmarks_to_run.clone() {
+		for (pallet, extrinsic, components, _, pallet_name, extrinsic_name) in
+			benchmarks_to_run.clone()
+		{
 			log::info!(
 				target: LOG_TARGET,
-				"Starting benchmark: {}::{}",
-				String::from_utf8(pallet.clone()).expect("Encoded from String; qed"),
-				String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed"),
+				"Starting benchmark: {pallet_name}::{extrinsic_name}"
 			);
 			let all_components = if components.is_empty() {
 				vec![Default::default()]
@@ -408,19 +415,14 @@ impl PalletCmd {
 					.map_err(|e| {
 						format!("Error executing and verifying runtime benchmark: {}", e)
 					})?;
-					// Dont use these results since verification code will add overhead.
+					// Don't use these results since verification code will add overhead.
 					let _batch =
 						<std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
 							&mut &result[..],
 						)
 						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))?
 						.map_err(|e| {
-							format!(
-								"Benchmark {}::{} failed: {}",
-								String::from_utf8_lossy(&pallet),
-								String::from_utf8_lossy(&extrinsic),
-								e
-							)
+							format!("Benchmark {pallet_name}::{extrinsic_name} failed: {e}",)
 						})?;
 				}
 				// Do one loop of DB tracking.
@@ -435,7 +437,7 @@ impl PalletCmd {
 							&pallet.clone(),
 							&extrinsic.clone(),
 							&selected_components.clone(),
-							false, // dont run verification code for final values
+							false, // don't run verification code for final values
 							self.repeat,
 						)
 							.encode(),
@@ -467,7 +469,7 @@ impl PalletCmd {
 							&pallet.clone(),
 							&extrinsic.clone(),
 							&selected_components.clone(),
-							false, // dont run verification code for final values
+							false, // don't run verification code for final values
 							self.repeat,
 						)
 							.encode(),
@@ -494,11 +496,7 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"Running  benchmark: {}.{}({} args) {}/{} {}/{}",
-								String::from_utf8(pallet.clone())
-									.expect("Encoded from String; qed"),
-								String::from_utf8(extrinsic.clone())
-									.expect("Encoded from String; qed"),
+								"Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
 								components.len(),
 								s + 1, // s starts at 0.
 								all_components.len(),
@@ -707,12 +705,14 @@ impl PalletCmd {
 			Vec<u8>,
 			Vec<(BenchmarkParameter, u32, u32)>,
 			Vec<(String, String)>,
+			String,
+			String,
 		)>,
 	) -> Result<PovModesMap> {
 		use std::collections::hash_map::Entry;
 		let mut parsed = PovModesMap::new();
 
-		for (pallet, call, _components, pov_modes) in benchmarks {
+		for (pallet, call, _components, pov_modes, _, _) in benchmarks {
 			for (pallet_storage, mode) in pov_modes {
 				let mode = PovEstimationMode::from_str(&mode)?;
 				let splits = pallet_storage.split("::").collect::<Vec<_>>();
@@ -766,6 +766,8 @@ fn list_benchmark(
 		Vec<u8>,
 		Vec<(BenchmarkParameter, u32, u32)>,
 		Vec<(String, String)>,
+		String,
+		String,
 	)>,
 	list_output: ListOutput,
 	no_csv_header: bool,
@@ -773,11 +775,11 @@ fn list_benchmark(
 	let mut benchmarks = BTreeMap::new();
 
 	// Sort and de-dub by pallet and function name.
-	benchmarks_to_run.iter().for_each(|(pallet, extrinsic, _, _)| {
+	benchmarks_to_run.iter().for_each(|(_, _, _, _, pallet_name, extrinsic_name)| {
 		benchmarks
-			.entry(String::from_utf8_lossy(pallet).to_string())
+			.entry(pallet_name)
 			.or_insert_with(BTreeSet::new)
-			.insert(String::from_utf8_lossy(extrinsic).to_string());
+			.insert(extrinsic_name);
 	});
 
 	match list_output {

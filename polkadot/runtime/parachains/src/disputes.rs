@@ -25,11 +25,11 @@ use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_runtime_metrics::get_current_time;
 use primitives::{
-	byzantine_threshold, supermajority_threshold, vstaging::ApprovalVoteMultipleCandidates,
-	ApprovalVote, CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
-	CompactStatement, ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet,
-	ExplicitDisputeStatement, InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex,
-	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	byzantine_threshold, supermajority_threshold, ApprovalVote, ApprovalVoteMultipleCandidates,
+	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement,
+	ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
+	InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex, SigningContext,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -181,7 +181,7 @@ pub trait DisputesHandler<BlockNumber: Ord> {
 	fn is_frozen() -> bool;
 
 	/// Remove dispute statement duplicates and sort the non-duplicates based on
-	/// local (lower indicies) vs remotes (higher indices) and age (older with lower indices).
+	/// local (lower indices) vs remotes (higher indices) and age (older with lower indices).
 	///
 	/// Returns `Ok(())` if no duplicates were present, `Err(())` otherwise.
 	///
@@ -379,7 +379,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]

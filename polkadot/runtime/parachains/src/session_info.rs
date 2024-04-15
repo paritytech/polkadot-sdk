@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
 			for idx in old_earliest_stored_session..new_earliest_stored_session {
 				Sessions::<T>::remove(&idx);
 				// Idx will be missing for a few sessions after the runtime upgrade.
-				// But it shouldn'be be a problem.
+				// But it shouldn't be a problem.
 				AccountKeys::<T>::remove(&idx);
 				SessionExecutorParams::<T>::remove(&idx);
 			}

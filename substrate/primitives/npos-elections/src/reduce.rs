@@ -51,11 +51,12 @@ use crate::{
 	node::{Node, NodeId, NodeRef, NodeRole},
 	ExtendedBalance, IdentifierT, StakedAssignment,
 };
-use sp_arithmetic::traits::{Bounded, Zero};
-use sp_std::{
+use alloc::{
 	collections::btree_map::{BTreeMap, Entry::*},
-	prelude::*,
+	vec,
+	vec::Vec,
 };
+use sp_arithmetic::traits::{Bounded, Zero};
 
 /// Map type used for reduce_4. Can be easily swapped with HashMap.
 type Map<A> = BTreeMap<(A, A), A>;
@@ -392,7 +393,7 @@ fn reduce_all<A: IdentifierT>(assignments: &mut Vec<StakedAssignment<A>>) -> u32
 				// voter_root_path.last().unwrap()); TODO: @kian
 				// the common path must be non-void..
 				debug_assert!(common_count > 0);
-				// and smaller than btoh
+				// and smaller than both
 				debug_assert!(common_count <= voter_root_path.len());
 				debug_assert!(common_count <= target_root_path.len());
 

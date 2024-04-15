@@ -226,8 +226,11 @@ fn invariants() {
 		);
 
 		ActiveConfig::<Test>::put(HostConfiguration {
-			paras_availability_period: 10,
 			minimum_validation_upgrade_delay: 11,
+			scheduler_params: SchedulerParams {
+				paras_availability_period: 10,
+				..Default::default()
+			},
 			..Default::default()
 		});
 		assert_err!(
@@ -283,12 +286,6 @@ fn setting_pending_config_members() {
 			max_code_size: 100_000,
 			max_pov_size: 1024,
 			max_head_data_size: 1_000,
-			coretime_cores: 2,
-			on_demand_retries: 5,
-			group_rotation_frequency: 20,
-			paras_availability_period: 10,
-			scheduling_lookahead: 3,
-			max_validators_per_core: None,
 			max_validators: None,
 			dispute_period: 239,
 			dispute_post_conclusion_acceptance_period: 10,
@@ -314,13 +311,21 @@ fn setting_pending_config_members() {
 			minimum_validation_upgrade_delay: 20,
 			executor_params: Default::default(),
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
-			on_demand_queue_max_size: 10_000u32,
-			on_demand_base_fee: 10_000_000u128,
-			on_demand_fee_variability: Perbill::from_percent(3),
-			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			on_demand_ttl: 5u32,
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+			scheduler_params: SchedulerParams {
+				group_rotation_frequency: 20,
+				paras_availability_period: 10,
+				max_validators_per_core: None,
+				lookahead: 3,
+				num_cores: 2,
+				max_availability_timeouts: 5,
+				on_demand_queue_max_size: 10_000u32,
+				on_demand_base_fee: 10_000_000u128,
+				on_demand_fee_variability: Perbill::from_percent(3),
+				on_demand_target_queue_utilization: Perbill::from_percent(25),
+				ttl: 5u32,
+			},
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -342,13 +347,19 @@ fn setting_pending_config_members() {
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), new_config.max_pov_size).unwrap();
 		Configuration::set_max_head_data_size(RuntimeOrigin::root(), new_config.max_head_data_size)
 			.unwrap();
-		Configuration::set_coretime_cores(RuntimeOrigin::root(), new_config.coretime_cores)
-			.unwrap();
-		Configuration::set_on_demand_retries(RuntimeOrigin::root(), new_config.on_demand_retries)
-			.unwrap();
+		Configuration::set_coretime_cores(
+			RuntimeOrigin::root(),
+			new_config.scheduler_params.num_cores,
+		)
+		.unwrap();
+		Configuration::set_max_availability_timeouts(
+			RuntimeOrigin::root(),
+			new_config.scheduler_params.max_availability_timeouts,
+		)
+		.unwrap();
 		Configuration::set_group_rotation_frequency(
 			RuntimeOrigin::root(),
-			new_config.group_rotation_frequency,
+			new_config.scheduler_params.group_rotation_frequency,
 		)
 		.unwrap();
 		// This comes out of order to satisfy the validity criteria for the chain and thread
@@ -360,17 +371,17 @@ fn setting_pending_config_members() {
 		.unwrap();
 		Configuration::set_paras_availability_period(
 			RuntimeOrigin::root(),
-			new_config.paras_availability_period,
+			new_config.scheduler_params.paras_availability_period,
 		)
 		.unwrap();
 		Configuration::set_scheduling_lookahead(
 			RuntimeOrigin::root(),
-			new_config.scheduling_lookahead,
+			new_config.scheduler_params.lookahead,
 		)
 		.unwrap();
 		Configuration::set_max_validators_per_core(
 			RuntimeOrigin::root(),
-			new_config.max_validators_per_core,
+			new_config.scheduler_params.max_validators_per_core,
 		)
 		.unwrap();
 		Configuration::set_max_validators(RuntimeOrigin::root(), new_config.max_validators)

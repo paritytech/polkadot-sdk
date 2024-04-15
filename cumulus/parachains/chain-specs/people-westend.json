@@ -10,7 +10,9 @@
     "/dns/westend-people-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWGVYTVKW7tYe51JvetvGvVLDPXzqQX1mueJgz14FgkmHG",
     "/dns/westend-people-collator-node-2.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWGVYTVKW7tYe51JvetvGvVLDPXzqQX1mueJgz14FgkmHG",
     "/dns/westend-people-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWCF1eA2Gap69zgXD7Df3e9DqDUsGoByocggTGejoHjK23",
-    "/dns/westend-people-collator-node-3.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWCF1eA2Gap69zgXD7Df3e9DqDUsGoByocggTGejoHjK23"
+    "/dns/westend-people-collator-node-3.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWCF1eA2Gap69zgXD7Df3e9DqDUsGoByocggTGejoHjK23",
+    "/dns/identity-westend.bootnodes.polkadotters.com/tcp/30532/p2p/12D3KooWKr9San6KTM7REJ95cBaDoiciGcWnW8TTftEJgxGF5Ehb",
+    "/dns/identity-westend.bootnodes.polkadotters.com/tcp/30534/wss/p2p/12D3KooWKr9San6KTM7REJ95cBaDoiciGcWnW8TTftEJgxGF5Ehb"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

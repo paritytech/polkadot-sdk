@@ -379,6 +379,7 @@ async fn voter_init_setup(
 		Arc::new(api.clone()),
 		&key_store,
 		&metrics,
+		true,
 	)
 	.await
 }
@@ -438,6 +439,7 @@ where
 			min_block_delta,
 			prometheus_registry: None,
 			on_demand_justifications_handler: on_demand_justif_handler,
+			is_authority: true,
 		};
 		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
 

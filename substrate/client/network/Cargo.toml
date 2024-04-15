@@ -19,17 +19,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
-async-trait = "0.1"
+async-trait = "0.1.79"
 asynchronous-codec = "0.6"
 bytes = "1"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 either = "1.5.3"
 fnv = "1.0.6"
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 ip_network = "0.4.1"
 libp2p = { version = "0.51.4", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
-linked_hash_set = "0.1.3"
+linked_hash_set = "0.1.4"
 log = { workspace = true, default-features = true }
 mockall = "0.11.3"
 parking_lot = "0.12.1"

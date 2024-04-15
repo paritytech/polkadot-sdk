@@ -40,10 +40,14 @@ mod keywords {
 	custom_keyword!(benchmarks);
 	custom_keyword!(block);
 	custom_keyword!(extra);
+	custom_keyword!(pov_mode);
 	custom_keyword!(extrinsic_call);
 	custom_keyword!(skip_meta);
 	custom_keyword!(BenchmarkError);
 	custom_keyword!(Result);
+	custom_keyword!(MaxEncodedLen);
+	custom_keyword!(Measured);
+	custom_keyword!(Ignored);
 
 	pub const BENCHMARK_TOKEN: &str = stringify!(benchmark);
 	pub const BENCHMARKS_TOKEN: &str = stringify!(benchmarks);
@@ -65,6 +69,7 @@ struct RangeArgs {
 	start: syn::GenericArgument,
 	_comma: Comma,
 	end: syn::GenericArgument,
+	_trailing_comma: Option<Comma>,
 	_gt_token: Gt,
 }
 
@@ -72,25 +77,124 @@ struct RangeArgs {
 struct BenchmarkAttrs {
 	skip_meta: bool,
 	extra: bool,
+	pov_mode: Option<PovModeAttr>,
 }
 
 /// Represents a single benchmark option
-enum BenchmarkAttrKeyword {
+enum BenchmarkAttr {
 	Extra,
 	SkipMeta,
+	/// How the PoV should be measured.
+	PoV(PovModeAttr),
 }
 
-impl syn::parse::Parse for BenchmarkAttrKeyword {
+impl syn::parse::Parse for PovModeAttr {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let _pov: keywords::pov_mode = input.parse()?;
+		let _eq: Token![=] = input.parse()?;
+		let root = PovEstimationMode::parse(input)?;
+
+		let mut maybe_content = None;
+		let _ = || -> Result<()> {
+			let content;
+			syn::braced!(content in input);
+			maybe_content = Some(content);
+			Ok(())
+		}();
+
+		let per_key = match maybe_content {
+			Some(content) => {
+				let per_key = Punctuated::<PovModeKeyAttr, Token![,]>::parse_terminated(&content)?;
+				per_key.into_iter().collect()
+			},
+			None => Vec::new(),
+		};
+
+		Ok(Self { root, per_key })
+	}
+}
+
+impl syn::parse::Parse for BenchmarkAttr {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::extra) {
 			let _extra: keywords::extra = input.parse()?;
-			return Ok(BenchmarkAttrKeyword::Extra)
+			Ok(BenchmarkAttr::Extra)
 		} else if lookahead.peek(keywords::skip_meta) {
 			let _skip_meta: keywords::skip_meta = input.parse()?;
-			return Ok(BenchmarkAttrKeyword::SkipMeta)
+			Ok(BenchmarkAttr::SkipMeta)
+		} else if lookahead.peek(keywords::pov_mode) {
+			PovModeAttr::parse(input).map(BenchmarkAttr::PoV)
+		} else {
+			Err(lookahead.error())
+		}
+	}
+}
+
+/// A `#[pov_mode = .. { .. }]` attribute.
+#[derive(Debug, Clone)]
+struct PovModeAttr {
+	/// The root mode for this benchmarks.
+	root: PovEstimationMode,
+	/// The pov-mode for a specific key. This overwrites `root` for this key.
+	per_key: Vec<PovModeKeyAttr>,
+}
+
+/// A single key-value pair inside the `{}` of a `#[pov_mode = .. { .. }]` attribute.
+#[derive(Debug, Clone, derive_syn_parse::Parse)]
+struct PovModeKeyAttr {
+	/// A specific storage key for which to set the PoV mode.
+	key: Path,
+	_underscore: Token![:],
+	/// The PoV mode for this key.
+	mode: PovEstimationMode,
+}
+
+/// How the PoV should be estimated.
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum PovEstimationMode {
+	/// Use the maximal encoded length as provided by [`codec::MaxEncodedLen`].
+	MaxEncodedLen,
+	/// Measure the accessed value size in the pallet benchmarking and add some trie overhead.
+	Measured,
+	/// Do not estimate the PoV size for this storage item or benchmark.
+	Ignored,
+}
+
+impl syn::parse::Parse for PovEstimationMode {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let lookahead = input.lookahead1();
+		if lookahead.peek(keywords::MaxEncodedLen) {
+			let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
+			return Ok(PovEstimationMode::MaxEncodedLen)
+		} else if lookahead.peek(keywords::Measured) {
+			let _measured: keywords::Measured = input.parse()?;
+			return Ok(PovEstimationMode::Measured)
+		} else if lookahead.peek(keywords::Ignored) {
+			let _ignored: keywords::Ignored = input.parse()?;
+			return Ok(PovEstimationMode::Ignored)
 		} else {
 			return Err(lookahead.error())
+		}
+	}
+}
+
+impl ToString for PovEstimationMode {
+	fn to_string(&self) -> String {
+		match self {
+			PovEstimationMode::MaxEncodedLen => "MaxEncodedLen".into(),
+			PovEstimationMode::Measured => "Measured".into(),
+			PovEstimationMode::Ignored => "Ignored".into(),
+		}
+	}
+}
+
+impl quote::ToTokens for PovEstimationMode {
+	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		match self {
+			PovEstimationMode::MaxEncodedLen => tokens.extend(quote!(MaxEncodedLen)),
+			PovEstimationMode::Measured => tokens.extend(quote!(Measured)),
+			PovEstimationMode::Ignored => tokens.extend(quote!(Ignored)),
 		}
 	}
 }
@@ -99,24 +203,32 @@ impl syn::parse::Parse for BenchmarkAttrs {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let mut extra = false;
 		let mut skip_meta = false;
-		let args = Punctuated::<BenchmarkAttrKeyword, Token![,]>::parse_terminated(&input)?;
+		let mut pov_mode = None;
+		let args = Punctuated::<BenchmarkAttr, Token![,]>::parse_terminated(&input)?;
+
 		for arg in args.into_iter() {
 			match arg {
-				BenchmarkAttrKeyword::Extra => {
+				BenchmarkAttr::Extra => {
 					if extra {
 						return Err(input.error("`extra` can only be specified once"))
 					}
 					extra = true;
 				},
-				BenchmarkAttrKeyword::SkipMeta => {
+				BenchmarkAttr::SkipMeta => {
 					if skip_meta {
 						return Err(input.error("`skip_meta` can only be specified once"))
 					}
 					skip_meta = true;
 				},
+				BenchmarkAttr::PoV(mode) => {
+					if pov_mode.is_some() {
+						return Err(input.error("`pov_mode` can only be specified once"))
+					}
+					pov_mode = Some(mode);
+				},
 			}
 		}
-		Ok(BenchmarkAttrs { extra, skip_meta })
+		Ok(BenchmarkAttrs { extra, skip_meta, pov_mode })
 	}
 }
 
@@ -137,7 +249,7 @@ impl BenchmarkCallDef {
 	}
 }
 
-/// Represents a parsed `#[benchmark]` or `#[instance_banchmark]` item.
+/// Represents a parsed `#[benchmark]` or `#[instance_benchmark]` item.
 #[derive(Clone)]
 struct BenchmarkDef {
 	params: Vec<ParamDef>,
@@ -343,6 +455,7 @@ pub fn benchmarks(
 	tokens: TokenStream,
 	instance: bool,
 ) -> syn::Result<TokenStream> {
+	let krate = generate_access_from_frame_or_crate("frame-benchmarking")?;
 	// gather module info
 	let module: ItemMod = syn::parse(tokens)?;
 	let mod_span = module.span();
@@ -353,7 +466,7 @@ pub fn benchmarks(
 	let mod_vis = module.vis;
 	let mod_name = module.ident;
 
-	// consume #[benchmarks] attribute by exclusing it from mod_attrs
+	// consume #[benchmarks] attribute by excluding it from mod_attrs
 	let mod_attrs: Vec<&Attribute> = module
 		.attrs
 		.iter()
@@ -363,6 +476,8 @@ pub fn benchmarks(
 	let mut benchmark_names: Vec<Ident> = Vec::new();
 	let mut extra_benchmark_names: Vec<Ident> = Vec::new();
 	let mut skip_meta_benchmark_names: Vec<Ident> = Vec::new();
+	// Map benchmarks to PoV modes.
+	let mut pov_modes = Vec::new();
 
 	let (_brace, mut content) =
 		module.content.ok_or(syn::Error::new(mod_span, "Module cannot be empty!"))?;
@@ -399,6 +514,25 @@ pub fn benchmarks(
 			} else if benchmark_attrs.skip_meta {
 				skip_meta_benchmark_names.push(name.clone());
 			}
+
+			if let Some(mode) = benchmark_attrs.pov_mode {
+				let mut modes = Vec::new();
+				// We cannot expand strings here since it is no-std, but syn does not expand bytes.
+				let name = name.to_string();
+				let m = mode.root.to_string();
+				modes.push(quote!(("ALL".as_bytes().to_vec(), #m.as_bytes().to_vec())));
+
+				for attr in mode.per_key.iter() {
+					// syn always puts spaces in quoted paths:
+					let key = attr.key.clone().into_token_stream().to_string().replace(" ", "");
+					let mode = attr.mode.to_string();
+					modes.push(quote!((#key.as_bytes().to_vec(), #mode.as_bytes().to_vec())));
+				}
+
+				pov_modes.push(
+					quote!((#name.as_bytes().to_vec(), #krate::__private::vec![#(#modes),*])),
+				);
+			}
 		}
 
 		// expand benchmark
@@ -418,7 +552,6 @@ pub fn benchmarks(
 		true => quote!(T: Config<I>, I: 'static),
 	};
 
-	let krate = generate_access_from_frame_or_crate("frame-benchmarking")?;
 	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 
 	// benchmark name variables
@@ -431,7 +564,7 @@ pub fn benchmarks(
 	let mut benchmarks_by_name_mappings: Vec<TokenStream2> = Vec::new();
 	let test_idents: Vec<Ident> = benchmark_names_str
 		.iter()
-		.map(|n| Ident::new(format!("test_{}", n).as_str(), Span::call_site()))
+		.map(|n| Ident::new(format!("test_benchmark_{}", n).as_str(), Span::call_site()))
 		.collect();
 	for i in 0..benchmark_names.len() {
 		let name_ident = &benchmark_names[i];
@@ -440,6 +573,37 @@ pub fn benchmarks(
 		selected_benchmark_mappings.push(quote!(#name_str => SelectedBenchmark::#name_ident));
 		benchmarks_by_name_mappings.push(quote!(#name_str => Self::#test_ident()))
 	}
+
+	let impl_test_function = content
+		.iter_mut()
+		.find_map(|item| {
+			let Item::Macro(item_macro) = item else {
+				return None;
+			};
+
+			if !item_macro
+				.mac
+				.path
+				.segments
+				.iter()
+				.any(|s| s.ident == "impl_benchmark_test_suite")
+			{
+				return None;
+			}
+
+			let tokens = item_macro.mac.tokens.clone();
+			*item = Item::Verbatim(quote! {});
+
+			Some(quote! {
+				impl_test_function!(
+					(#( {} #benchmark_names )*)
+					(#( #extra_benchmark_names )*)
+					(#( #skip_meta_benchmark_names )*)
+					#tokens
+				);
+			})
+		})
+		.unwrap_or(quote! {});
 
 	// emit final quoted tokens
 	let res = quote! {
@@ -505,6 +669,16 @@ pub fn benchmarks(
 						];
 						all_names.retain(|x| !extra.contains(x));
 					}
+					let pov_modes:
+						#krate::__private::Vec<(
+							#krate::__private::Vec<u8>,
+							#krate::__private::Vec<(
+								#krate::__private::Vec<u8>,
+								#krate::__private::Vec<u8>
+							)>,
+						)> = #krate::__private::vec![
+						#( #pov_modes ),*
+					];
 					all_names.into_iter().map(|benchmark| {
 						let selected_benchmark = match benchmark {
 							#(#selected_benchmark_mappings),
@@ -512,12 +686,13 @@ pub fn benchmarks(
 							_ => panic!("all benchmarks should be selectable")
 						};
 						let components = <SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::components(&selected_benchmark);
+						let name = benchmark.as_bytes().to_vec();
+						let modes = pov_modes.iter().find(|p| p.0 == name).map(|p| p.1.clone());
+
 						#krate::BenchmarkMetadata {
 							name: benchmark.as_bytes().to_vec(),
 							components,
-							// TODO: Not supported by V2 syntax as of yet.
-							// https://github.com/paritytech/substrate/issues/13132
-							pov_modes: #krate::__private::vec![],
+							pov_modes: modes.unwrap_or_default(),
 						}
 					}).collect::<#krate::__private::Vec<_>>()
 				}
@@ -676,6 +851,8 @@ pub fn benchmarks(
 					}
 				}
 			}
+
+			#impl_test_function
 		}
 		#mod_vis use #mod_name::*;
 	};
@@ -733,7 +910,8 @@ fn expand_benchmark(
 	let setup_stmts = benchmark_def.setup_stmts;
 	let verify_stmts = benchmark_def.verify_stmts;
 	let last_stmt = benchmark_def.last_stmt;
-	let test_ident = Ident::new(format!("test_{}", name.to_string()).as_str(), Span::call_site());
+	let test_ident =
+		Ident::new(format!("test_benchmark_{}", name.to_string()).as_str(), Span::call_site());
 
 	// unroll params (prepare for quoting)
 	let unrolled = UnrolledParams::from(&benchmark_def.params);

@@ -33,7 +33,7 @@ use crate::{
 };
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
-use log::{debug, error, info, log_enabled, trace, warn};
+use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_utils::notification::NotificationReceiver;
 use sp_api::ProvideRuntimeApi;
@@ -51,7 +51,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{
-	collections::{BTreeMap, BTreeSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 };
@@ -76,13 +76,13 @@ pub(crate) enum RoundAction {
 pub(crate) struct VoterOracle<B: Block> {
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
-	/// There are three voter states coresponding to three queue states:
+	/// There are three voter states corresponding to three queue states:
 	/// 1. voter uninitialized: queue empty,
 	/// 2. up-to-date - all mandatory blocks leading up to current GRANDPA finalized: queue has ONE
 	///    element, the 'current session' where `mandatory_done == true`,
 	/// 3. lagging behind GRANDPA: queue has [1, N] elements, where all `mandatory_done == false`.
-	///    In this state, everytime a session gets its mandatory block BEEFY finalized, it's popped
-	///    off the queue, eventually getting to state `2. up-to-date`.
+	///    In this state, every time a session gets its mandatory block BEEFY finalized, it's
+	///    popped off the queue, eventually getting to state `2. up-to-date`.
 	sessions: VecDeque<Rounds<B>>,
 	/// Min delta in block numbers between two blocks, BEEFY should vote on.
 	min_block_delta: u32,
@@ -332,6 +332,7 @@ impl<B: Block> PersistedState<B> {
 		validator_set: ValidatorSet<AuthorityId>,
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
+		is_authority: bool,
 	) {
 		debug!(target: LOG_TARGET, "🥩 New active validator set: {:?}", validator_set);
 
@@ -348,11 +349,16 @@ impl<B: Block> PersistedState<B> {
 			}
 		}
 
-		if log_enabled!(target: LOG_TARGET, log::Level::Debug) {
-			// verify the new validator set - only do it if we're also logging the warning
-			if verify_validator_set::<B>(&new_session_start, &validator_set, key_store).is_err() {
-				metric_inc!(metrics, beefy_no_authority_found_in_store);
-			}
+		// verify we have some BEEFY key available in keystore when role is authority.
+		if is_authority && key_store.public_keys().map_or(false, |k| k.is_empty()) {
+			error!(
+				target: LOG_TARGET,
+				"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
+				you must generate valid session keys \
+				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+				new_session_start,
+			);
+			metric_inc!(metrics, beefy_no_authority_found_in_store);
 		}
 
 		let id = validator_set.id();
@@ -390,6 +396,8 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub persisted_state: PersistedState<B>,
 	/// BEEFY voter metrics
 	pub metrics: Option<VoterMetrics>,
+	/// Node runs under "Authority" role.
+	pub is_authority: bool,
 }
 
 impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
@@ -425,6 +433,7 @@ where
 			validator_set,
 			&self.key_store,
 			&self.metrics,
+			self.is_authority,
 		);
 	}
 
@@ -1040,33 +1049,6 @@ where
 	}
 }
 
-/// Verify `active` validator set for `block` against the key store
-///
-/// We want to make sure that we have _at least one_ key in our keystore that
-/// is part of the validator set, that's because if there are no local keys
-/// then we can't perform our job as a validator.
-///
-/// Note that for a non-authority node there will be no keystore, and we will
-/// return an error and don't check. The error can usually be ignored.
-fn verify_validator_set<B: Block>(
-	block: &NumberFor<B>,
-	active: &ValidatorSet<AuthorityId>,
-	key_store: &BeefyKeystore<AuthorityId>,
-) -> Result<(), Error> {
-	let active: BTreeSet<&AuthorityId> = active.validators().iter().collect();
-
-	let public_keys = key_store.public_keys()?;
-	let store: BTreeSet<&AuthorityId> = public_keys.iter().collect();
-
-	if store.intersection(&active).count() == 0 {
-		let msg = "no authority public key found in store".to_string();
-		debug!(target: LOG_TARGET, "🥩 for block {:?} {}", block, msg);
-		Err(Error::Keystore(msg))
-	} else {
-		Ok(())
-	}
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
@@ -1208,6 +1190,7 @@ pub(crate) mod tests {
 			comms,
 			pending_justifications: BTreeMap::new(),
 			persisted_state,
+			is_authority: true,
 		}
 	}
 
@@ -1469,32 +1452,6 @@ pub(crate) mod tests {
 		// verify validator set is correctly extracted from digest
 		let extracted = find_authorities_change::<Block>(&header);
 		assert_eq!(extracted, Some(validator_set));
-	}
-
-	#[tokio::test]
-	async fn keystore_vs_validator_set() {
-		let keys = &[Keyring::Alice];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
-
-		// keystore doesn't contain other keys than validators'
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), Ok(()));
-
-		// unknown `Bob` key
-		let keys = &[Keyring::Bob];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let err_msg = "no authority public key found in store".to_string();
-		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
-
-		// worker has no keystore
-		worker.key_store = None.into();
-		let expected_err = Err(Error::Keystore("no Keystore".into()));
-		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
-			expected_err
-		);
 	}
 
 	#[tokio::test]

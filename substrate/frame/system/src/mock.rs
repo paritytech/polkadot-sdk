@@ -79,7 +79,7 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
@@ -87,6 +87,22 @@ impl Config for Test {
 	type Version = Version;
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
+	type MultiBlockMigrator = MockedMigrator;
+}
+
+parameter_types! {
+	pub static Ongoing: bool = false;
+}
+
+pub struct MockedMigrator;
+impl frame_support::migrations::MultiStepMigrator for MockedMigrator {
+	fn ongoing() -> bool {
+		Ongoing::get()
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub type SysEvent = frame_system::Event<Test>;

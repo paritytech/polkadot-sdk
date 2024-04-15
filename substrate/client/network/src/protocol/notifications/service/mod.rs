@@ -54,7 +54,7 @@ const COMMAND_QUEUE_SIZE: usize = 64;
 /// Type representing subscribers of a notification protocol.
 type Subscribers = Arc<Mutex<Vec<TracingUnboundedSender<InnerNotificationEvent>>>>;
 
-/// Type represending a distributable message sink.
+/// Type representing a distributable message sink.
 /// Detached message sink must carry the protocol name for registering metrics.
 ///
 /// See documentation for [`PeerContext`] for more details.
@@ -175,11 +175,11 @@ pub enum NotificationCommand {
 /// and an additional, distributable `NotificationsSink` which the protocol may acquire
 /// if it wishes to send notifications through `NotificationsSink` directly.
 ///
-/// The distributable `NoticationsSink` is wrapped in an `Arc<Mutex<>>` to allow
+/// The distributable `NotificationsSink` is wrapped in an `Arc<Mutex<>>` to allow
 /// `NotificationsService` to swap the underlying sink in case it's replaced.
 #[derive(Debug, Clone)]
 struct PeerContext {
-	/// Sink for sending notificaitons.
+	/// Sink for sending notifications.
 	sink: NotificationsSink,
 
 	/// Distributable notification sink.
@@ -338,7 +338,8 @@ impl NotificationService for NotificationHandle {
 	// Clone [`NotificationService`]
 	fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
 		let mut subscribers = self.subscribers.lock();
-		let (event_tx, event_rx) = tracing_unbounded("mpsc-notification-to-protocol", 100_000);
+
+		let (event_tx, event_rx) = tracing_unbounded(self.rx.name(), 100_000);
 		subscribers.push(event_tx);
 
 		Ok(Box::new(NotificationHandle {
@@ -624,11 +625,24 @@ pub fn notification_service(
 	protocol: ProtocolName,
 ) -> (ProtocolHandlePair, Box<dyn NotificationService>) {
 	let (cmd_tx, cmd_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
-	let (event_tx, event_rx) = tracing_unbounded("mpsc-notification-to-protocol", 100_000);
+
+	let (event_tx, event_rx) =
+		tracing_unbounded(metric_label_for_protocol(&protocol).leak(), 100_000);
 	let subscribers = Arc::new(Mutex::new(vec![event_tx]));
 
 	(
 		ProtocolHandlePair::new(protocol.clone(), subscribers.clone(), cmd_rx),
 		Box::new(NotificationHandle::new(protocol.clone(), cmd_tx, event_rx, subscribers)),
 	)
+}
+
+// Decorates the mpsc-notification-to-protocol metric with the name of the protocol,
+// to be able to distiguish between different protocols in dashboards.
+fn metric_label_for_protocol(protocol: &ProtocolName) -> String {
+	let protocol_name = protocol.to_string();
+	let keys = protocol_name.split("/").collect::<Vec<_>>();
+	keys.iter()
+		.rev()
+		.take(2) // Last two tokens give the protocol name and version
+		.fold("mpsc-notification-to-protocol".into(), |acc, val| format!("{}-{}", acc, val))
 }

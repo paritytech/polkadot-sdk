@@ -68,6 +68,7 @@ rm -rf $BRIDGES_FOLDER/modules/beefy
 rm -rf $BRIDGES_FOLDER/modules/shift-session-manager
 rm -rf $BRIDGES_FOLDER/primitives/beefy
 rm -rf $BRIDGES_FOLDER/relays
+rm -rf $BRIDGES_FOLDER/relay-clients
 rm -rf $BRIDGES_FOLDER/scripts/add_license.sh
 rm -rf $BRIDGES_FOLDER/scripts/build-containers.sh
 rm -rf $BRIDGES_FOLDER/scripts/ci-cache.sh
@@ -77,6 +78,7 @@ rm -rf $BRIDGES_FOLDER/scripts/regenerate_runtimes.sh
 rm -rf $BRIDGES_FOLDER/scripts/update-weights.sh
 rm -rf $BRIDGES_FOLDER/scripts/update-weights-setup.sh
 rm -rf $BRIDGES_FOLDER/scripts/update_substrate.sh
+rm -rf $BRIDGES_FOLDER/substrate-relay
 rm -rf $BRIDGES_FOLDER/tools
 rm -f $BRIDGES_FOLDER/.dockerignore
 rm -f $BRIDGES_FOLDER/local.Dockerfile.dockerignore
@@ -89,6 +91,7 @@ rm -f $BRIDGES_FOLDER/local.Dockerfile
 rm -f $BRIDGES_FOLDER/CODEOWNERS
 rm -f $BRIDGES_FOLDER/Dockerfile
 rm -f $BRIDGES_FOLDER/rustfmt.toml
+rm -f $BRIDGES_FOLDER/RELEASE.md
 
 # let's fix Cargo.toml a bit (it'll be helpful if we are in the bridges repo)
 if [[ ! -f "Cargo.toml" ]]; then
@@ -131,7 +134,7 @@ cargo check -p bridge-runtime-common
 cargo check -p bridge-runtime-common --features runtime-benchmarks
 cargo check -p bridge-runtime-common --features integrity-test
 
-# we're removing lock file after all chechs are done. Otherwise we may use different
+# we're removing lock file after all checks are done. Otherwise we may use different
 # Substrate/Polkadot/Cumulus commits and our checks will fail
 rm -f $BRIDGES_FOLDER/Cargo.lock
 

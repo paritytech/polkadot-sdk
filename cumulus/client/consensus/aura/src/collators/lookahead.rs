@@ -49,7 +49,7 @@ use polkadot_node_subsystem::messages::{
 	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{CollatorPair, CoreIndex, Id as ParaId, OccupiedCoreAssumption};
 
 use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -184,7 +184,15 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			if !is_para_scheduled(relay_parent, params.para_id, &mut params.overseer_handle).await {
+			// TODO: Currently we use just the first core here, but for elastic scaling
+			// we iterate and build on all of the cores returned.
+			let core_index = if let Some(core_index) =
+				cores_scheduled_for_para(relay_parent, params.para_id, &mut params.overseer_handle)
+					.await
+					.get(0)
+			{
+				*core_index
+			} else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
@@ -193,7 +201,7 @@ where
 				);
 
 				continue
-			}
+			};
 
 			let max_pov_size = match params
 				.relay_client
@@ -290,16 +298,17 @@ where
 			// If the longest chain has space, build upon that. Otherwise, don't
 			// build at all.
 			potential_parents.sort_by_key(|a| a.depth);
-			let initial_parent = match potential_parents.pop() {
-				None => continue,
-				Some(p) => p,
-			};
+			let Some(initial_parent) = potential_parents.pop() else { continue };
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
 			let mut parent_hash = initial_parent.hash;
 			let mut parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
+
+			// We mainly call this to inform users at genesis if there is a mismatch with the
+			// on-chain data.
+			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
@@ -353,6 +362,14 @@ where
 					Some(v) => v,
 				};
 
+				super::check_validation_code_or_log(
+					&validation_code_hash,
+					params.para_id,
+					&params.relay_client,
+					relay_parent,
+				)
+				.await;
+
 				match collator
 					.collate(
 						&parent_header,
@@ -387,6 +404,7 @@ where
 										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: None,
+										core_index,
 									},
 								),
 								"SubmitCollation",
@@ -471,14 +489,12 @@ async fn max_ancestry_lookback(
 	}
 }
 
-// Checks if there exists a scheduled core for the para at the provided relay parent.
-//
-// Falls back to `false` in case of an error.
-async fn is_para_scheduled(
+// Return all the cores assigned to the para at the provided relay parent.
+async fn cores_scheduled_for_para(
 	relay_parent: PHash,
 	para_id: ParaId,
 	overseer_handle: &mut OverseerHandle,
-) -> bool {
+) -> Vec<CoreIndex> {
 	let (tx, rx) = oneshot::channel();
 	let request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
@@ -494,7 +510,7 @@ async fn is_para_scheduled(
 				?relay_parent,
 				"Failed to query availability cores runtime API",
 			);
-			return false
+			return Vec::new()
 		},
 		Err(oneshot::Canceled) => {
 			tracing::error!(
@@ -502,9 +518,19 @@ async fn is_para_scheduled(
 				?relay_parent,
 				"Sender for availability cores runtime request dropped",
 			);
-			return false
+			return Vec::new()
 		},
 	};
 
-	cores.iter().any(|core| core.para_id() == Some(para_id))
+	cores
+		.iter()
+		.enumerate()
+		.filter_map(|(index, core)| {
+			if core.para_id() == Some(para_id) {
+				Some(CoreIndex(index as u32))
+			} else {
+				None
+			}
+		})
+		.collect()
 }

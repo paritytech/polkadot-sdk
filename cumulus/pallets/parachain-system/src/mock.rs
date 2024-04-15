@@ -72,7 +72,7 @@ parameter_types! {
 	pub const ReservedDmpWeight: Weight = Weight::zero();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockHashCount = BlockHashCount;
@@ -126,6 +126,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MaxWeight;
+	type IdleMaxServiceWeight = ();
 	type WeightInfo = ();
 }
 

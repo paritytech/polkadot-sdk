@@ -289,7 +289,7 @@ fn transfer_owner_should_work() {
 		assert_eq!(Balances::reserved_balance(&2), 0);
 		assert_eq!(Balances::reserved_balance(&3), 45);
 
-		// 2's acceptence from before is reset when it became owner, so it cannot be transfered
+		// 2's acceptance from before is reset when it became owner, so it cannot be transferred
 		// without a fresh acceptance.
 		assert_noop!(
 			Uniques::transfer_ownership(RuntimeOrigin::signed(3), 0, 2),
@@ -692,7 +692,7 @@ fn approved_account_gets_reset_after_transfer() {
 		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
 		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 5));
 
-		// this shouldn't work because we have just transfered the item to another account.
+		// this shouldn't work because we have just transferred the item to another account.
 		assert_noop!(
 			Uniques::transfer(RuntimeOrigin::signed(3), 0, 42, 4),
 			Error::<Test>::NoPermission

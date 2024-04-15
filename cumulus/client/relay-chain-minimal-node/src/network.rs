@@ -40,7 +40,11 @@ pub(crate) fn build_collator_network(
 	genesis_hash: Hash,
 	best_header: Header,
 ) -> Result<
-	(Arc<NetworkService<Block, Hash>>, NetworkStarter, Box<dyn sp_consensus::SyncOracle + Send>),
+	(
+		Arc<NetworkService<Block, Hash>>,
+		NetworkStarter,
+		Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
+	),
 	Error,
 > {
 	let protocol_id = config.protocol_id();
@@ -112,7 +116,7 @@ pub(crate) fn build_collator_network(
 
 	let network_starter = NetworkStarter::new(network_start_tx);
 
-	Ok((network_service, network_starter, Box::new(SyncOracle {})))
+	Ok((network_service, network_starter, Arc::new(SyncOracle {})))
 }
 
 fn adjust_network_config_light_in_peers(config: &mut NetworkConfiguration) {

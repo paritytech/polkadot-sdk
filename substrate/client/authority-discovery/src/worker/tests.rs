@@ -716,12 +716,16 @@ fn addresses_to_publish_adds_p2p() {
 #[test]
 fn addresses_to_publish_respects_existing_p2p_protocol() {
 	let (_dht_event_tx, dht_event_rx) = channel(1000);
+	let identity = Keypair::generate_ed25519();
+	let peer_id = identity.public().to_peer_id();
+	let external_address = "/ip6/2001:db8::/tcp/30333"
+		.parse::<Multiaddr>()
+		.unwrap()
+		.with(multiaddr::Protocol::P2p(peer_id.into()));
 	let network: Arc<TestNetwork> = Arc::new(TestNetwork {
-		external_addresses: vec![
-			"/ip6/2001:db8::/tcp/30333/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC"
-				.parse()
-				.unwrap(),
-		],
+		peer_id,
+		identity,
+		external_addresses: vec![external_address],
 		..Default::default()
 	});
 

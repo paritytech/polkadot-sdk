@@ -211,7 +211,7 @@ enum State {
 	/// consequently trying to open the various notifications substreams.
 	///
 	/// A [`NotifsHandlerOut::OpenResultOk`] or a [`NotifsHandlerOut::OpenResultErr`] event must
-	/// be emitted when transitionning to respectively [`State::Open`] or [`State::Closed`].
+	/// be emitted when transitioning to respectively [`State::Open`] or [`State::Closed`].
 	Opening {
 		/// Substream opened by the remote. If `Some`, has been accepted.
 		in_substream: Option<NotificationsInSubstream<NegotiatedSubstream>>,

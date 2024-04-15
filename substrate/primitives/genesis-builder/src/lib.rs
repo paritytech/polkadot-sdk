@@ -19,36 +19,39 @@
 
 //! Substrate genesis config builder
 //!
-//! This Runtime API allows to construct `GenesisConfig`, in particular:
-//! - serialize the runtime default `GenesisConfig` struct into json format,
-//! - put the GenesisConfig struct into the storage. Internally this operation calls
+//! This Runtime API allows to construct `RuntimeGenesisConfig`, in particular:
+//! - serialize the runtime default `RuntimeGenesisConfig` struct into json format,
+//! - put the RuntimeGenesisConfig struct into the storage. Internally this operation calls
 //!   `GenesisBuild::build` function for all runtime pallets, which is typically provided by
 //!   pallet's author.
-//! - deserialize the `GenesisConfig` from given json blob and put `GenesisConfig` into the state
-//!   storage. Allows to build customized configuration.
+//! - deserialize the `RuntimeGenesisConfig` from given json blob and put `RuntimeGenesisConfig`
+//!   into the state storage. Allows to build customized configuration.
 //!
-//! Providing externalities with empty storage and putting `GenesisConfig` into storage allows to
-//! catch and build the raw storage of `GenesisConfig` which is the foundation for genesis block.
+//! Providing externalities with empty storage and putting `RuntimeGenesisConfig` into storage
+//! allows to catch and build the raw storage of `RuntimeGenesisConfig` which is the foundation for
+//! genesis block.
+
+extern crate alloc;
 
 /// The result type alias, used in build methods. `Err` contains formatted error message.
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
 sp_api::decl_runtime_apis! {
-	/// API to interact with GenesisConfig for the runtime
+	/// API to interact with RuntimeGenesisConfig for the runtime
 	pub trait GenesisBuilder {
-		/// Creates the default `GenesisConfig` and returns it as a JSON blob.
+		/// Creates the default `RuntimeGenesisConfig` and returns it as a JSON blob.
 		///
-		/// This function instantiates the default `GenesisConfig` struct for the runtime and serializes it into a JSON
-		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `GenesisConfig`.
-		fn create_default_config() -> sp_std::vec::Vec<u8>;
+		/// This function instantiates the default `RuntimeGenesisConfig` struct for the runtime and serializes it into a JSON
+		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `RuntimeGenesisConfig`.
+		fn create_default_config() -> alloc::vec::Vec<u8>;
 
-		/// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage.
+		/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the storage.
 		///
-		/// This function deserializes the full `GenesisConfig` from the given JSON blob and puts it into the storage.
+		/// This function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and puts it into the storage.
 		/// If the provided JSON blob is incorrect or incomplete or the deserialization fails, an error is returned.
 		/// It is recommended to log any errors encountered during the process.
 		///
-		/// Please note that provided json blob must contain all `GenesisConfig` fields, no defaults will be used.
-		fn build_config(json: sp_std::vec::Vec<u8>) -> Result;
+		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no defaults will be used.
+		fn build_config(json: alloc::vec::Vec<u8>) -> Result;
 	}
 }
