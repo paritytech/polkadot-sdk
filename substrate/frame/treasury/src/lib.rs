@@ -469,7 +469,7 @@ pub mod pallet {
 				// This unwrap should only occur one time on any blockchain.
 				// `update_last_spend_period` will populate the `LastSpendPeriod` storage if it is
 				// empty.
-				.unwrap_or(Self::update_last_spend_period());
+				.unwrap_or_else(|| Self::update_last_spend_period());
 			let blocks_since_last_spend_period = block_number.saturating_sub(last_spend_period);
 			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
 
