@@ -40,14 +40,15 @@ use sp_runtime::{
 /// We need this trait in order to be able to implement it for the messages pallet,
 /// since the implementation is done outside of the pallet crate.
 pub trait BridgeRuntimeFilterCall<AccountId, Call> {
-	/// Data that may be passed from the validate to `on_failure`.
+	/// Data that may be passed from the validate to `post_dispatch`.
 	type ToPostDispatch;
 	/// Called during validation. Needs to checks whether a runtime call, submitted
 	/// by the `who` is valid. `who` may be `None` if transaction is not signed
 	/// by a regular account.
 	fn validate(who: &AccountId, call: &Call) -> (Self::ToPostDispatch, TransactionValidity);
 	/// Called after transaction is dispatched.
-	fn post_dispatch(_who: &AccountId, _has_failed: bool, _to_on_failure: Self::ToPostDispatch) {}
+	fn post_dispatch(_who: &AccountId, _has_failed: bool, _to_post_dispatch: Self::ToPostDispatch) {
+	}
 }
 
 /// Wrapper for the bridge GRANDPA pallet that checks calls for obsolete submissions
@@ -334,11 +335,9 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				len: usize,
 				result: &sp_runtime::DispatchResult,
 			) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
-				// TODO: check me: removed if result.is_ok() { return Ok(()); }
 				use tuplex::PopFront;
-				let has_failed = result.is_err();
-				// TODO: check me: return if `to_post_dispatch` is `None`
 				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
+				let has_failed = result.is_err();
 				$(
 					let (item, to_post_dispatch) = to_post_dispatch.pop_front();
 					<
@@ -369,10 +368,11 @@ mod tests {
 	};
 	use bp_polkadot_core::parachains::ParaId;
 	use bp_runtime::HeaderId;
-	use frame_support::assert_err;
+	use frame_support::{assert_err, assert_ok};
 	use sp_runtime::{
 		traits::{ConstU64, SignedExtension},
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		DispatchError,
 	};
 
 	pub struct MockCall {
@@ -394,6 +394,16 @@ mod tests {
 	}
 
 	pub struct FirstFilterCall;
+	impl FirstFilterCall {
+		fn post_dispatch_called_with(success: bool) {
+			frame_support::storage::unhashed::put(&[1], &success);
+		}
+
+		fn verify_post_dispatch_called_with(success: bool) {
+			assert_eq!(frame_support::storage::unhashed::get::<bool>(&[1]), Some(success));
+		}
+	}
+
 	impl BridgeRuntimeFilterCall<u64, MockCall> for FirstFilterCall {
 		type ToPostDispatch = u64;
 		fn validate(_who: &u64, call: &MockCall) -> (u64, TransactionValidity) {
@@ -403,9 +413,25 @@ mod tests {
 
 			(1, Ok(ValidTransaction { priority: 1, ..Default::default() }))
 		}
+
+		fn post_dispatch(_who: &u64, has_failed: bool, to_post_dispatch: Self::ToPostDispatch) {
+			Self::post_dispatch_called_with(!has_failed);
+			assert_eq!(to_post_dispatch, 1);
+		}
 	}
 
 	pub struct SecondFilterCall;
+
+	impl SecondFilterCall {
+		fn post_dispatch_called_with(success: bool) {
+			frame_support::storage::unhashed::put(&[2], &success);
+		}
+
+		fn verify_post_dispatch_called_with(success: bool) {
+			assert_eq!(frame_support::storage::unhashed::get::<bool>(&[2]), Some(success));
+		}
+	}
+
 	impl BridgeRuntimeFilterCall<u64, MockCall> for SecondFilterCall {
 		type ToPostDispatch = u64;
 		fn validate(_who: &u64, call: &MockCall) -> (u64, TransactionValidity) {
@@ -414,6 +440,11 @@ mod tests {
 			}
 
 			(2, Ok(ValidTransaction { priority: 2, ..Default::default() }))
+		}
+
+		fn post_dispatch(_who: &u64, has_failed: bool, to_post_dispatch: Self::ToPostDispatch) {
+			Self::post_dispatch_called_with(!has_failed);
+			assert_eq!(to_post_dispatch, 2);
 		}
 	}
 
@@ -426,30 +457,72 @@ mod tests {
 			SecondFilterCall
 		);
 
-		// TODO: add tests for both validate and pre_dispatch here?
+		run_test(|| {
+			assert_err!(
+				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 1 }, &(), 0),
+				InvalidTransaction::Custom(1)
+			);
+			assert_err!(
+				BridgeRejectObsoleteHeadersAndMessages.pre_dispatch(
+					&42,
+					&MockCall { data: 1 },
+					&(),
+					0
+				),
+				InvalidTransaction::Custom(1)
+			);
 
-		assert_err!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 1 }, &(), 0),
-			InvalidTransaction::Custom(1)
-		);
+			assert_err!(
+				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 2 }, &(), 0),
+				InvalidTransaction::Custom(2)
+			);
+			assert_err!(
+				BridgeRejectObsoleteHeadersAndMessages.pre_dispatch(
+					&42,
+					&MockCall { data: 2 },
+					&(),
+					0
+				),
+				InvalidTransaction::Custom(2)
+			);
 
-		assert_err!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 2 }, &(), 0),
-			InvalidTransaction::Custom(2)
-		);
+			assert_eq!(
+				BridgeRejectObsoleteHeadersAndMessages
+					.validate(&42, &MockCall { data: 3 }, &(), 0)
+					.unwrap(),
+				ValidTransaction { priority: 3, ..Default::default() },
+			);
+			assert_eq!(
+				BridgeRejectObsoleteHeadersAndMessages
+					.pre_dispatch(&42, &MockCall { data: 3 }, &(), 0)
+					.unwrap(),
+				(42, (1, 2)),
+			);
 
-		assert_eq!(
-			BridgeRejectObsoleteHeadersAndMessages
-				.validate(&42, &MockCall { data: 3 }, &(), 0)
-				.unwrap(),
-			ValidTransaction { priority: 3, ..Default::default() },
-		);
-		assert_eq!(
-			BridgeRejectObsoleteHeadersAndMessages
-				.pre_dispatch(&42, &MockCall { data: 3 }, &(), 0)
-				.unwrap(),
-			(42, (1, 2)),
-		);
+			// when post_dispatch is called with `Ok(())`, it is propagated to all "nested"
+			// extensions
+			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch(
+				Some((0, (1, 2))),
+				&(),
+				&(),
+				0,
+				&Ok(())
+			));
+			FirstFilterCall::verify_post_dispatch_called_with(true);
+			SecondFilterCall::verify_post_dispatch_called_with(true);
+
+			// when post_dispatch is called with `Err(())`, it is propagated to all "nested"
+			// extensions
+			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch(
+				Some((0, (1, 2))),
+				&(),
+				&(),
+				0,
+				&Err(DispatchError::BadOrigin)
+			));
+			FirstFilterCall::verify_post_dispatch_called_with(false);
+			SecondFilterCall::verify_post_dispatch_called_with(false);
+		});
 	}
 
 	frame_support::parameter_types! {
