@@ -22,40 +22,78 @@ use sc_executor::WasmExecutor;
 use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
 use std::path::Path;
 
-type HostFunctions =
-	(sp_io::allocator::HostFunctions, sp_io::logging::HostFunctions, sp_io::storage::HostFunctions);
+/// The host functions that we provide when calling into the wasm file.
+///
+/// Any other host function will return an error.
+type HostFunctions = (
+	// The allocator
+	sp_io::allocator::HostFunctions,
+	// Logging is good to have for debugging issues.
+	sp_io::logging::HostFunctions,
+	// Give access to the "state", actually the state will be empty, but some chains put constants
+	// into the state and this would panic at metadata generation. Thus, we give them an empty
+	// state to not panic.
+	sp_io::storage::HostFunctions,
+);
 
-pub fn generate_hash(wasm: &Path) -> [u8; 32] {
+/// Generate the metadata hash.
+///
+/// The metadata hash is generated as specced in
+/// [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
+///
+/// Returns the metadata hash.
+pub fn generate_metadata_hash(wasm: &Path) -> [u8; 32] {
 	sp_tracing::try_init_simple();
 
-	let wasm = std::fs::read(wasm).expect("Reads wasm");
+	let wasm = std::fs::read(wasm).expect("Wasm file was just created and should be readable.");
 
 	let executor = WasmExecutor::<HostFunctions>::builder()
 		.with_allow_missing_host_functions(true)
 		.build();
 
+	let runtime_code = RuntimeCode {
+		code_fetcher: &WrappedRuntimeCode(wasm.into()),
+		heap_pages: None,
+		// The hash is only used for caching and thus, not that important for our use case here.
+		hash: vec![1, 2, 3],
+	};
+
 	let metadata = executor
 		.call(
 			&mut sp_io::TestExternalities::default().ext(),
-			&RuntimeCode {
-				code_fetcher: &WrappedRuntimeCode(wasm.into()),
-				heap_pages: None,
-				hash: vec![1, 2, 3],
-			},
+			&runtime_code,
 			"Metadata_metadata_at_version",
 			&15u32.encode(),
 			CallContext::Offchain,
 		)
 		.0
-		.expect("Calls `Metadata_metadata`");
+		.expect("`Metadata::metadata_at_version` should exist.");
 
-	let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..]).unwrap().unwrap();
+	let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..])
+		.ok()
+		.flatten()
+		.expect("Metadata V15 support is required.");
 
-	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..]).unwrap().1;
+	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..])
+		.expect("Invalid encoded metadata?")
+		.1;
+
+	let runtime_version = executor
+		.call(
+			&mut sp_io::TestExternalities::default().ext(),
+			&runtime_code,
+			"Core_version",
+			&[],
+			CallContext::Offchain,
+		)
+		.0
+		.expect("`Core_version` should exist.");
+	let runtime_version = sp_version::RuntimeVersion::decode(&mut &runtime_version[..])
+		.expect("Invalid `RuntimeVersion` encoding");
 
 	let extra_info = ExtraInfo {
-		spec_version: 1,
-		spec_name: "esel".into(),
+		spec_version: runtime_version.spec_version,
+		spec_name: runtime_version.spec_name.into(),
 		base58_prefix: 10,
 		decimals: 10,
 		token_symbol: "lol".into(),

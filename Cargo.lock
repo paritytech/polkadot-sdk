@@ -20145,6 +20145,7 @@ dependencies = [
  "sp-io",
  "sp-maybe-compressed-blob",
  "sp-tracing 16.0.0",
+ "sp-version",
  "strum 0.26.2",
  "tempfile",
  "toml 0.8.8",

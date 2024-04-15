@@ -148,7 +148,7 @@ pub(crate) fn create_and_compile(
 			None,
 		);
 
-		let hash = crate::metadata_hash::generate_hash(&raw_blob_path);
+		let hash = crate::metadata_hash::generate_metadata_hash(&raw_blob_path);
 
 		build_bloaty_blob(
 			target,
