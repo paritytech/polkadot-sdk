@@ -48,6 +48,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
+          name: ${{ github.event.inputs.benchmark-data-dir-path }}
           output-file-path: ${{ github.event.inputs.output-file-path }}
           benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
           github-token: ${{ steps.app-token.outputs.token }}
