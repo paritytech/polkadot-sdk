@@ -31,7 +31,7 @@ use crate::{
 	import::BeefyBlockImport,
 	metrics::register_metrics,
 };
-use futures::{stream::Fuse, FutureExt, StreamExt};
+use futures::{stream::Fuse, StreamExt};
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use prometheus::Registry;
@@ -508,7 +508,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let BeefyNetworkParams {
 		network,
 		sync,
-		notification_service,
+		mut notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -521,60 +521,53 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let mut finality_notifications = client.finality_notification_stream().fuse();
 	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
 
-	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	// Default votes filter is to discard everything.
-	// Validator is updated later with correct starting round and set id.
-	let gossip_validator =
-		communication::gossip::GossipValidator::new(known_peers.clone(), network.clone());
-	let gossip_validator = Arc::new(gossip_validator);
-	let gossip_engine = GossipEngine::new(
-		network.clone(),
-		sync.clone(),
-		notification_service,
-		gossip_protocol_name.clone(),
-		gossip_validator.clone(),
-		None,
-	);
-
-	// The `GossipValidator` adds and removes known peers based on valid votes and network
-	// events.
-	let on_demand_justifications = OnDemandJustificationsEngine::new(
-		network.clone(),
-		justifications_protocol_name.clone(),
-		known_peers,
-		prometheus_registry.clone(),
-	);
-	let mut beefy_comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
-
 	// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
 	// select recoverable errors.
 	loop {
+		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
+		// Default votes filter is to discard everything.
+		// Validator is updated later with correct starting round and set id.
+		let gossip_validator = GossipValidator::new(known_peers.clone(), network.clone());
+		let gossip_validator = Arc::new(gossip_validator);
+
 		// Make sure to pump gossip engine while waiting for initialization conditions.
-		let worker_builder = futures::select! {
-			builder_init_result = BeefyWorkerBuilder::async_initialize(
-				backend.clone(),
-				runtime.clone(),
-				key_store.clone().into(),
-				metrics.clone(),
-				min_block_delta,
-				beefy_comms.gossip_validator.clone(),
-				&mut finality_notifications,
-				is_authority,
-			).fuse() => {
-				match builder_init_result {
-					Ok(builder) => builder,
-					Err(e) => {
-						error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
-						return
-					},
-				}
-			},
-			// Pump gossip engine.
-			_ = &mut beefy_comms.gossip_engine => {
-				error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
+		let worker_builder = match BeefyWorkerBuilder::async_initialize(
+			backend.clone(),
+			runtime.clone(),
+			key_store.clone().into(),
+			metrics.clone(),
+			min_block_delta,
+			gossip_validator.clone(),
+			&mut finality_notifications,
+			is_authority,
+		)
+		.await
+		{
+			Ok(builder) => builder,
+			Err(e) => {
+				error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
 				return
-			}
+			},
 		};
+
+		let gossip_engine = GossipEngine::new(
+			network.clone(),
+			sync.clone(),
+			notification_service,
+			gossip_protocol_name.clone(),
+			gossip_validator.clone(),
+			None,
+		);
+
+		// The `GossipValidator` adds and removes known peers based on valid votes and network
+		// events.
+		let on_demand_justifications = OnDemandJustificationsEngine::new(
+			network.clone(),
+			justifications_protocol_name.clone(),
+			known_peers,
+			prometheus_registry.clone(),
+		);
+		let beefy_comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 
 		let worker = worker_builder.build(
 			payload_provider.clone(),
@@ -594,7 +587,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			// On `ConsensusReset` error, just reinit and restart voter.
 			futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), _)) => {
 				error!(target: LOG_TARGET, "🥩 Error: {:?}. Restarting voter.", error::Error::ConsensusReset);
-				beefy_comms = reuse_comms;
+				notification_service = reuse_comms.gossip_engine.take_notification_service();
 				continue
 			},
 			// On other errors, bring down / finish the task.
