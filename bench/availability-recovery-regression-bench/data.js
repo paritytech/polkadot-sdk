@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713167337263,
+  "lastUpdate": 1713173691643,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3443,6 +3443,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17742760686666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d1b0ef76a8b060437ec7dfc1bf6b400626cd6208",
+          "message": "sp-api: Use macro to detect if `frame-metadata` is enabled (#4117)\n\nWhile `sp-api-proc-macro` isn't used directly and thus, it should have\nthe same features enabled as `sp-api`. However, I have seen issues\naround `frame-metadata` not being enabled for `sp-api`, but for\n`sp-api-proc-macro`. This can be prevented by using the\n`frame_metadata_enabled` macro from `sp-api` that ensures we have the\nsame feature set between both crates.",
+          "timestamp": "2024-04-15T08:11:51Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1b0ef76a8b060437ec7dfc1bf6b400626cd6208"
+        },
+        "date": 1713173664640,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.838922510933335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.24532125740000002,
             "unit": "seconds"
           }
         ]
