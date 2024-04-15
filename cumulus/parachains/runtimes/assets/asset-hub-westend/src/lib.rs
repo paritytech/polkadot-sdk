@@ -29,8 +29,7 @@ pub mod xcm_config;
 
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
-	AssetIdForPoolAssets, AssetIdForPoolAssetsConvertV3Location,
-	AssetIdForTrustBackedAssetsConvert,
+	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
@@ -326,7 +325,7 @@ pub type NativeAndAllAssets = fungibles::UnionOf<
 	PoolAssets,
 	NativeAndNonPoolAssets,
 	LocalFromLeft<
-		AssetIdForPoolAssetsConvertV3Location<PoolAssetsPalletLocationV3>,
+		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocationV3, xcm::v3::Location>,
 		AssetIdForPoolAssets,
 		xcm::v3::Location,
 	>,

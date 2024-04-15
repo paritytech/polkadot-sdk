@@ -31,8 +31,7 @@ use assets_common::{
 	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	matching::{FromNetwork, FromSiblingParachain},
-	AssetIdForPoolAssets, AssetIdForPoolAssetsConvertV3Location,
-	AssetIdForTrustBackedAssetsConvert,
+	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
@@ -346,7 +345,7 @@ pub type NativeAndAllAssets = fungibles::UnionOf<
 	PoolAssets,
 	NativeAndNonPoolAssets,
 	LocalFromLeft<
-		AssetIdForPoolAssetsConvertV3Location<PoolAssetsPalletLocationV3>,
+		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocationV3, xcm::v3::Location>,
 		AssetIdForPoolAssets,
 		xcm::v3::Location,
 	>,
