@@ -630,7 +630,6 @@ mod benchmarks {
 			res = func.call();
 		}
 		assert_eq!(res.did_revert(), false);
-		assert_eq!(res.did_revert(), false);
 	}
 
 	#[benchmark(pov_mode = Measured)]
