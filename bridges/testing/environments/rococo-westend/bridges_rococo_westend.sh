@@ -212,19 +212,19 @@ case "$1" in
           "ws://127.0.0.1:8943" \
           "//Alice" \
           "$ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO" \
-          $((1000000000000 + 50000000000 * 20))
+          100000000000000
       # drip SA of lane dedicated to asset hub for paying rewards for delivery
       transfer_balance \
           "ws://127.0.0.1:8943" \
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_ThisChain" \
-          $((1000000000000 + 2000000000000))
+          100000000000000
       # drip SA of lane dedicated to asset hub for paying rewards for delivery confirmation
       transfer_balance \
           "ws://127.0.0.1:8943" \
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
-          $((1000000000000 + 2000000000000))
+          100000000000000
       # set XCM version of remote BridgeHubWestend
       force_xcm_version \
           "ws://127.0.0.1:9942" \
@@ -270,19 +270,19 @@ case "$1" in
           "ws://127.0.0.1:8945" \
           "//Alice" \
           "$ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND" \
-          $((1000000000000000 + 50000000000 * 20))
+          100000000000000
       # drip SA of lane dedicated to asset hub for paying rewards for delivery
       transfer_balance \
           "ws://127.0.0.1:8945" \
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_ThisChain" \
-          $((1000000000000000 + 2000000000000))
+          100000000000000
       # drip SA of lane dedicated to asset hub for paying rewards for delivery confirmation
       transfer_balance \
           "ws://127.0.0.1:8945" \
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
-          $((1000000000000000 + 2000000000000))
+          100000000000000
       # set XCM version of remote BridgeHubRococo
       force_xcm_version \
           "ws://127.0.0.1:9945" \
