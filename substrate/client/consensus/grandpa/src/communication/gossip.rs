@@ -2584,7 +2584,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sends_neighbor_packets_to_non_light_peers_when_starting_a_new_round() {
+	fn sends_neighbor_packets_to_all_peers_when_starting_a_new_round() {
 		let (val, _) = GossipValidator::<Block>::new(config(), voter_set_state(), None, None);
 
 		// initialize the validator to a stable set id
@@ -2599,10 +2599,10 @@ mod tests {
 		val.inner.write().peers.new_peer(light_peer, ObservedRole::Light);
 
 		val.note_round(Round(2), |peers, message| {
-			assert_eq!(peers.len(), 2);
+			assert_eq!(peers.len(), 3);
 			assert!(peers.contains(&authority_peer));
 			assert!(peers.contains(&full_peer));
-			assert!(!peers.contains(&light_peer));
+			assert!(peers.contains(&light_peer));
 			assert!(matches!(message, NeighborPacket { set_id: SetId(1), round: Round(2), .. }));
 		});
 	}
