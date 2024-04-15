@@ -305,7 +305,7 @@ pub mod pallet {
 
 		/// The currency mechanism.
 		#[pallet::no_default]
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: ReservableCurrency<Self::AccountId, Balance = Self::Balance>;
 
 		/// Standard asset class creation is only allowed if the origin attempting it and the
 		/// asset class are in this set.

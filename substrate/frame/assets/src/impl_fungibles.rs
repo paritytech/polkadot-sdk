@@ -310,8 +310,6 @@ impl<T: Config<I>, I: 'static> fungibles::InspectEnumerable<T::AccountId> for Pa
 }
 
 impl<T: Config<I>, I: 'static> fungibles::Refund<T::AccountId> for Pallet<T, I> {
-	type AssetId = T::AssetId;
-	type Balance = DepositBalanceOf<T, I>;
 	fn deposit_held(id: Self::AssetId, who: T::AccountId) -> Option<(T::AccountId, Self::Balance)> {
 		use ExistenceReason::*;
 		match Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit).ok()?.reason {
