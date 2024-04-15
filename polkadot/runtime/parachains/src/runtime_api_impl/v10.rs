@@ -301,6 +301,10 @@ pub fn validation_code<T: initializer::Config>(
 }
 
 /// Implementation for the `candidate_pending_availability` function of the runtime API.
+#[deprecated(
+	note = "`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
+	all candidates pending availability"
+)]
 pub fn candidate_pending_availability<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<CommittedCandidateReceipt<T::Hash>> {

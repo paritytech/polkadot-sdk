@@ -27,7 +27,7 @@ use crate::{
 	},
 	shared,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use primitives::BlockNumber;
 use std::collections::BTreeMap;
 
@@ -932,6 +932,75 @@ fn watermark_maxed_out_at_relay_parent() {
 		run_to_block(9, None);
 		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 7).is_ok());
 		let _ = Hrmp::prune_hrmp(para_b, 7);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn establish_channel_with_system_works() {
+	let para_a = 2000.into();
+	let para_a_origin: crate::Origin = 2000.into();
+	let para_b = 3.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::establish_channel_with_system(para_a_origin.into(), para_b).unwrap();
+		Hrmp::assert_storage_consistency_exhaustive();
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 1,
+				proposed_max_message_size: 4
+			})));
+
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+				sender: para_b,
+				recipient: para_a,
+				proposed_max_capacity: 1,
+				proposed_max_message_size: 4
+			})));
+
+		// Advance to a block 6, but without session change. That means that the channel has
+		// not been created yet.
+		run_to_block(6, None);
+		assert!(!channel_exists(para_a, para_b));
+		assert!(!channel_exists(para_b, para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Now let the session change happen and thus open the channel.
+		run_to_block(8, Some(vec![8]));
+		assert!(channel_exists(para_a, para_b));
+		assert!(channel_exists(para_b, para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn establish_channel_with_system_with_invalid_args() {
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2000.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		assert_noop!(
+			Hrmp::establish_channel_with_system(RuntimeOrigin::signed(1), para_b),
+			BadOrigin
+		);
+		assert_noop!(
+			Hrmp::establish_channel_with_system(para_a_origin.into(), para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
 		Hrmp::assert_storage_consistency_exhaustive();
 	});
 }
