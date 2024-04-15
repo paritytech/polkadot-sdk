@@ -79,7 +79,13 @@ type ReadyIteratorFor<PoolApi> =
 type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
 
 /// A transaction pool for a full node.
-pub type FullPool<Block, Client> = BasicPool<FullChainApi<Client, Block>, Block>;
+//todo: clean up:
+// - feature maybe
+// - or command line
+// - or just get rid of old txpool?
+// pub type FullPool<Block, Client> = BasicPool<FullChainApi<Client, Block>, Block>;
+pub type FullPool<Block, Client> =
+	fork_aware_pool::ForkAwareTxPool<FullChainApi<Client, Block>, Block>;
 
 /// Basic implementation of transaction pool that can be customized by providing PoolApi.
 pub struct BasicPool<PoolApi, Block>
@@ -413,12 +419,11 @@ where
 		client: Arc<Client>,
 	) -> Arc<Self> {
 		let pool_api = Arc::new(FullChainApi::new(client.clone(), prometheus, &spawner));
-		let pool = Arc::new(Self::with_revalidation_type(
+		let pool = Arc::new(Self::new_with_background_queue(
 			options,
 			is_validator,
 			pool_api,
-			prometheus,
-			RevalidationType::Full,
+			//todo: add prometheus,
 			spawner,
 			client.usage_info().chain.best_number,
 			client.usage_info().chain.best_hash,
