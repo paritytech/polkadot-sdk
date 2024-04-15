@@ -899,18 +899,15 @@ fn leases_can_be_renewed() {
 		//
 		// Sale 1 starts at block 7, Sale 2 starts at 13.
 
-		// Add a core.
-		assert_ok!(Broker::request_core_count(RuntimeOrigin::root(), 1));
-
 		// Set lease to expire in sale 1 and start sales.
 		assert_ok!(Broker::do_set_lease(2001, 9));
 		assert_eq!(Leases::<Test>::get().len(), 1);
-		// Start the sales but don't offer any more cores.
-		assert_ok!(Broker::do_start_sales(100, 0));
+		// Start the sales with only one core for this lease.
+		assert_ok!(Broker::do_start_sales(100, 1));
 
 		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
 		// sale.
-		advance_to(7);
+		advance_sale_period();
 		assert_eq!(
 			AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }),
 			Some(AllowedRenewalRecord {
@@ -926,13 +923,16 @@ fn leases_can_be_renewed() {
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
 		// Advance to sale period 2, where we can renew.
-		advance_to(13);
+		advance_sale_period();
 		assert_ok!(Broker::do_renew(1, 0));
-		// we renew for the base price of the previous sale period.
+		// We renew for the base price of the previous sale period.
 		assert_eq!(balance(1), 900);
 
-		// Advance two sales and check the trace.
-		advance_to(24);
+		// We just renewed for this period.
+		advance_sale_period();
+		// Now we are off core and the core is pooled.
+		advance_sale_period();
+		// Check the trace agrees.
 		assert_eq!(
 			CoretimeTrace::get(),
 			vec![
@@ -992,14 +992,11 @@ fn short_leases_cannot_be_renewed() {
 		//
 		// Sale 1 starts at block 7, Sale 2 starts at 13.
 
-		// Add a core.
-		assert_ok!(Broker::request_core_count(RuntimeOrigin::root(), 1));
-
 		// Set lease to expire in sale period 0 and start sales.
 		assert_ok!(Broker::do_set_lease(2001, 3));
 		assert_eq!(Leases::<Test>::get().len(), 1);
-		// Start the sales but don't offer any more cores.
-		assert_ok!(Broker::do_start_sales(100, 0));
+		// Start the sales with one core for this lease.
+		assert_ok!(Broker::do_start_sales(100, 1));
 
 		// The lease is removed.
 		assert_eq!(Leases::<Test>::get().len(), 0);
