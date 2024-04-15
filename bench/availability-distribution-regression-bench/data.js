@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713202519045,
+  "lastUpdate": 1713210881800,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4471,6 +4471,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.015274635466666681,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gui",
+            "username": "thiolliere",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a8f4f4f00f8fc0da512a09e1450bf4cda954d70d",
+          "message": "pallet assets: Fix errors (#4118)\n\n`LiveAsset` is an error to be returned when an asset is not supposed to\nbe live.\nAnd `AssetNotLive` is an error to be returned when an asset is supposed\nto be live, I don't think frozen qualifies as live.",
+          "timestamp": "2024-04-15T18:45:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a8f4f4f00f8fc0da512a09e1450bf4cda954d70d"
+        },
+        "date": 1713210856048,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007733856733333329,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024406677,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1677993731999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015201894666666656,
             "unit": "seconds"
           }
         ]
