@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove deprecated calls from treasury pallet
+
+doc:
+  - audience: Runtime Dev, Runtime User
+    description: |
+      This PR remove deprecated calls, relevant tests from `pallet-treasury`.
+			- Remove deprecated calls `propose_spend`, `reject_proposal`, `approve_proposal`.
+			- Replace the code flow of `propose_spend` then `approve_proposal` with `spend_local`
+			- Remove deprecated calls' related weight functions and test cases.
+
+crates:
+  - name: pallet-treasury
