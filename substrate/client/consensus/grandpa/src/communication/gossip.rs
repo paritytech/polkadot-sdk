@@ -810,7 +810,7 @@ impl<Block: BlockT> Inner<Block> {
 		self.live_topics.push(round, set_id);
 		self.peers.reshuffle();
 
-		self.multicast_neighbor_packet(false)
+		self.multicast_neighbor_packet()
 	}
 
 	/// Note that a voter set with given ID has started. Does nothing if the last
@@ -847,10 +847,7 @@ impl<Block: BlockT> Inner<Block> {
 		self.live_topics.push(Round(1), set_id);
 		self.authorities = authorities;
 
-		// when transitioning to a new set we also want to send neighbor packets to light clients,
-		// this is so that they know who to ask justifications from in order to finalize the last
-		// block in the previous set.
-		self.multicast_neighbor_packet(true)
+		self.multicast_neighbor_packet()
 	}
 
 	/// Note that we've imported a commit finalizing a given block. Does nothing if the last
@@ -869,7 +866,7 @@ impl<Block: BlockT> Inner<Block> {
 			return None
 		}
 
-		self.multicast_neighbor_packet(false)
+		self.multicast_neighbor_packet()
 	}
 
 	fn consider_vote(&self, round: Round, set_id: SetId) -> Consider {
@@ -1183,7 +1180,7 @@ impl<Block: BlockT> Inner<Block> {
 		(neighbor_topics, action, catch_up, report)
 	}
 
-	fn multicast_neighbor_packet(&self, force_light: bool) -> MaybeMessage<Block> {
+	fn multicast_neighbor_packet(&self) -> MaybeMessage<Block> {
 		self.local_view.as_ref().map(|local_view| {
 			let packet = NeighborPacket {
 				round: local_view.round,
