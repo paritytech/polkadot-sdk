@@ -315,9 +315,6 @@ pub mod pallet {
 	}
 
 	/// Pallet's callable functions.
-	///
-	/// Allows optionally specifying an admin account for the pool. By default, the origin is made
-	/// admin.
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
