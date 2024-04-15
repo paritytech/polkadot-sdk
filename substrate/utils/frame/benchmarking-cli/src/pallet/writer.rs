@@ -212,7 +212,7 @@ pub(crate) fn sanity_weight_check(
 	);
 	let mut sanity_weight_check_passed = true;
 	// Loop through all benchmark results.
-	for (_, results) in all_results.iter() {
+	for ((pallet, _), results) in all_results.iter() {
 		for result in results {
 			// Constant `ref_time` & `pov_size`.
 			let mut total_weight = Weight::from_parts(
@@ -260,7 +260,7 @@ pub(crate) fn sanity_weight_check(
 			// weight.
 			if total_weight.any_gt(max_extrinsic_weight) {
 				sanity_weight_check_passed = false;
-				log!(log_level, "The following extrinsic exceeds the maximum extrinsic weight: \n - '{}': {:?}\nPercentage of max. extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n", 
+				log!(log_level, " The following extrinsic exceeds the maximum extrinsic weight: \n - '{pallet}:{}': {:?}\nPercentage of max. extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n",
 				result.name,
 				total_weight,
 				(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,
