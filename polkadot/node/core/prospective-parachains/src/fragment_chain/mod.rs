@@ -114,6 +114,7 @@ pub enum CandidateStorageInsertionError {
 
 /// Stores candidates and information about them such as their relay-parents and their backing
 /// states.
+#[derive(Clone)]
 pub(crate) struct CandidateStorage {
 	// Index from head data hash to candidate hashes with that head data as a parent. Purely for
 	// efficiency when responding to `ProspectiveValidationDataRequest`s or when trying to find a
@@ -303,7 +304,7 @@ impl CandidateStorage {
 /// The state of a candidate.
 ///
 /// Candidates aren't even considered until they've at least been seconded.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum CandidateState {
 	/// The candidate has been seconded.
 	Seconded,
@@ -311,7 +312,7 @@ pub(crate) enum CandidateState {
 	Backed,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct CandidateEntry {
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
@@ -346,7 +347,7 @@ pub(crate) struct PendingAvailability {
 }
 
 /// The scope of a [`FragmentChain`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Scope {
 	para: ParaId,
 	relay_parent: RelayChainBlockInfo,
