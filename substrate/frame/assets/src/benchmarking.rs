@@ -553,5 +553,29 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
 	}
 
+	revoke_ownership_and_team_and_freeze_metadata {
+		let asset_id = default_asset_id::<T, I>();
+		let caller: T::AccountId = whitelisted_caller();
+		let caller_lookup = T::Lookup::unlookup(caller.clone());
+
+		let needed_balance = T::Currency::minimum_balance()
+			+ T::AssetDeposit::get()
+			+ T::MetadataDepositBase::get();
+		T::Currency::make_free_balance_be(&caller, needed_balance);
+
+		// We use `create` so we have a deposit to unreserve.
+		assert!(
+			Assets::<T, I>::create(
+				SystemOrigin::Signed(caller.clone()).into(),
+				asset_id.clone(),
+				caller_lookup.clone(),
+				1u32.into(),
+			).is_ok()
+		);
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone())
+	verify {
+		assert_eq!(Asset::<T, I>::get(asset_id.into()).unwrap().status, AssetStatus::LiveAndLocked);
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }

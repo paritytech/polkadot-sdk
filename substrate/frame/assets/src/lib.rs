@@ -179,11 +179,12 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::DispatchResultWithPostInfo,
-	storage::KeyPrefixIterator,
+	storage::{with_storage_layer, KeyPrefixIterator},
 	traits::{
 		tokens::{fungibles, DepositConsequence, WithdrawConsequence},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, ReservableCurrency, StoredMap,
+		Currency, EnsureOriginWithArg, ExistenceRequirement, Imbalance, OnUnbalanced,
+		ReservableCurrency, StoredMap, WithdrawReasons,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -192,6 +193,9 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 const LOG_TARGET: &str = "runtime::assets";
 
 /// Trait with callbacks that are executed after successful asset creation or destruction.
@@ -220,7 +224,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -262,6 +266,7 @@ pub mod pallet {
 			type StringLimit = ConstU32<50>;
 			type Extra = ();
 			type CallbackHandle = ();
+			type DepositDestinationOnRevocation = ();
 			type WeightInfo = ();
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
@@ -363,6 +368,11 @@ pub mod pallet {
 
 		/// Callback methods for asset state change (e.g. asset created or destroyed)
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
+
+		/// Destination of deposit of revoked asset owner.
+		/// This is used when the owner is revoked, its deposit is transferred to this destination.
+		#[pallet::no_default_bounds]
+		type DepositDestinationOnRevocation: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -572,6 +582,8 @@ pub mod pallet {
 		Touched { asset_id: T::AssetId, who: T::AccountId, depositor: T::AccountId },
 		/// Some account `who` was blocked.
 		Blocked { asset_id: T::AssetId, who: T::AccountId },
+		/// The owner is revoked.
+		OwnerAndTeamRevoked { asset_id: T::AssetId },
 	}
 
 	#[pallet::error]
@@ -619,6 +631,10 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
+		/// The signing account has no permission to do the operation due to the asset being live
+		/// and locked. Privileges are revoked when an asset is live and locked.
+		NoPermissionAssetLiveAndLocked,
+		DestroyingAsset,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -725,6 +741,7 @@ pub mod pallet {
 		/// destruction of an asset class.
 		///
 		/// The origin must conform to `ForceOrigin` or must be `Signed` by the asset's `owner`.
+		/// If the origin is `Signed` by `owner` then the asset status must not be `LiveAndLocked`.
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
@@ -807,7 +824,8 @@ pub mod pallet {
 
 		/// Mint assets of a particular class.
 		///
-		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		/// The origin must be Signed and the sender must be the Issuer of the asset `id` and the
+		/// asset status must not be `LiveAndLocked`.
 		///
 		/// - `id`: The identifier of the asset to have some amount minted.
 		/// - `beneficiary`: The account to be credited with the minted assets.
@@ -833,7 +851,8 @@ pub mod pallet {
 
 		/// Reduce the balance of `who` by as much as possible up to `amount` assets of `id`.
 		///
-		/// Origin must be Signed and the sender should be the Manager of the asset `id`.
+		/// Origin must be Signed and the sender should be the Admin of the asset `id` and the
+		/// asset status must not be `LiveAndLocked`.
 		///
 		/// Bails with `NoAccount` if the `who` is already dead.
 		///
@@ -930,7 +949,8 @@ pub mod pallet {
 
 		/// Move some assets from one account to another.
 		///
-		/// Origin must be Signed and the sender should be the Admin of the asset `id`.
+		/// Origin must be Signed and the sender should be the Admin of the asset `id` and the
+		/// asset must not be `LiveAndLocked`.
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `source`: The account to be debited.
@@ -986,11 +1006,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(
-				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
-			);
-			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
+			Self::check_freezer_right(&d, &origin)?;
+			Self::ensure_live_asset(&d)?;
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
@@ -1023,11 +1040,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(
-				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
-			);
-			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
+			Self::check_admin_right(&details, &origin)?;
+			ensure!(details.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
@@ -1056,8 +1070,8 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let d = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-				ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
+				Self::check_freezer_right(&d, &origin)?;
+				Self::ensure_live_asset(&d)?;
 
 				d.status = AssetStatus::Frozen;
 
@@ -1082,7 +1096,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let d = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(origin == d.admin, Error::<T, I>::NoPermission);
+				Self::check_admin_right(&d, &origin)?;
 				ensure!(d.status == AssetStatus::Frozen, Error::<T, I>::NotFrozen);
 
 				d.status = AssetStatus::Live;
@@ -1114,8 +1128,8 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
-				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
+				Self::check_owner_right(&details, &origin)?;
+				Self::ensure_live_asset(&details)?;
 				if details.owner == owner {
 					return Ok(())
 				}
@@ -1161,8 +1175,8 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
+				Self::check_owner_right(&details, &origin)?;
+				Self::ensure_live_asset(&details)?;
 
 				details.issuer = issuer.clone();
 				details.admin = admin.clone();
@@ -1220,8 +1234,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-			ensure!(origin == d.owner, Error::<T, I>::NoPermission);
+			Self::check_owner_right(&d, &origin)?;
+			Self::ensure_live_asset(&d)?;
 
 			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 				let deposit = metadata.take().ok_or(Error::<T, I>::Unknown)?.deposit;
@@ -1428,7 +1442,7 @@ pub mod pallet {
 			let delegate = T::Lookup::lookup(delegate)?;
 			let id: T::AssetId = id.into();
 			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+			Self::ensure_live_asset(&d)?;
 
 			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
 				.ok_or(Error::<T, I>::Unknown)?;
@@ -1463,12 +1477,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
 			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+			Self::ensure_live_asset(&d)?;
 			T::ForceOrigin::try_origin(origin)
 				.map(|_| ())
 				.or_else(|origin| -> DispatchResult {
 					let origin = ensure_signed(origin)?;
-					ensure!(origin == d.admin, Error::<T, I>::NoPermission);
+					Self::check_admin_right(&d, &origin)?;
 					Ok(())
 				})?;
 
@@ -1578,7 +1592,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
+			Self::check_owner_right(&details, &origin)?;
+			ensure!(details.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 
 			let old_min_balance = details.min_balance;
 			// If the asset is marked as sufficient it won't be allowed to
@@ -1668,11 +1683,8 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(
-				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
-			);
-			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
+			Self::check_freezer_right(&d, &origin)?;
+			ensure!(d.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 			let who = T::Lookup::lookup(who)?;
 
 			Account::<T, I>::try_mutate(&id, &who, |maybe_account| -> DispatchResult {
@@ -1682,6 +1694,96 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::<T, I>::Blocked { asset_id: id, who });
+			Ok(())
+		}
+
+		/// Revoke irreversibly Issuer, Admin and Freezer privileges of the asset. Freeze the
+		/// metadata.
+		///
+		/// Warning: this action is irreversible.
+		///
+		/// The deposit of the asset details and metadata will be unreserved then withdrawn and sent
+		/// to `DepositDestinationOnRevocation`. If no metadata was set then the new deposit will be
+		/// withdrawn from the owner.
+		///
+		/// Origin must be either Signed and the sender should be the Owner of the asset `id` or
+		/// ForceOrigin.
+		///
+		/// - `id`: The identifier of the asset.
+		///
+		/// Emits `OwnerAndTeamRevoked`.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(32)]
+		pub fn revoke_ownership_and_team_and_freeze_metadata(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+		) -> DispatchResult {
+			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
+				Ok(_) => None,
+				Err(origin) => Some(ensure_signed(origin)?),
+			};
+			let id: T::AssetId = id.into();
+
+			let mut asset = Asset::<T, I>::get(id.clone()).ok_or(Error::<T, I>::Unknown)?;
+
+			if let Some(check_owner) = maybe_check_owner.as_ref() {
+				Self::check_owner_right(&asset, check_owner)?;
+			}
+			Self::ensure_live_asset(&asset)?;
+
+			let old_metadata = Metadata::<T, I>::get(&id);
+			let old_metadata_deposit = old_metadata.deposit;
+
+			let fee_imbalance = if let Some(owner) = maybe_check_owner {
+				let new_metadata_deposit =
+					Self::calc_metadata_deposit(&old_metadata.name, &old_metadata.symbol);
+
+				// NOTE: if new deposit is less than old deposit. The excess is not refunded
+				let metadata_deposit_diff =
+					new_metadata_deposit.saturating_sub(old_metadata_deposit);
+
+				with_storage_layer::<_, DispatchError, _>(|| {
+					let deposit_amount = asset.deposit + old_metadata_deposit;
+					T::Currency::unreserve(&asset.owner, deposit_amount);
+					let imbalance = T::Currency::withdraw(
+						&owner,
+						deposit_amount + metadata_deposit_diff,
+						WithdrawReasons::FEE,
+						ExistenceRequirement::KeepAlive,
+					)?;
+					Ok(imbalance)
+				})?
+			} else {
+				T::Currency::unreserve(&asset.owner, asset.deposit + old_metadata_deposit);
+				Imbalance::zero()
+			};
+
+			T::DepositDestinationOnRevocation::on_unbalanced(fee_imbalance);
+
+			let new_metadata = AssetMetadata {
+				deposit: Zero::zero(),
+				name: old_metadata.name,
+				symbol: old_metadata.symbol,
+				decimals: old_metadata.decimals,
+				is_frozen: true,
+			};
+
+			Metadata::<T, I>::insert(&id, &new_metadata);
+
+			asset.deposit = Zero::zero();
+			asset.status = AssetStatus::LiveAndLocked;
+
+			Asset::<T, I>::insert(&id, &asset);
+
+			Self::deposit_event(Event::OwnerAndTeamRevoked { asset_id: id.clone() });
+			Self::deposit_event(Event::MetadataSet {
+				asset_id: id,
+				name: new_metadata.name.into(),
+				symbol: new_metadata.symbol.into(),
+				decimals: new_metadata.decimals,
+				is_frozen: new_metadata.is_frozen,
+			});
 			Ok(())
 		}
 	}

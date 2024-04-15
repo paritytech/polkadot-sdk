@@ -216,7 +216,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		keep_alive: bool,
 	) -> Result<T::Balance, DispatchError> {
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		Self::ensure_live_asset(&details)?;
 
 		let account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
@@ -317,11 +317,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(!Account::<T, I>::contains_key(&id, &who), Error::<T, I>::AlreadyExists);
 		let deposit = T::AssetAccountDeposit::get();
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-		ensure!(
-			!check_depositor || &depositor == &details.admin || &depositor == &details.freezer,
-			Error::<T, I>::NoPermission
-		);
+		Self::ensure_live_asset(&details)?;
+		if check_depositor {
+			ensure!(
+				details.status != AssetStatus::LiveAndLocked,
+				Error::<T, I>::NoPermissionAssetLiveAndLocked
+			);
+			ensure!(
+				&depositor == &details.admin || &depositor == &details.freezer,
+				Error::<T, I>::NoPermission
+			);
+		}
 		let reason = Self::new_account(&who, &mut details, Some((&depositor, deposit)))?;
 		T::Currency::reserve(&depositor, deposit)?;
 		Asset::<T, I>::insert(&id, details);
@@ -347,7 +353,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		ensure!(matches!(account.reason, Consumer | DepositHeld(..)), Error::<T, I>::NoDeposit);
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(matches!(details.status, Live | Frozen), Error::<T, I>::IncorrectStatus);
+		ensure!(details.status != Destroying, Error::<T, I>::DestroyingAsset);
 		ensure!(account.balance.is_zero() || allow_burn, Error::<T, I>::WouldBurn);
 
 		if let Some(deposit) = account.reason.take_deposit() {
@@ -378,9 +384,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (depositor, deposit) =
 			account.reason.take_deposit_from().ok_or(Error::<T, I>::NoDeposit)?;
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		Self::ensure_live_asset(&details)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
-		ensure!(caller == &depositor || caller == &details.admin, Error::<T, I>::NoPermission);
+		ensure!(
+			caller == &depositor ||
+				(details.status != AssetStatus::LiveAndLocked && caller == &details.admin),
+			Error::<T, I>::NoPermission
+		);
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
 
 		T::Currency::unreserve(&depositor, deposit);
@@ -412,7 +422,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		Self::increase_balance(id.clone(), beneficiary, amount, |details| -> DispatchResult {
 			if let Some(check_issuer) = maybe_check_issuer {
-				ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+				Self::check_issuer_right(&details, &check_issuer)?
 			}
 			debug_assert!(details.supply.checked_add(&amount).is_some(), "checked in prep; qed");
 
@@ -447,7 +457,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::can_increase(id.clone(), beneficiary, amount, true).into_result()?;
 		Asset::<T, I>::try_mutate(&id, |maybe_details| -> DispatchResult {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-			ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+			Self::ensure_live_asset(&details)?;
 			check(details)?;
 
 			Account::<T, I>::try_mutate(&id, beneficiary, |maybe_account| -> DispatchResult {
@@ -489,15 +499,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		f: DebitFlags,
 	) -> Result<T::Balance, DispatchError> {
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(
-			d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-			Error::<T, I>::AssetNotLive
-		);
+		ensure!(d.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 
 		let actual = Self::decrease_balance(id.clone(), target, amount, f, |actual, details| {
 			// Check admin rights.
 			if let Some(check_admin) = maybe_check_admin {
-				ensure!(check_admin == details.admin, Error::<T, I>::NoPermission);
+				Self::check_admin_right(&details, &check_admin)?;
 			}
 
 			debug_assert!(details.supply >= actual, "checked in prep; qed");
@@ -532,7 +539,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		Self::ensure_live_asset(&details)?;
 
 		let actual = Self::prep_debit(id.clone(), target, amount, f)?;
 		let mut target_died: Option<DeadConsequence> = None;
@@ -607,7 +614,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Ok((amount, None))
 		}
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		Self::ensure_live_asset(&details)?;
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
@@ -622,7 +629,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			// Check admin rights.
 			if let Some(need_admin) = maybe_need_admin {
-				ensure!(need_admin == details.admin, Error::<T, I>::NoPermission);
+				Self::check_admin_right(&details, &need_admin)?;
 			}
 
 			// Skip if source == dest
@@ -736,7 +743,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Asset::<T, I>::try_mutate_exists(id.clone(), |maybe_details| -> Result<(), DispatchError> {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
 			if let Some(check_owner) = maybe_check_owner {
-				ensure!(details.owner == check_owner, Error::<T, I>::NoPermission);
+				Self::check_owner_right(&details, &check_owner)?;
 			}
 			details.status = AssetStatus::Destroying;
 
@@ -864,7 +871,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 	) -> DispatchResult {
 		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		Self::ensure_live_asset(&d)?;
 		Approvals::<T, I>::try_mutate(
 			(id.clone(), &owner, &delegate),
 			|maybe_approved| -> DispatchResult {
@@ -915,7 +922,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut owner_died: Option<DeadConsequence> = None;
 
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		Self::ensure_live_asset(&d)?;
 
 		Approvals::<T, I>::try_mutate_exists(
 			(id.clone(), &owner, delegate),
@@ -964,8 +971,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			symbol.clone().try_into().map_err(|_| Error::<T, I>::BadMetadata)?;
 
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-		ensure!(from == &d.owner, Error::<T, I>::NoPermission);
+		Self::ensure_live_asset(&d)?;
+		Self::check_owner_right(&d, from)?;
 
 		Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 			ensure!(metadata.as_ref().map_or(true, |m| !m.is_frozen), Error::<T, I>::NoPermission);
@@ -1012,5 +1019,68 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::maybe_balance(id.clone(), account.clone()).map(|balance| (id, balance))
 			})
 			.collect::<Vec<_>>()
+	}
+
+	/// Check that owner is same as in asset details and that asset status is not `LiveAndLocked`.
+	pub(super) fn check_owner_right(
+		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
+		owner: &T::AccountId,
+	) -> DispatchResult {
+		ensure!(
+			d.status != AssetStatus::LiveAndLocked,
+			Error::<T, I>::NoPermissionAssetLiveAndLocked
+		);
+		ensure!(d.owner == *owner, Error::<T, I>::NoPermission);
+		Ok(())
+	}
+
+	/// Check that admin is same as in asset details and that asset status is not `LiveAndLocked`.
+	pub(super) fn check_admin_right(
+		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
+		admin: &T::AccountId,
+	) -> DispatchResult {
+		ensure!(
+			d.status != AssetStatus::LiveAndLocked,
+			Error::<T, I>::NoPermissionAssetLiveAndLocked
+		);
+		ensure!(d.admin == *admin, Error::<T, I>::NoPermission);
+		Ok(())
+	}
+
+	/// Check that issuer is same as in asset details and that asset status is not `LiveAndLocked`.
+	pub(super) fn check_issuer_right(
+		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
+		issuer: &T::AccountId,
+	) -> DispatchResult {
+		ensure!(
+			d.status != AssetStatus::LiveAndLocked,
+			Error::<T, I>::NoPermissionAssetLiveAndLocked
+		);
+		ensure!(d.issuer == *issuer, Error::<T, I>::NoPermission);
+		Ok(())
+	}
+
+	/// Check that freezer is same as in asset details and that asset status is not `LiveAndLocked`.
+	pub(super) fn check_freezer_right(
+		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
+		freezer: &T::AccountId,
+	) -> DispatchResult {
+		ensure!(
+			d.status != AssetStatus::LiveAndLocked,
+			Error::<T, I>::NoPermissionAssetLiveAndLocked
+		);
+		ensure!(d.freezer == *freezer, Error::<T, I>::NoPermission);
+		Ok(())
+	}
+
+	/// Ensure the asset is live or live and locked.
+	pub(super) fn ensure_live_asset(
+		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
+	) -> DispatchResult {
+		ensure!(
+			d.status == AssetStatus::Live || d.status == AssetStatus::LiveAndLocked,
+			Error::<T, I>::AssetNotLive
+		);
+		Ok(())
 	}
 }

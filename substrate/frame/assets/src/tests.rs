@@ -23,6 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
 	traits::{fungibles::InspectEnumerable, tokens::Preservation::Protect, Currency},
+	BoundedVec,
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
@@ -1775,5 +1776,330 @@ fn asset_destroy_refund_existence_deposit() {
 		assert_eq!(Balances::reserved_balance(&account2), 0);
 		assert_eq!(Balances::reserved_balance(&account3), 0);
 		assert_eq!(Balances::reserved_balance(&admin), 0);
+	});
+}
+
+#[test]
+fn revoke_with_not_owner_or_already_revoked() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 100);
+
+		assert_ok!(Assets::create(owner_origin.clone(), 0, owner, 1));
+
+		assert_noop!(
+			Assets::revoke_ownership_and_team_and_freeze_metadata(
+				RuntimeOrigin::signed(owner + 1),
+				0
+			),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(owner_origin.clone(), 0));
+
+		assert_noop!(
+			Assets::revoke_ownership_and_team_and_freeze_metadata(
+				RuntimeOrigin::signed(owner + 1),
+				0
+			),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+	});
+}
+
+#[test]
+fn revoke_with_owner_no_metadata() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 100);
+
+		assert_ok!(Assets::create(owner_origin.clone(), 0, owner, 1));
+
+		assert_eq!(Balances::free_balance(&owner), 99);
+		assert_eq!(Balances::reserved_balance(&owner), 1);
+
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(owner_origin.clone(), 0));
+
+		assert_eq!(Balances::free_balance(&123), 2); // by DepositDestinationOnRevocation hook
+		assert_eq!(Balances::free_balance(&owner), 98);
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+		assert_eq!(
+			Metadata::<Test>::get(0),
+			AssetMetadata {
+				deposit: 0,
+				name: BoundedVec::new(),
+				symbol: BoundedVec::new(),
+				decimals: 0,
+				is_frozen: true,
+			}
+		);
+		assert_eq!(Asset::<Test>::get(0).unwrap().deposit, 0);
+		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndLocked);
+	});
+}
+
+#[test]
+fn revoke_with_owner_some_metadata() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 100);
+
+		assert_ok!(Assets::create(owner_origin.clone(), 0, owner, 1));
+
+		assert_eq!(Balances::free_balance(&owner), 99);
+		assert_eq!(Balances::reserved_balance(&owner), 1);
+
+		assert_ok!(Assets::set_metadata(owner_origin.clone(), 0, vec![1u8; 10], vec![2u8; 10], 12));
+
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(owner_origin.clone(), 0));
+
+		assert_eq!(Balances::free_balance(&123), 22); // by DepositDestinationOnRevocation hook
+		assert_eq!(Balances::free_balance(&owner), 78);
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+		assert_eq!(
+			Metadata::<Test>::get(0),
+			AssetMetadata {
+				deposit: 0,
+				name: vec![1u8; 10].try_into().unwrap(),
+				symbol: vec![2u8; 10].try_into().unwrap(),
+				decimals: 12,
+				is_frozen: true,
+			}
+		);
+		assert_eq!(Asset::<Test>::get(0).unwrap().deposit, 0);
+		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndLocked);
+	});
+}
+
+#[test]
+fn revoke_with_owner_fail_withdraw_metadata() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 2);
+
+		assert_ok!(Assets::create(owner_origin.clone(), 0, owner, 1));
+
+		assert_eq!(Balances::free_balance(&owner), 1);
+		assert_eq!(Balances::reserved_balance(&owner), 1);
+
+		assert_noop!(
+			Assets::revoke_ownership_and_team_and_freeze_metadata(owner_origin.clone(), 0),
+			BalancesError::<Test>::Expendability
+		);
+	});
+}
+
+#[test]
+fn revoke_force_origin() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 100);
+
+		assert_ok!(Assets::create(owner_origin.clone(), 0, owner, 1));
+
+		assert_eq!(Balances::free_balance(&owner), 99);
+		assert_eq!(Balances::reserved_balance(&owner), 1);
+
+		assert_ok!(Assets::set_metadata(owner_origin.clone(), 0, vec![1u8; 10], vec![2u8; 10], 12));
+
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(RuntimeOrigin::root(), 0));
+
+		assert_eq!(Balances::free_balance(&123), 0);
+		assert_eq!(Balances::free_balance(&owner), 100);
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+		assert_eq!(
+			Metadata::<Test>::get(0),
+			AssetMetadata {
+				deposit: 0,
+				name: vec![1u8; 10].try_into().unwrap(),
+				symbol: vec![2u8; 10].try_into().unwrap(),
+				decimals: 12,
+				is_frozen: true,
+			}
+		);
+		assert_eq!(Asset::<Test>::get(0).unwrap().deposit, 0);
+		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndLocked);
+	});
+}
+
+#[test]
+fn live_and_lock_should_have_no_privilege() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, owner, false, 1));
+		assert_ok!(Assets::touch_other(owner_origin.clone(), 0, 2));
+		assert_ok!(Assets::mint(owner_origin.clone(), 0, 2, 100));
+
+		assert_ok!(Assets::set_team(owner_origin.clone(), 0, 2, 2, 2));
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(2), 0, 3));
+		assert_ok!(Assets::set_team(owner_origin.clone(), 0, owner, owner, owner));
+		assert_ok!(Assets::mint(owner_origin.clone(), 0, 3, 100));
+
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(RuntimeOrigin::root(), 0));
+
+		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndLocked);
+
+		assert_noop!(
+			Assets::start_destroy(owner_origin.clone(), 0),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::destroy_accounts(owner_origin.clone(), 0),
+			Error::<Test>::IncorrectStatus
+		);
+		assert_noop!(
+			Assets::destroy_approvals(owner_origin.clone(), 0),
+			Error::<Test>::IncorrectStatus
+		);
+		assert_noop!(
+			Assets::finish_destroy(owner_origin.clone(), 0),
+			Error::<Test>::IncorrectStatus
+		);
+		assert_noop!(
+			Assets::mint(owner_origin.clone(), 0, 2, 1),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::burn(owner_origin.clone(), 0, 2, 1),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::force_transfer(owner_origin.clone(), 0, 2, 1, 1),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::freeze(owner_origin.clone(), 0, 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::thaw(owner_origin.clone(), 0, 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::freeze_asset(owner_origin.clone(), 0),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::thaw_asset(owner_origin.clone(), 0),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::transfer_ownership(owner_origin.clone(), 0, 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::set_team(owner_origin.clone(), 0, 2, 2, 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::set_metadata(owner_origin.clone(), 0, vec![], vec![], 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::clear_metadata(owner_origin.clone(), 0),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::force_cancel_approval(owner_origin.clone(), 0, 2, 3),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::set_min_balance(owner_origin.clone(), 0, 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::touch_other(owner_origin.clone(), 0, 4),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(Assets::refund_other(owner_origin.clone(), 0, 3), Error::<Test>::NoPermission);
+		assert_noop!(
+			Assets::block(owner_origin.clone(), 0, 2),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+		assert_noop!(
+			Assets::revoke_ownership_and_team_and_freeze_metadata(owner_origin.clone(), 0),
+			Error::<Test>::NoPermissionAssetLiveAndLocked
+		);
+	});
+}
+
+#[test]
+fn live_and_lock_should_work_like_live() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let owner_origin = RuntimeOrigin::signed(owner);
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		Balances::make_free_balance_be(&3, 100);
+		Balances::make_free_balance_be(&4, 100);
+		Balances::make_free_balance_be(&5, 100);
+		Balances::make_free_balance_be(&6, 100);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, owner, false, 1));
+		assert_ok!(Assets::touch_other(owner_origin.clone(), 0, 444));
+		assert_ok!(Assets::mint(owner_origin.clone(), 0, 2, 50));
+		assert_ok!(Assets::mint(owner_origin.clone(), 0, 3, 50));
+
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(RuntimeOrigin::root(), 0));
+
+		assert_eq!(Asset::<Test>::get(0).unwrap().status, AssetStatus::LiveAndLocked);
+
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 3, 1));
+		assert_ok!(Assets::transfer_keep_alive(RuntimeOrigin::signed(2), 0, 3, 1));
+		assert_ok!(Assets::force_clear_metadata(RuntimeOrigin::root(), 0));
+		assert_eq!(Metadata::<Test>::get(0).is_frozen, false);
+		assert_ok!(Assets::force_set_metadata(RuntimeOrigin::root(), 0, vec![], vec![], 0, true));
+		assert_eq!(Metadata::<Test>::get(0).is_frozen, true);
+		assert_ok!(Assets::force_asset_status(
+			RuntimeOrigin::root(),
+			0,
+			5,
+			5,
+			5,
+			5,
+			1,
+			false,
+			false
+		));
+		assert_ok!(Assets::revoke_ownership_and_team_and_freeze_metadata(RuntimeOrigin::root(), 0));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(2), 0, 3, 1));
+		assert_ok!(Assets::cancel_approval(RuntimeOrigin::signed(2), 0, 3));
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(3), 0, 2, 3, 1),
+			Error::<Test>::Unapproved
+		);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(2), 0, 3, 1));
+		assert_ok!(Assets::force_cancel_approval(RuntimeOrigin::root(), 0, 2, 3));
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(3), 0, 2, 3, 1),
+			Error::<Test>::Unapproved
+		);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(2), 0, 3, 1));
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(3), 0, 2, 3, 1));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(4), 0, false));
+		assert_ok!(Assets::refund_other(owner_origin.clone(), 0, 444));
+
+		assert_eq!(Account::<Test>::get(&0, 3).unwrap().balance, 53);
+
+		assert_ok!(Assets::mint_into(0, &5, 10));
+		assert_ok!(Assets::burn_from(0, &5, 5, Precision::Exact, Fortitude::Polite));
+		assert_ok!(Assets::shelve(0, &5, 2));
+		assert_ok!(Assets::restore(0, &5, 7));
+		assert_ok!(<Assets as Mutate<_>>::transfer(0, &5, &6, 10, Preservation::Expendable));
+		assert_eq!(Assets::set_balance(0, &5, 10), 10);
 	});
 }

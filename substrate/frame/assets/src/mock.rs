@@ -108,6 +108,12 @@ impl AssetsCallbackHandle {
 	}
 }
 
+pub struct To123;
+impl OnUnbalanced<NegativeImbalanceOf<Test>> for To123 {
+	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
+		Balances::resolve_creating(&123, amount);
+	}
+}
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Currency = Balances;
@@ -115,6 +121,7 @@ impl Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
 	type CallbackHandle = AssetsCallbackHandle;
+	type DepositDestinationOnRevocation = To123;
 }
 
 use std::collections::HashMap;
