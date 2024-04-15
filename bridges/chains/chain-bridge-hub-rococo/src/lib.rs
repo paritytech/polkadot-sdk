@@ -104,9 +104,9 @@ frame_support::parameter_types! {
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
-	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 5_651_581_649;
+	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 314_037_860;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 5_380_901_781;
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 57_414_813;
 }

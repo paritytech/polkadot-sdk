@@ -527,3 +527,125 @@ where
 		compute_extrinsic_fee(batch)
 	})
 }
+
+/// Estimates transaction fee for default message delivery transaction from bridged parachain.
+pub fn can_calculate_fee_for_standalone_message_delivery_transaction<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	compute_extrinsic_fee: fn(
+		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
+	) -> u128,
+) -> u128
+where
+	RuntimeHelper: WithRemoteParachainHelper,
+	RuntimeCallOf<RuntimeHelper::Runtime>:
+		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>:
+		bp_runtime::Chain<Hash = ParaHash> + Parachain,
+	<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain:
+		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::SourceHeaderChain:
+		SourceHeaderChain<
+			MessagesProof = FromBridgedChainMessagesProof<
+				HashOf<MessageBridgedChain<RuntimeHelper::MB>>,
+			>,
+		>,
+{
+	run_test::<RuntimeHelper::Runtime, _>(collator_session_key, 1000, vec![], || {
+		// generate bridged relay chain finality, parachain heads and message proofs,
+		// to be submitted by relayer to this chain.
+		//
+		// we don't care about parameter values here, apart from the XCM message size. But we
+		// do not need to have a large message here, because we're charging for every byte of
+		// the message additionally
+		let (
+			_,
+			_,
+			_,
+			_,
+			_,
+			message_proof,
+		) = test_data::from_parachain::make_complex_relayer_delivery_proofs::<
+			<RuntimeHelper::Runtime as pallet_bridge_grandpa::Config<RuntimeHelper::GPI>>::BridgedChain,
+			RuntimeHelper::MB,
+			(),
+		>(
+			LaneId::default(),
+			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
+			1,
+			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
+			1,
+			5,
+			1_000,
+		);
+
+		let call = test_data::from_parachain::make_standalone_relayer_delivery_call::<
+			RuntimeHelper::Runtime,
+			RuntimeHelper::MPI,
+			_,
+		>(
+			message_proof,
+			helpers::relayer_id_at_bridged_chain::<RuntimeHelper::Runtime, RuntimeHelper::MPI>(),
+		);
+
+		compute_extrinsic_fee(call)
+	})
+}
+
+/// Estimates transaction fee for default message confirmation transaction (batched with required
+/// proofs) from bridged parachain.
+pub fn can_calculate_fee_for_standalone_message_confirmation_transaction<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	compute_extrinsic_fee: fn(
+		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
+	) -> u128,
+) -> u128
+where
+	RuntimeHelper: WithRemoteParachainHelper,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	MessageThisChain<RuntimeHelper::MB>:
+		bp_runtime::Chain<AccountId = AccountIdOf<RuntimeHelper::Runtime>>,
+	RuntimeCallOf<RuntimeHelper::Runtime>:
+		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>:
+		bp_runtime::Chain<Hash = ParaHash> + Parachain,
+	<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain:
+		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::TargetHeaderChain:
+		TargetHeaderChain<
+			XcmAsPlainPayload,
+			AccountIdOf<RuntimeHelper::Runtime>,
+			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<
+				HashOf<UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>>,
+			>,
+		>,
+{
+	run_test::<RuntimeHelper::Runtime, _>(collator_session_key, 1000, vec![], || {
+		// generate bridged relay chain finality, parachain heads and message proofs,
+		// to be submitted by relayer to this chain.
+		let unrewarded_relayers = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			total_messages: 1,
+			..Default::default()
+		};
+		let (_, _, _, _, _, message_delivery_proof) =
+			test_data::from_parachain::make_complex_relayer_confirmation_proofs::<
+				<RuntimeHelper::Runtime as BridgeGrandpaConfig<RuntimeHelper::GPI>>::BridgedChain,
+				RuntimeHelper::MB,
+				(),
+			>(
+				LaneId::default(),
+				1,
+				5,
+				1_000,
+				AccountId32::from(Alice.public()).into(),
+				unrewarded_relayers.clone(),
+			);
+
+		let call = test_data::from_parachain::make_standalone_relayer_confirmation_call::<
+			RuntimeHelper::Runtime,
+			RuntimeHelper::MPI,
+		>(message_delivery_proof, unrewarded_relayers);
+
+		compute_extrinsic_fee(call)
+	})
+}

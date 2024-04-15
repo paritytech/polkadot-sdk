@@ -121,6 +121,60 @@ where
 	}
 }
 
+/// Prepare a call with message proof.
+pub fn make_standalone_relayer_delivery_call<Runtime, GPI, MPI>(
+	message_proof: FromBridgedChainMessagesProof<HashOf<BridgedChain<Runtime, GPI>>>,
+	relayer_id_at_bridged_chain: AccountIdOf<BridgedChain<Runtime, GPI>>,
+) -> Runtime::RuntimeCall
+where
+	Runtime: pallet_bridge_grandpa::Config<GPI>
+		+ pallet_bridge_messages::Config<
+			MPI,
+			InboundPayload = XcmAsPlainPayload,
+			InboundRelayer = AccountIdOf<BridgedChain<Runtime, GPI>>,
+		>,
+	MPI: 'static,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain: SourceHeaderChain<
+		MessagesProof = FromBridgedChainMessagesProof<HashOf<BridgedChain<Runtime, GPI>>>,
+	>,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call<Runtime, MPI>>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+		relayer_id_at_bridged_chain,
+		proof: message_proof,
+		messages_count: 1,
+		dispatch_weight: Weight::from_parts(1000000000, 0),
+	}
+	.into()
+}
+
+/// Prepare a call with message delivery proof.
+pub fn make_standalone_relayer_confirmation_call<Runtime, GPI, MPI>(
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<
+		HashOf<BridgedChain<Runtime, GPI>>,
+	>,
+	relayers_state: UnrewardedRelayersState,
+) -> Runtime::RuntimeCall
+where
+	Runtime: pallet_bridge_grandpa::Config<GPI>
+		+ pallet_bridge_messages::Config<MPI, OutboundPayload = XcmAsPlainPayload>,
+	MPI: 'static,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<
+			HashOf<BridgedChain<Runtime, GPI>>,
+		>,
+	>,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call<Runtime, MPI>>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_delivery_proof {
+		proof: message_delivery_proof,
+		relayers_state,
+	}
+	.into()
+}
+
 /// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
 pub fn make_complex_relayer_delivery_proofs<MB, InnerXcmRuntimeCall>(
 	lane_id: LaneId,

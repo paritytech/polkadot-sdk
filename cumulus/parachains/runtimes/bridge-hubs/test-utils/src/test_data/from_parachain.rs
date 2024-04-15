@@ -159,6 +159,52 @@ where
 	}
 }
 
+/// Prepare a call with message proof.
+pub fn make_standalone_relayer_delivery_call<Runtime, MPI, InboundRelayer>(
+	message_proof: FromBridgedChainMessagesProof<ParaHash>,
+	relayer_id_at_bridged_chain: InboundRelayer,
+) -> Runtime::RuntimeCall where
+	Runtime: pallet_bridge_messages::Config<
+		MPI,
+		InboundPayload = XcmAsPlainPayload,
+		InboundRelayer = InboundRelayer,
+	>,
+	MPI: 'static,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call::<Runtime, MPI>>,
+	<<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain as SourceHeaderChain>::MessagesProof:
+		From<FromBridgedChainMessagesProof<ParaHash>>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+		relayer_id_at_bridged_chain: relayer_id_at_bridged_chain.into(),
+		proof: message_proof.into(),
+		messages_count: 1,
+		dispatch_weight: Weight::from_parts(1000000000, 0),
+	}
+	.into()
+}
+
+/// Prepare a call with message delivery proof.
+pub fn make_standalone_relayer_confirmation_call<Runtime, MPI>(
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	relayers_state: UnrewardedRelayersState,
+) -> Runtime::RuntimeCall
+where
+	Runtime: pallet_bridge_messages::Config<MPI, OutboundPayload = XcmAsPlainPayload>,
+	MPI: 'static,
+	Runtime::RuntimeCall: From<pallet_bridge_messages::Call<Runtime, MPI>>,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
+		XcmAsPlainPayload,
+		Runtime::AccountId,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	>,
+{
+	pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_delivery_proof {
+		proof: message_delivery_proof,
+		relayers_state,
+	}
+	.into()
+}
+
 /// Prepare storage proofs of messages, stored at the source chain.
 pub fn make_complex_relayer_delivery_proofs<BridgedRelayChain, MB, InnerXcmRuntimeCall>(
 	lane_id: LaneId,
