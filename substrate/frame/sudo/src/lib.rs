@@ -167,6 +167,17 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 		}
+
+		/// Default configurations of this pallet in a solochain environment.
+		pub struct SolochainDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for SolochainDefaultConfig {}
+
+		/// It currently uses the same configuration as `TestDefaultConfig`.
+		#[derive_impl(TestDefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(SolochainDefaultConfig)]
+		impl DefaultConfig for SolochainDefaultConfig {}
 	}
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {

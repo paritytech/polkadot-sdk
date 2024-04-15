@@ -605,6 +605,8 @@ pub struct Pallet {
 	pub pallet_parts: Vec<PalletPart>,
 	/// Expressions specified inside of a #[cfg] attribute.
 	pub cfg_pattern: Vec<cfg_expr::Expression>,
+	/// The doc literals
+	pub docs: Vec<syn::Expr>,
 }
 
 impl Pallet {
@@ -774,6 +776,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 				instance: pallet.instance,
 				cfg_pattern,
 				pallet_parts,
+				docs: vec![],
 			})
 		})
 		.collect::<Result<Vec<_>>>()?;

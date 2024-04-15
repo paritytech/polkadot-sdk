@@ -21,13 +21,14 @@ use syn::{spanned::Spanned, Attribute, Ident, PathArguments};
 /// The declaration of a pallet.
 #[derive(Debug, Clone)]
 pub struct PalletDeclaration {
-	/// The name of the pallet, e.g.`System` in `System: frame_system`.
+	/// The name of the pallet, e.g.`System` in `pub type System = frame_system`.
 	pub name: Ident,
 	/// Optional attributes tagged right above a pallet declaration.
 	pub attrs: Vec<Attribute>,
-	/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
+	/// The path of the pallet, e.g. `frame_system` in `pub type System = frame_system`.
 	pub path: syn::Path,
-	/// The instance of the pallet, e.g. `Instance1` in `Council: pallet_collective::<Instance1>`.
+	/// The instance of the pallet, e.g. `Instance1` in `pub type Council =
+	/// pallet_collective<Instance1>`.
 	pub instance: Option<Ident>,
 }
 
