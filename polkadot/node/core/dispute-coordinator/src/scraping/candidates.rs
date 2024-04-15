@@ -39,7 +39,7 @@ impl RefCountedCandidates {
 
 	// If a `CandidateHash` with reference count equals to 1 is about to be removed - the
 	// candidate is dropped from the container too.
-	// If a `CandidateHash` with reference count biger than 1 is about to be removed - the
+	// If a `CandidateHash` with reference count bigger than 1 is about to be removed - the
 	// reference count is decreased and the candidate remains in the container.
 	pub fn remove(&mut self, candidate: &CandidateHash) {
 		match self.candidates.get_mut(candidate) {

@@ -142,7 +142,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 /// In the above example, `AllowUnpaidExecutionFrom` appears once underneath
 /// `WithComputedOrigin`. This is in order to distinguish between messages which are notionally
 /// from a derivative location of `ParentLocation` but that just happened to be sent via
-/// `ParentLocaction` rather than messages that were sent by the parent.
+/// `ParentLocation` rather than messages that were sent by the parent.
 ///
 /// Similarly `AllowTopLevelPaidExecutionFrom` appears twice: once inside of `WithComputedOrigin`
 /// where we provide the list of origins which are derivative origins, and then secondly outside

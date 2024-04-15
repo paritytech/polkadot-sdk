@@ -34,7 +34,7 @@ pub mod v1 {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 			if on_chain_version == 0 {
 				let invulnerables_len = Invulnerables::<T>::get().to_vec().len();
-				<Invulnerables<T>>::mutate(|invulnerables| {
+				Invulnerables::<T>::mutate(|invulnerables| {
 					invulnerables.sort();
 				});
 

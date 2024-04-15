@@ -20,18 +20,17 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
 	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, HashMap, VecDeque},
 	sync::{Arc, Mutex},
 };
 use test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
@@ -48,6 +47,7 @@ struct MockSubsystemClient {
 	validation_outputs_results: HashMap<ParaId, bool>,
 	session_index_for_child: SessionIndex,
 	candidate_pending_availability: HashMap<ParaId, CommittedCandidateReceipt>,
+	candidates_pending_availability: HashMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	dmq_contents: HashMap<ParaId, Vec<InboundDownwardMessage>>,
 	hrmp_channels: HashMap<ParaId, BTreeMap<ParaId, Vec<InboundHrmpMessage>>>,
 	validation_code_by_hash: HashMap<ValidationCodeHash, ValidationCode>,
@@ -139,6 +139,14 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		para_id: ParaId,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
 		Ok(self.candidate_pending_availability.get(&para_id).cloned())
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		_: Hash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
+		Ok(self.candidates_pending_availability.get(&para_id).cloned().unwrap_or_default())
 	}
 
 	async fn candidate_events(&self, _: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
@@ -286,17 +294,24 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn claim_queue(
+		&self,
+		_: Hash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]
 fn requests_authorities() {
 	let (ctx, mut ctx_handle) = make_subsystem_context(TaskExecutor::new());
-	let substem_client = Arc::new(MockSubsystemClient::default());
+	let subsystem_client = Arc::new(MockSubsystemClient::default());
 	let relay_parent = [1; 32].into();
 	let spawner = sp_core::testing::TaskExecutor::new();
 
 	let subsystem =
-		RuntimeApiSubsystem::new(substem_client.clone(), Metrics(None), SpawnGlue(spawner));
+		RuntimeApiSubsystem::new(subsystem_client.clone(), Metrics(None), SpawnGlue(spawner));
 	let subsystem_task = run(ctx, subsystem).map(|x| x.unwrap());
 	let test_task = async move {
 		let (tx, rx) = oneshot::channel();
@@ -307,7 +322,7 @@ fn requests_authorities() {
 			})
 			.await;
 
-		assert_eq!(rx.await.unwrap().unwrap(), substem_client.authorities);
+		assert_eq!(rx.await.unwrap().unwrap(), subsystem_client.authorities);
 
 		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -1034,7 +1049,7 @@ fn requests_submit_pvf_check_statement() {
 		let _ = rx.await.unwrap().unwrap();
 
 		assert_eq!(
-			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisened mutex"),
+			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisoned mutex"),
 			&[(stmt.clone(), sig.clone()), (stmt.clone(), sig.clone())]
 		);
 

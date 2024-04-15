@@ -55,8 +55,10 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
+	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+	TrieDBKeyIterator, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut,
+	TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -326,7 +328,7 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
-pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
@@ -447,7 +449,7 @@ where
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided child key.
-pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+pub fn read_child_trie_first_descendant_value<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
 	root: &TrieHash<L>,

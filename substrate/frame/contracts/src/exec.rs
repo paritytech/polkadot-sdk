@@ -531,9 +531,9 @@ enum FrameArgs<'a, T: Config, E> {
 		nonce: u64,
 		/// The executable whose `deploy` function is run.
 		executable: E,
-		/// A salt used in the contract address deriviation of the new contract.
+		/// A salt used in the contract address derivation of the new contract.
 		salt: &'a [u8],
-		/// The input data is used in the contract address deriviation of the new contract.
+		/// The input data is used in the contract address derivation of the new contract.
 		input_data: &'a [u8],
 	},
 }
@@ -731,6 +731,30 @@ where
 		)?;
 		let account_id = stack.top_frame().account_id.clone();
 		stack.run(executable, input_data).map(|ret| (account_id, ret))
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_new_call(
+		dest: T::AccountId,
+		origin: Origin<T>,
+		gas_meter: &'a mut GasMeter<T>,
+		storage_meter: &'a mut storage::meter::Meter<T>,
+		schedule: &'a Schedule<T>,
+		value: BalanceOf<T>,
+		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		determinism: Determinism,
+	) -> (Self, E) {
+		Self::new(
+			FrameArgs::Call { dest, cached_info: None, delegated_call: None },
+			origin,
+			gas_meter,
+			storage_meter,
+			schedule,
+			value,
+			debug_message,
+			determinism,
+		)
+		.unwrap()
 	}
 
 	/// Create a new call stack.
@@ -1466,14 +1490,14 @@ where
 
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool {
 		sp_io::crypto::sr25519_verify(
-			&SR25519Signature(*signature),
+			&SR25519Signature::from(*signature),
 			message,
-			&SR25519Public(*pub_key),
+			&SR25519Public::from(*pub_key),
 		)
 	}
 
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic(*pk).to_eth_address()
+		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
 	#[cfg(test)]
