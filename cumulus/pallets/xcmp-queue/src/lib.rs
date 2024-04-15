@@ -295,7 +295,7 @@ pub mod pallet {
 		/// The execution is already resumed.
 		AlreadyResumed,
 		/// There are too many active outbound channels.
-		TooManyOutboundChannels,
+		TooManyActiveOutboundChannels,
 		/// The message is too big.
 		TooBig,
 	}
@@ -587,7 +587,7 @@ impl<T: Config> Pallet<T> {
 			details.signals_exist = true;
 		} else {
 			s.try_push(OutboundChannelDetails::new(dest).with_signals())
-				.map_err(|_| Error::<T>::TooManyOutboundChannels)?;
+				.map_err(|_| Error::<T>::TooManyActiveOutboundChannels)?;
 		}
 
 		let page = BoundedVec::<u8, T::MaxPageSize>::try_from(
