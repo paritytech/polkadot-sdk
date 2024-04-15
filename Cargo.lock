@@ -9937,6 +9937,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "pretty_assertions",
  "scale-info",
  "sp-api",
  "sp-arithmetic",
