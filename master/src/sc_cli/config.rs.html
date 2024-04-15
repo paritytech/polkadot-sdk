@@ -814,6 +814,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
 <a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1244,8 +1274,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// By default this is retrieved from `NodeKeyParams` if it is available. Otherwise its
 	/// `NodeKeyConfig::default()`.
 	</span><span class="kw">fn </span>node_key(<span class="kw-2">&amp;</span><span class="self">self</span>, net_config_dir: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;NodeKeyConfig&gt; {
+		<span class="kw">let </span>is_dev = <span class="self">self</span>.is_dev()<span class="question-mark">?</span>;
+		<span class="kw">let </span>role = <span class="self">self</span>.role(is_dev)<span class="question-mark">?</span>;
 		<span class="self">self</span>.node_key_params()
-			.map(|x| x.node_key(net_config_dir))
+			.map(|x| x.node_key(net_config_dir, role, is_dev))
 			.unwrap_or_else(|| <span class="prelude-val">Ok</span>(Default::default()))
 	}
 
@@ -1279,11 +1311,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>is_dev = <span class="self">self</span>.is_dev()<span class="question-mark">?</span>;
 		<span class="kw">let </span>chain_id = <span class="self">self</span>.chain_id(is_dev)<span class="question-mark">?</span>;
 		<span class="kw">let </span>chain_spec = cli.load_spec(<span class="kw-2">&amp;</span>chain_id)<span class="question-mark">?</span>;
-		<span class="kw">let </span>base_path = <span class="self">self
-			</span>.base_path()<span class="question-mark">?
-			</span>.unwrap_or_else(|| BasePath::from_project(<span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>C::executable_name()));
-		<span class="kw">let </span>config_dir = base_path.config_dir(chain_spec.id());
-		<span class="kw">let </span>net_config_dir = config_dir.join(DEFAULT_NETWORK_CONFIG_PATH);
+		<span class="kw">let </span>base_path = base_path_or_default(<span class="self">self</span>.base_path()<span class="question-mark">?</span>, <span class="kw-2">&amp;</span>C::executable_name());
+		<span class="kw">let </span>config_dir = build_config_dir(<span class="kw-2">&amp;</span>base_path, chain_spec.id());
+		<span class="kw">let </span>net_config_dir = build_net_config_dir(<span class="kw-2">&amp;</span>config_dir);
 		<span class="kw">let </span>client_id = C::client_id();
 		<span class="kw">let </span>database_cache_size = <span class="self">self</span>.database_cache_size()<span class="question-mark">?</span>.unwrap_or(<span class="number">1024</span>);
 		<span class="kw">let </span>database = <span class="self">self</span>.database()<span class="question-mark">?</span>.unwrap_or(
@@ -1480,6 +1510,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>node_name
 		}
 	}
+}
+
+<span class="doccomment">/// Returns the value of `base_path` or the default_path if it is None
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>base_path_or_default(
+	base_path: <span class="prelude-ty">Option</span>&lt;BasePath&gt;,
+	executable_name: <span class="kw-2">&amp;</span>String,
+) -&gt; BasePath {
+	base_path.unwrap_or_else(|| BasePath::from_project(<span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, executable_name))
+}
+
+<span class="doccomment">/// Returns the default path for configuration  directory based on the chain_spec
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_config_dir(base_path: <span class="kw-2">&amp;</span>BasePath, chain_spec_id: <span class="kw-2">&amp;</span>str) -&gt; PathBuf {
+	base_path.config_dir(chain_spec_id)
+}
+
+<span class="doccomment">/// Returns the default path for the network configuration inside the configuration dir
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_net_config_dir(config_dir: <span class="kw-2">&amp;</span>PathBuf) -&gt; PathBuf {
+	config_dir.join(DEFAULT_NETWORK_CONFIG_PATH)
+}
+
+<span class="doccomment">/// Returns the default path for the network directory starting from the provided base_path
+/// or from the default base_path.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_network_key_dir_or_default(
+	base_path: <span class="prelude-ty">Option</span>&lt;BasePath&gt;,
+	chain_spec_id: <span class="kw-2">&amp;</span>str,
+	executable_name: <span class="kw-2">&amp;</span>String,
+) -&gt; PathBuf {
+	<span class="kw">let </span>config_dir =
+		build_config_dir(<span class="kw-2">&amp;</span>base_path_or_default(base_path, executable_name), chain_spec_id);
+	build_net_config_dir(<span class="kw-2">&amp;</span>config_dir)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

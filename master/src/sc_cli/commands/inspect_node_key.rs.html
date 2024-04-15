@@ -242,6 +242,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -323,7 +325,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::{<span class="kw">super</span>::GenerateNodeKeyCmd, <span class="kw-2">*</span>};
+	<span class="kw">use </span><span class="kw">crate</span>::commands::generate_node_key::GenerateNodeKeyCmd;
+
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>inspect_node_key() {
@@ -331,7 +335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>path = path.to_str().unwrap();
 		<span class="kw">let </span>cmd = GenerateNodeKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;generate-node-key&quot;</span>, <span class="string">&quot;--file&quot;</span>, path]);
 
-		<span class="macro">assert!</span>(cmd.run().is_ok());
+		<span class="macro">assert!</span>(cmd.run(<span class="string">&quot;test&quot;</span>, <span class="kw-2">&amp;</span>String::from(<span class="string">&quot;test&quot;</span>)).is_ok());
 
 		<span class="kw">let </span>cmd = InspectNodeKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;inspect-node-key&quot;</span>, <span class="string">&quot;--file&quot;</span>, path]);
 		<span class="macro">assert!</span>(cmd.run().is_ok());

@@ -252,6 +252,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -272,7 +288,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Initialization errors.
 
-</span><span class="kw">use </span>sp_core::crypto;
+</span><span class="kw">use </span>std::path::PathBuf;
+
+<span class="kw">use </span>sp_core::crypto;
 
 <span class="doccomment">/// Result type alias for the CLI.
 </span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -332,6 +350,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[error(transparent)]
 	</span>GlobalLoggerError(<span class="attr">#[from] </span>sc_tracing::logging::Error),
+
+	<span class="attr">#[error(
+		<span class="string">&quot;Starting an authorithy without network key in {0}.
+		\n This is not a safe operation because other authorities in the network may depend on your node having a stable identity.
+		\n Otherwise these other authorities may not being able to reach you.
+		\n If it is the first time running your node you could use one of the following methods:
+		\n 1. [Preferred] Separately generate the key with: &lt;NODE_BINARY&gt; key generate-node-key --base-path &lt;YOUR_BASE_PATH&gt;
+		\n 2. [Preferred] Separately generate the key with: &lt;NODE_BINARY&gt; key generate-node-key --file &lt;YOUR_PATH_TO_NODE_KEY&gt;
+		\n 3. [Preferred] Separately generate the key with: &lt;NODE_BINARY&gt; key generate-node-key --default-base-path
+		\n 4. [Unsafe] Pass --unsafe-force-node-key-generation and make sure you remove it for subsequent node restarts&quot;
+	</span>)]
+	</span>NetworkKeyNotFound(PathBuf),
+	<span class="attr">#[error(<span class="string">&quot;A network key already exists in path {0}&quot;</span>)]
+	</span>KeyAlreadyExistsInPath(PathBuf),
 }
 
 <span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>str&gt; <span class="kw">for </span>Error {

@@ -204,6 +204,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -253,7 +256,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// run the key subcommands
 	</span><span class="kw">pub fn </span>run&lt;C: SubstrateCli&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, cli: <span class="kw-2">&amp;</span>C) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
-			KeySubcommand::GenerateNodeKey(cmd) =&gt; cmd.run(),
+			KeySubcommand::GenerateNodeKey(cmd) =&gt; {
+				<span class="kw">let </span>chain_spec = cli.load_spec(cmd.chain.as_deref().unwrap_or(<span class="string">&quot;&quot;</span>))<span class="question-mark">?</span>;
+				cmd.run(chain_spec.id(), <span class="kw-2">&amp;</span>C::executable_name())
+			},
 			KeySubcommand::Generate(cmd) =&gt; cmd.run(),
 			KeySubcommand::Inspect(cmd) =&gt; cmd.run(),
 			KeySubcommand::Insert(cmd) =&gt; cmd.run(cli),

@@ -151,14 +151,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     // Required method
     fn <a href="#tymethod.set_sync_fork_request" class="fn">set_sync_fork_request</a>(
         &amp;self,
-        peers: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;PeerId&gt;,
+        peers: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>&gt;,
         hash: BlockHash,
         number: BlockNumber
     );
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Provides an ability to set a fork sync request for a particular block.</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.set_sync_fork_request" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#236">source</a><h4 class="code-header">fn <a href="#tymethod.set_sync_fork_request" class="fn">set_sync_fork_request</a>(
     &amp;self,
-    peers: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;PeerId&gt;,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>&gt;,
     hash: BlockHash,
     number: BlockNumber
 )</h4></section></summary><div class="docblock"><p>Notifies the sync service to try and sync the given block from the given
@@ -169,7 +169,7 @@ connected to (NOTE: this assumption will change in the future #3629).</p>
 </div></details></div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-NetworkSyncForkRequest%3CBlockHash,+BlockNumber%3E-for-Arc%3CT%3E" class="impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#239-247">source</a><a href="#impl-NetworkSyncForkRequest%3CBlockHash,+BlockNumber%3E-for-Arc%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, BlockHash, BlockNumber&gt; <a class="trait" href="trait.NetworkSyncForkRequest.html" title="trait sc_network::service::traits::NetworkSyncForkRequest">NetworkSyncForkRequest</a>&lt;BlockHash, BlockNumber&gt; for <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;T&gt;<span class="where fmt-newline">where
     T: ?<a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="trait.NetworkSyncForkRequest.html" title="trait sc_network::service::traits::NetworkSyncForkRequest">NetworkSyncForkRequest</a>&lt;BlockHash, BlockNumber&gt;,</span></h3></section></summary><div class="impl-items"><section id="method.set_sync_fork_request" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#244-246">source</a><a href="#method.set_sync_fork_request" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_sync_fork_request" class="fn">set_sync_fork_request</a>(
     &amp;self,
-    peers: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;PeerId&gt;,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>&gt;,
     hash: BlockHash,
     number: BlockNumber
 )</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../trait.impl/sc_network/service/traits/trait.NetworkSyncForkRequest.js" data-ignore-extern-crates="alloc" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

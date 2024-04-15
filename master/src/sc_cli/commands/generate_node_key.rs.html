@@ -235,6 +235,104 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -254,23 +352,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Implementation of the `generate-node-key` subcommand
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Error;
-<span class="kw">use </span>clap::Parser;
+</span><span class="kw">use crate</span>::{build_network_key_dir_or_default, Error, NODE_KEY_ED25519_FILE};
+<span class="kw">use </span>clap::{Args, Parser};
 <span class="kw">use </span>libp2p_identity::{ed25519, Keypair};
+<span class="kw">use </span>sc_service::BasePath;
 <span class="kw">use </span>std::{
 	fs,
 	io::{<span class="self">self</span>, Write},
 	path::PathBuf,
 };
 
-<span class="doccomment">/// The `generate-node-key` command
-</span><span class="attr">#[derive(Debug, Parser)]
-#[command(
-	name = <span class="string">&quot;generate-node-key&quot;</span>,
-	about = <span class="string">&quot;Generate a random node key, write it to a file or stdout \
-		 	and write the corresponding peer-id to stderr&quot;
-</span>)]
-</span><span class="kw">pub struct </span>GenerateNodeKeyCmd {
+<span class="doccomment">/// Common arguments accross all generate key commands, subkey and node.
+</span><span class="attr">#[derive(Debug, Args, Clone)]
+</span><span class="kw">pub struct </span>GenerateKeyCmdCommon {
 	<span class="doccomment">/// Name of file to save secret key to.
 	/// If not given, the secret key is printed to stdout.
 	</span><span class="attr">#[arg(long)]
@@ -282,32 +376,111 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>bin: bool,
 }
 
-<span class="kw">impl </span>GenerateNodeKeyCmd {
+<span class="doccomment">/// The `generate-node-key` command
+</span><span class="attr">#[derive(Debug, Clone, Parser)]
+#[command(
+	name = <span class="string">&quot;generate-node-key&quot;</span>,
+	about = <span class="string">&quot;Generate a random node key, write it to a file or stdout \
+		 	and write the corresponding peer-id to stderr&quot;
+</span>)]
+</span><span class="kw">pub struct </span>GenerateNodeKeyCmd {
+	<span class="attr">#[clap(flatten)]
+	</span><span class="kw">pub </span>common: GenerateKeyCmdCommon,
+	<span class="doccomment">/// Specify the chain specification.
+	///
+	/// It can be any of the predefined chains like dev, local, staging, polkadot, kusama.
+	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;CHAIN_SPEC&quot;</span>)]
+	</span><span class="kw">pub </span>chain: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	<span class="doccomment">/// A directory where the key should be saved. If a key already
+	/// exists in the directory, it won&#39;t be overwritten.
+	</span><span class="attr">#[arg(long, conflicts_with_all = [<span class="string">&quot;file&quot;</span>, <span class="string">&quot;default_base_path&quot;</span>]</span>)]
+	base_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
+	<span class="doccomment">/// Save the key in the default directory. If a key already
+	/// exists in the directory, it won&#39;t be overwritten.
+	</span><span class="attr">#[arg(long, conflicts_with_all = [<span class="string">&quot;base_path&quot;</span>, <span class="string">&quot;file&quot;</span>]</span>)]
+	default_base_path: bool,
+}
+
+<span class="kw">impl </span>GenerateKeyCmdCommon {
 	<span class="doccomment">/// Run the command
 	</span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="kw">let </span>keypair = ed25519::Keypair::generate();
-
-		<span class="kw">let </span>secret = keypair.secret();
-
-		<span class="kw">let </span>file_data = <span class="kw">if </span><span class="self">self</span>.bin {
-			secret.as_ref().to_owned()
-		} <span class="kw">else </span>{
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, secret).into_bytes()
-		};
-
-		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.file {
-			<span class="prelude-val">Some</span>(file) =&gt; fs::write(file, file_data)<span class="question-mark">?</span>,
-			<span class="prelude-val">None </span>=&gt; io::stdout().lock().write_all(<span class="kw-2">&amp;</span>file_data)<span class="question-mark">?</span>,
-		}
-
-		<span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, Keypair::from(keypair).public().to_peer_id());
-
-		<span class="prelude-val">Ok</span>(())
+		generate_key(<span class="kw-2">&amp;</span><span class="self">self</span>.file, <span class="self">self</span>.bin, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 	}
 }
 
+<span class="kw">impl </span>GenerateNodeKeyCmd {
+	<span class="doccomment">/// Run the command
+	</span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>, chain_spec_id: <span class="kw-2">&amp;</span>str, executable_name: <span class="kw-2">&amp;</span>String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+		generate_key(
+			<span class="kw-2">&amp;</span><span class="self">self</span>.common.file,
+			<span class="self">self</span>.common.bin,
+			<span class="prelude-val">Some</span>(chain_spec_id),
+			<span class="kw-2">&amp;</span><span class="self">self</span>.base_path,
+			<span class="self">self</span>.default_base_path,
+			<span class="prelude-val">Some</span>(executable_name),
+		)
+	}
+}
+
+<span class="comment">// Utility function for generating a key based on the provided CLI arguments
+//
+// `file`  - Name of file to save secret key to
+// `bin`
+</span><span class="kw">fn </span>generate_key(
+	file: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+	bin: bool,
+	chain_spec_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	base_path: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+	default_base_path: bool,
+	executable_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+	<span class="kw">let </span>keypair = ed25519::Keypair::generate();
+
+	<span class="kw">let </span>secret = keypair.secret();
+
+	<span class="kw">let </span>file_data = <span class="kw">if </span>bin {
+		secret.as_ref().to_owned()
+	} <span class="kw">else </span>{
+		array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, secret).into_bytes()
+	};
+
+	<span class="kw">match </span>(file, base_path, default_base_path) {
+		(<span class="prelude-val">Some</span>(file), <span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; fs::write(file, file_data)<span class="question-mark">?</span>,
+		(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="bool-val">false</span>) | (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>) =&gt; {
+			<span class="kw">let </span>network_path = build_network_key_dir_or_default(
+				base_path.clone().map(BasePath::new),
+				chain_spec_id.unwrap_or_default(),
+				executable_name.ok_or(Error::Input(<span class="string">&quot;Executable name not provided&quot;</span>.into()))<span class="question-mark">?</span>,
+			);
+
+			fs::create_dir_all(network_path.as_path())<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>key_path = network_path.join(NODE_KEY_ED25519_FILE);
+			<span class="kw">if </span>key_path.exists() {
+				<span class="macro">eprintln!</span>(<span class="string">&quot;Skip generation, a key already exists in {:?}&quot;</span>, key_path);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::KeyAlreadyExistsInPath(key_path));
+			} <span class="kw">else </span>{
+				<span class="macro">eprintln!</span>(<span class="string">&quot;Generating key in {:?}&quot;</span>, key_path);
+				fs::write(key_path, file_data)<span class="question-mark">?
+			</span>}
+		},
+		(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; io::stdout().lock().write_all(<span class="kw-2">&amp;</span>file_data)<span class="question-mark">?</span>,
+		(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+			<span class="comment">// This should not happen, arguments are marked as mutually exclusive.
+			</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::Input(<span class="string">&quot;Mutually exclusive arguments provided&quot;</span>.into()));
+		},
+	}
+
+	<span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, Keypair::from(keypair).public().to_peer_id());
+
+	<span class="prelude-val">Ok</span>(())
+}
+
 <span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
+</span><span class="kw">pub mod </span>tests {
+	<span class="kw">use </span><span class="kw">crate</span>::DEFAULT_NETWORK_CONFIG_PATH;
+
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>std::io::Read;
 	<span class="kw">use </span>tempfile::Builder;
@@ -317,10 +490,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>file = Builder::new().prefix(<span class="string">&quot;keyfile&quot;</span>).tempfile().unwrap();
 		<span class="kw">let </span>file_path = file.path().display().to_string();
 		<span class="kw">let </span>generate = GenerateNodeKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;generate-node-key&quot;</span>, <span class="string">&quot;--file&quot;</span>, <span class="kw-2">&amp;</span>file_path]);
-		<span class="macro">assert!</span>(generate.run().is_ok());
+		<span class="macro">assert!</span>(generate.run(<span class="string">&quot;test&quot;</span>, <span class="kw-2">&amp;</span>String::from(<span class="string">&quot;test&quot;</span>)).is_ok());
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
 		<span class="macro">assert!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>buf).is_ok());
 		<span class="macro">assert!</span>(array_bytes::hex2bytes(<span class="kw-2">&amp;</span>buf).is_ok());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>generate_node_key_base_path() {
+		<span class="kw">let </span>base_dir = Builder::new().prefix(<span class="string">&quot;keyfile&quot;</span>).tempdir().unwrap();
+		<span class="kw">let </span>key_path = base_dir
+			.path()
+			.join(<span class="string">&quot;chains/test_id/&quot;</span>)
+			.join(DEFAULT_NETWORK_CONFIG_PATH)
+			.join(NODE_KEY_ED25519_FILE);
+		<span class="kw">let </span>base_path = base_dir.path().display().to_string();
+		<span class="kw">let </span>generate =
+			GenerateNodeKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;generate-node-key&quot;</span>, <span class="string">&quot;--base-path&quot;</span>, <span class="kw-2">&amp;</span>base_path]);
+		<span class="macro">assert!</span>(generate.run(<span class="string">&quot;test_id&quot;</span>, <span class="kw-2">&amp;</span>String::from(<span class="string">&quot;test&quot;</span>)).is_ok());
+		<span class="kw">let </span>buf = fs::read_to_string(key_path.as_path()).unwrap();
+		<span class="macro">assert!</span>(array_bytes::hex2bytes(<span class="kw-2">&amp;</span>buf).is_ok());
+
+		<span class="macro">assert!</span>(generate.run(<span class="string">&quot;test_id&quot;</span>, <span class="kw-2">&amp;</span>String::from(<span class="string">&quot;test&quot;</span>)).is_err());
+		<span class="kw">let </span>new_buf = fs::read_to_string(key_path).unwrap();
+		<span class="macro">assert_eq!</span>(
+			array_bytes::hex2bytes(<span class="kw-2">&amp;</span>new_buf).unwrap(),
+			array_bytes::hex2bytes(<span class="kw-2">&amp;</span>buf).unwrap()
+		);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

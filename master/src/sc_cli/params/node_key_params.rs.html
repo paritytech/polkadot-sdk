@@ -361,6 +361,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -381,15 +440,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>clap::Args;
 <span class="kw">use </span>sc_network::config::{identity::ed25519, NodeKeyConfig};
+<span class="kw">use </span>sc_service::Role;
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>std::{path::PathBuf, str::FromStr};
 
-<span class="kw">use crate</span>::{arg_enums::NodeKeyType, error};
+<span class="kw">use crate</span>::{arg_enums::NodeKeyType, error, Error};
 
 <span class="doccomment">/// The file name of the node&#39;s Ed25519 secret key inside the chain-specific
 /// network config directory, if neither `--node-key` nor `--node-key-file`
 /// is specified in combination with `--node-key-type=ed25519`.
-</span><span class="kw">const </span>NODE_KEY_ED25519_FILE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;secret_ed25519&quot;</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NODE_KEY_ED25519_FILE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;secret_ed25519&quot;</span>;
 
 <span class="doccomment">/// Parameters used to create the `NodeKeyConfig`, which determines the keypair
 /// used for libp2p networking.
@@ -442,22 +502,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the chosen type.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;FILE&quot;</span>)]
 	</span><span class="kw">pub </span>node_key_file: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
+	<span class="doccomment">/// Forces key generation if node-key-file file does not exist.
+	///
+	/// This is an unsafe feature for production networks, because as an active authority
+	/// other authorities may depend on your node having a stable identity and they might
+	/// not being able to reach you if your identity changes after entering the active set.
+	///
+	/// For minimal node downtime if no custom `node-key-file` argument is provided
+	/// the network-key is usually persisted accross nodes restarts,
+	/// in the `network` folder from directory provided in `--base-path`
+	///
+	/// Warning!! If you ever run the node with this argument, make sure
+	/// you remove it for the subsequent restarts.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>unsafe_force_node_key_generation: bool,
 }
 
 <span class="kw">impl </span>NodeKeyParams {
 	<span class="doccomment">/// Create a `NodeKeyConfig` from the given `NodeKeyParams` in the context
 	/// of an optional network config storage directory.
-	</span><span class="kw">pub fn </span>node_key(<span class="kw-2">&amp;</span><span class="self">self</span>, net_config_dir: <span class="kw-2">&amp;</span>PathBuf) -&gt; error::Result&lt;NodeKeyConfig&gt; {
+	</span><span class="kw">pub fn </span>node_key(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		net_config_dir: <span class="kw-2">&amp;</span>PathBuf,
+		role: Role,
+		is_dev: bool,
+	) -&gt; error::Result&lt;NodeKeyConfig&gt; {
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="self">self</span>.node_key_type {
 			NodeKeyType::Ed25519 =&gt; {
 				<span class="kw">let </span>secret = <span class="kw">if let </span><span class="prelude-val">Some</span>(node_key) = <span class="self">self</span>.node_key.as_ref() {
 					parse_ed25519_secret(node_key)<span class="question-mark">?
 				</span>} <span class="kw">else </span>{
-					sc_network::config::Secret::File(
-						<span class="self">self</span>.node_key_file
-							.clone()
-							.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE)),
-					)
+					<span class="kw">let </span>key_path = <span class="self">self
+						</span>.node_key_file
+						.clone()
+						.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE));
+					<span class="kw">if </span>!<span class="self">self</span>.unsafe_force_node_key_generation &amp;&amp;
+						role.is_authority() &amp;&amp; !is_dev &amp;&amp;
+						!key_path.exists()
+					{
+						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::NetworkKeyNotFound(key_path))
+					}
+					sc_network::config::Secret::File(key_path)
 				};
 
 				NodeKeyConfig::Ed25519(secret)
@@ -485,7 +571,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>clap::ValueEnum;
 	<span class="kw">use </span>libp2p_identity::ed25519;
-	<span class="kw">use </span>std::fs;
+	<span class="kw">use </span>std::fs::{<span class="self">self</span>, File};
+	<span class="kw">use </span>tempfile::TempDir;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_node_key_config_input() {
@@ -499,8 +586,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					node_key_type,
 					node_key: <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:x}&quot;</span>, H256::from_slice(sk.as_ref()))),
 					node_key_file: <span class="prelude-val">None</span>,
+					unsafe_force_node_key_generation: <span class="bool-val">false</span>,
 				};
-				params.node_key(net_config_dir).and_then(|c| <span class="kw">match </span>c {
+				params.node_key(net_config_dir, Role::Authority, <span class="bool-val">false</span>).and_then(|c| <span class="kw">match </span>c {
 					NodeKeyConfig::Ed25519(sc_network::config::Secret::Input(<span class="kw-2">ref </span>ski))
 						<span class="kw">if </span>node_key_type == NodeKeyType::Ed25519 &amp;&amp; <span class="kw-2">&amp;</span>sk[..] == ski.as_ref() =&gt;
 						<span class="prelude-val">Ok</span>(()),
@@ -519,10 +607,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				node_key_type: NodeKeyType::Ed25519,
 				node_key: <span class="prelude-val">None</span>,
 				node_key_file: <span class="prelude-val">Some</span>(file),
+				unsafe_force_node_key_generation: <span class="bool-val">false</span>,
 			};
 
 			<span class="kw">let </span>node_key = params
-				.node_key(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;not-used&quot;</span>))
+				.node_key(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;not-used&quot;</span>), Role::Authority, <span class="bool-val">false</span>)
 				.expect(<span class="string">&quot;Creates node key config&quot;</span>)
 				.into_keypair()
 				.expect(<span class="string">&quot;Creates node key pair&quot;</span>);
@@ -549,30 +638,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_node_key_config_default() {
-		<span class="kw">fn </span>with_def_params&lt;F&gt;(f: F) -&gt; error::Result&lt;()&gt;
+		<span class="kw">fn </span>with_def_params&lt;F&gt;(f: F, unsafe_force_node_key_generation: bool) -&gt; error::Result&lt;()&gt;
 		<span class="kw">where
 			</span>F: Fn(NodeKeyParams) -&gt; error::Result&lt;()&gt;,
 		{
 			NodeKeyType::value_variants().iter().try_for_each(|t| {
 				<span class="kw">let </span>node_key_type = <span class="kw-2">*</span>t;
-				f(NodeKeyParams { node_key_type, node_key: <span class="prelude-val">None</span>, node_key_file: <span class="prelude-val">None </span>})
-			})
-		}
-
-		<span class="kw">fn </span>some_config_dir(net_config_dir: <span class="kw-2">&amp;</span>PathBuf) -&gt; error::Result&lt;()&gt; {
-			with_def_params(|params| {
-				<span class="kw">let </span>dir = PathBuf::from(net_config_dir.clone());
-				<span class="kw">let </span>typ = params.node_key_type;
-				params.node_key(net_config_dir).and_then(<span class="kw">move </span>|c| <span class="kw">match </span>c {
-					NodeKeyConfig::Ed25519(sc_network::config::Secret::File(<span class="kw-2">ref </span>f))
-						<span class="kw">if </span>typ == NodeKeyType::Ed25519 &amp;&amp; f == <span class="kw-2">&amp;</span>dir.join(NODE_KEY_ED25519_FILE) =&gt;
-						<span class="prelude-val">Ok</span>(()),
-					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(error::Error::Input(<span class="string">&quot;Unexpected node key config&quot;</span>.into())),
+				f(NodeKeyParams {
+					node_key_type,
+					node_key: <span class="prelude-val">None</span>,
+					node_key_file: <span class="prelude-val">None</span>,
+					unsafe_force_node_key_generation,
 				})
 			})
 		}
 
-		<span class="macro">assert!</span>(some_config_dir(<span class="kw-2">&amp;</span>PathBuf::from_str(<span class="string">&quot;x&quot;</span>).unwrap()).is_ok());
+		<span class="kw">fn </span>some_config_dir(
+			net_config_dir: <span class="kw-2">&amp;</span>PathBuf,
+			unsafe_force_node_key_generation: bool,
+			role: Role,
+			is_dev: bool,
+		) -&gt; error::Result&lt;()&gt; {
+			with_def_params(
+				|params| {
+					<span class="kw">let </span>dir = PathBuf::from(net_config_dir.clone());
+					<span class="kw">let </span>typ = params.node_key_type;
+					<span class="kw">let </span>role = role.clone();
+					params.node_key(net_config_dir, role, is_dev).and_then(<span class="kw">move </span>|c| <span class="kw">match </span>c {
+						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(<span class="kw-2">ref </span>f))
+							<span class="kw">if </span>typ == NodeKeyType::Ed25519 &amp;&amp;
+								f == <span class="kw-2">&amp;</span>dir.join(NODE_KEY_ED25519_FILE) =&gt;
+							<span class="prelude-val">Ok</span>(()),
+						<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(error::Error::Input(<span class="string">&quot;Unexpected node key config&quot;</span>.into())),
+					})
+				},
+				unsafe_force_node_key_generation,
+			)
+		}
+
+		<span class="macro">assert!</span>(some_config_dir(<span class="kw-2">&amp;</span>PathBuf::from_str(<span class="string">&quot;x&quot;</span>).unwrap(), <span class="bool-val">false</span>, Role::Full, <span class="bool-val">false</span>).is_ok());
+		<span class="macro">assert!</span>(
+			some_config_dir(<span class="kw-2">&amp;</span>PathBuf::from_str(<span class="string">&quot;x&quot;</span>).unwrap(), <span class="bool-val">false</span>, Role::Authority, <span class="bool-val">true</span>).is_ok()
+		);
+		<span class="macro">assert!</span>(
+			some_config_dir(<span class="kw-2">&amp;</span>PathBuf::from_str(<span class="string">&quot;x&quot;</span>).unwrap(), <span class="bool-val">true</span>, Role::Authority, <span class="bool-val">false</span>).is_ok()
+		);
+		<span class="macro">assert!</span>(<span class="macro">matches!</span>(
+			some_config_dir(<span class="kw-2">&amp;</span>PathBuf::from_str(<span class="string">&quot;x&quot;</span>).unwrap(), <span class="bool-val">false</span>, Role::Authority, <span class="bool-val">false</span>),
+			<span class="prelude-val">Err</span>(Error::NetworkKeyNotFound(<span class="kw">_</span>))
+		));
+
+		<span class="kw">let </span>tempdir = TempDir::new().unwrap();
+		<span class="kw">let </span>_file = File::create(tempdir.path().join(NODE_KEY_ED25519_FILE)).unwrap();
+		<span class="macro">assert!</span>(some_config_dir(<span class="kw-2">&amp;</span>tempdir.path().into(), <span class="bool-val">false</span>, Role::Authority, <span class="bool-val">false</span>).is_ok());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
