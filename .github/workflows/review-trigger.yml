@@ -23,7 +23,7 @@ jobs:
         run: exit 0
       - name: Get comments
         id: comments
-        run: echo "bodies=$(gh pr view ${{ github.event.number }} --repo ${{ github.repository }} --json comments --jq '[.comments[].body]')" >> "$GITHUB_OUTPUT"
+        run: echo "bodies=$(gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json comments --jq '[.comments[].body]')" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Fail when author pushes new code
@@ -48,8 +48,8 @@ jobs:
       - name: Comment requirements
         # If the previous step failed and github-actions hasn't commented yet we comment instructions
         if: failure() && !contains(fromJson(steps.comments.outputs.bodies), 'Review required! Latest push from author must always be reviewed')
-        run: |          
-          gh pr comment ${{ github.event.number }} --repo ${{ github.repository }} --body "Review required! Latest push from author must always be reviewed"
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "Review required! Latest push from author must always be reviewed"
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENTS: ${{ steps.comments.outputs.users }}
