@@ -1113,7 +1113,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
+				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
 					return Ok(())
