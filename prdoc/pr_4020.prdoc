@@ -6,7 +6,7 @@ title: "Benchmarking: automatic weight sanity check"
 doc:
   - audience: Runtime Dev
     description: |
-      This PR introduces a new sanity weight check during benchmark execution to ensure that the weight of the function/extrinsic does not exceed the given limit. 
+      This PR introduces a new sanity weight check after benchmark execution to ensure that the weight of the function/extrinsic does not exceed the block limit. 
       Maximum extrinsic weight value and `RuntimeDbWeight` should be provided by the runtime API. Maximum weight value is usually `max_extrinsic` from 
       `RuntimeBlockWeights` for `DispatchClass::Normal` type extrinsics.
       
