@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713131128846,
+  "lastUpdate": 1713167075455,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4211,6 +4211,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006353528399999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6acf4787e168eea447b82b0a1f32e47bc794ae28",
+          "message": "Bridge: slash destination may be an explicit account (#4106)\n\nExtracted to a separate PR as requested here:\nhttps://github.com/paritytech/parity-bridges-common/pull/2873#discussion_r1562459573",
+          "timestamp": "2024-04-15T06:37:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6acf4787e168eea447b82b0a1f32e47bc794ae28"
+        },
+        "date": 1713167048421,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023934282733333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006704480333333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012650073000000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15853513066666672,
             "unit": "seconds"
           }
         ]
