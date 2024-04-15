@@ -411,6 +411,7 @@ pub struct BuildNetworkParams<
 	IQ,
 > where
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	<Block as BlockT>::Hash: std::marker::Unpin,
 {
 	pub parachain_config: &'a Configuration,
 	pub net_config:
@@ -446,6 +447,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 )>
 where
 	Block: BlockT,
+	<Block as BlockT>::Hash: std::marker::Unpin,
 	Client: UsageProvider<Block>
 		+ HeaderBackend<Block>
 		+ sp_consensus::block_validation::Chain<Block>
