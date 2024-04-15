@@ -26,7 +26,7 @@ sp-io = { path = "../../../primitives/io" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
 substrate-rpc-client = { path = "../rpc/client" }
-futures = "0.3"
+futures = "0.3.30"
 indicatif = "0.17.7"
 spinners = "4.1.0"
 tokio-retry = "0.3.0"

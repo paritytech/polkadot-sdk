@@ -26,9 +26,10 @@ use futures::{
 	stream::{BoxStream, FusedStream, Stream},
 	FutureExt, StreamExt,
 };
-use libp2p::PeerId;
 use log::error;
+
 use sc_network::{request_responses::RequestFailure, types::ProtocolName};
+use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use std::task::{Context, Poll, Waker};
 use tokio_stream::StreamMap;
