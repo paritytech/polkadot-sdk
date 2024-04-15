@@ -34,9 +34,9 @@
     - echo "malus image ${MALUS_IMAGE}"
     # RUN_IN_CONTAINER is env var that is set in the dockerfile
     - if  [[ -v RUN_IN_CONTAINER  ]]; then
-      echo "Initializing zombie cluster"
-      gcloud auth activate-service-account --key-file "/etc/zombie-net/sa-zombie.json"
-      gcloud container clusters get-credentials parity-zombienet --zone europe-west3-b --project parity-zombienet
+      echo "Initializing zombie cluster";
+      gcloud auth activate-service-account --key-file "/etc/zombie-net/sa-zombie.json";
+      gcloud container clusters get-credentials parity-zombienet --zone europe-west3-b --project parity-zombienet;
       fi
 
   stage: zombienet
