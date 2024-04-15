@@ -24,7 +24,7 @@
     "/dns/people-westend-bootnode.turboflakes.io/tcp/30650/p2p/12D3KooWQEhmZg3uMkuxVUx3jbsD84zEX4dUKtvHfmCoBWMhybKW",
     "/dns/people-westend-bootnode.turboflakes.io/tcp/30750/wss/p2p/12D3KooWQEhmZg3uMkuxVUx3jbsD84zEX4dUKtvHfmCoBWMhybKW",
     "/dns/people-westend-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX",
-    "/dns/people-westend-boot-ng.dwellir.com/tcp/30355/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX"    
+    "/dns/people-westend-boot-ng.dwellir.com/tcp/30355/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

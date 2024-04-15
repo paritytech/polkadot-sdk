@@ -393,11 +393,12 @@ where
 
 			futures::executor::block_on(self.block_import.import_block(import_block))
 				.expect("block_import failed");
-			if announce_block {
-				self.sync_service.announce_block(hash, None);
-			}
 			hashes.push(hash);
 			at = hash;
+		}
+
+		if announce_block {
+			self.sync_service.announce_block(at, None);
 		}
 
 		if inform_sync_about_new_best_block {

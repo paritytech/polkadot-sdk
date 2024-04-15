@@ -30,7 +30,7 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 
 mod barriers;
@@ -81,7 +81,9 @@ pub use location_conversion::{
 };
 
 mod matches_location;
-pub use matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
+pub use matches_location::{
+	StartsWith, StartsWithExplicitGlobalConsensus, WithLatestLocationConverter,
+};
 
 mod matches_token;
 pub use matches_token::IsConcrete;
