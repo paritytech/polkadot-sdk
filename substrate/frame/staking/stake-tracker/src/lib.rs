@@ -217,7 +217,7 @@ pub mod pallet {
 		///  * The `target` is unbonded and it exists in the target list.
 		///  * The `voter` is nominating `target`.
 		///
-		/// Emits `DanglingNominationDropped`.
+		/// Emits [`Event::DanglingNominationDropped`].
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::drop_dangling_nomination())]
 		pub fn drop_dangling_nomination(
