@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713191083381,
+  "lastUpdate": 1713197622781,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3527,6 +3527,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20392643253333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d1f9fe0a994febff13f21b0edd223e838754e2fc",
+          "message": "logging(fix): Use the proper log target for logging (#4124)\n\nThis PR ensures the proper logging target (ie `libp2p_tcp` or `beefy`)\nis displayed.\n\nThe issue has been introduced in:\nhttps://github.com/paritytech/polkadot-sdk/pull/4059, which removes the\nnormalized metadata of logs.\n\nFrom\n[documentation](https://docs.rs/tracing-log/latest/tracing_log/trait.NormalizeEvent.html#tymethod.normalized_metadata):\n\n> In tracing-log, an Event produced by a log (through\n[AsTrace](https://docs.rs/tracing-log/latest/tracing_log/trait.AsTrace.html))\nhas an hard coded “log” target\n\n>\n[normalized_metadata](https://docs.rs/tracing-log/latest/tracing_log/trait.NormalizeEvent.html#tymethod.normalized_metadata):\nIf this Event comes from a log, this method provides a new normalized\nMetadata which has all available attributes from the original log,\nincluding file, line, module_path and target\n\nThis has low implications if a version was deployed containing the\nmentioned pull request, as we'll lose the ability to distinguish between\nlog targets.\n\n### Before this PR\n\n```\n2024-04-15 12:45:40.327  INFO main log: Parity Polkadot\n2024-04-15 12:45:40.328  INFO main log: ✌️  version 1.10.0-d1b0ef76a8b\n2024-04-15 12:45:40.328  INFO main log: ❤️  by Parity Technologies <admin@parity.io>, 2017-2024\n2024-04-15 12:45:40.328  INFO main log: 📋 Chain specification: Development\n2024-04-15 12:45:40.328  INFO main log: 🏷  Node name: yellow-eyes-2963\n2024-04-15 12:45:40.328  INFO main log: 👤 Role: AUTHORITY\n2024-04-15 12:45:40.328  INFO main log: 💾 Database: RocksDb at /tmp/substrated39i9J/chains/rococo_dev/db/full\n2024-04-15 12:45:44.508  WARN main log: Took active validators from set with wrong size\n...\n\n2024-04-15 12:45:45.805  INFO                 main log: 👶 Starting BABE Authorship worker\n2024-04-15 12:45:45.806  INFO tokio-runtime-worker log: 🥩 BEEFY gadget waiting for BEEFY pallet to become available...\n2024-04-15 12:45:45.806 DEBUG tokio-runtime-worker log: New listen address: /ip6/::1/tcp/30333\n2024-04-15 12:45:45.806 DEBUG tokio-runtime-worker log: New listen address: /ip4/127.0.0.1/tcp/30333\n```\n\n### After this PR\n\n```\n2024-04-15 12:59:45.623  INFO main sc_cli::runner: Parity Polkadot\n2024-04-15 12:59:45.623  INFO main sc_cli::runner: ✌️  version 1.10.0-d1b0ef76a8b\n2024-04-15 12:59:45.623  INFO main sc_cli::runner: ❤️  by Parity Technologies <admin@parity.io>, 2017-2024\n2024-04-15 12:59:45.623  INFO main sc_cli::runner: 📋 Chain specification: Development\n2024-04-15 12:59:45.623  INFO main sc_cli::runner: 🏷  Node name: helpless-lizards-0550\n2024-04-15 12:59:45.623  INFO main sc_cli::runner: 👤 Role: AUTHORITY\n...\n2024-04-15 12:59:50.204  INFO tokio-runtime-worker beefy: 🥩 BEEFY gadget waiting for BEEFY pallet to become available...\n2024-04-15 12:59:50.204 DEBUG tokio-runtime-worker libp2p_tcp: New listen address: /ip6/::1/tcp/30333\n2024-04-15 12:59:50.204 DEBUG tokio-runtime-worker libp2p_tcp: New listen address: /ip4/127.0.0.1/tcp/30333\n```\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-15T14:33:55Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1f9fe0a994febff13f21b0edd223e838754e2fc"
+        },
+        "date": 1713197596648,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.698327042066673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19700537266666668,
             "unit": "seconds"
           }
         ]
