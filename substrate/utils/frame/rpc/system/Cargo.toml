@@ -30,6 +30,7 @@ sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
+sc-block-builder = { path = "../../../../client/block-builder" }
 sc-transaction-pool = { path = "../../../../client/transaction-pool" }
 tokio = "1.37"
 assert_matches = "1.3.0"

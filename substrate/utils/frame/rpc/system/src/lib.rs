@@ -109,7 +109,7 @@ where
 				Some(e.to_string()),
 			)
 		})?;
-		Ok(adjust_nonce(&*self.pool, account, nonce))
+		Ok(adjust_nonce(&*self.pool, account, nonce, best))
 	}
 
 	async fn dry_run(
@@ -176,11 +176,17 @@ where
 
 /// Adjust account nonce from state, so that tx with the nonce will be
 /// placed after all ready txpool transactions.
-fn adjust_nonce<P, AccountId, Nonce>(pool: &P, account: AccountId, nonce: Nonce) -> Nonce
+fn adjust_nonce<P, AccountId, Nonce, Block>(
+	pool: &P,
+	account: AccountId,
+	nonce: Nonce,
+	best: <Block as traits::Block>::Hash,
+) -> Nonce
 where
 	P: TransactionPool + ?Sized,
 	AccountId: Clone + std::fmt::Display + Encode,
 	Nonce: Clone + std::fmt::Display + Encode + traits::AtLeast32Bit + 'static,
+	Block: traits::Block,
 {
 	log::debug!(target: "rpc", "State nonce for {}: {}", account, nonce);
 	// Now we need to query the transaction pool
@@ -191,19 +197,22 @@ where
 	// that matches the current one.
 	let mut current_nonce = nonce.clone();
 	let mut current_tag = (account.clone(), nonce).encode();
-	for tx in pool.ready() {
-		log::debug!(
-			target: "rpc",
-			"Current nonce to {}, checking {} vs {:?}",
-			current_nonce,
-			HexDisplay::from(&current_tag),
-			tx.provides().iter().map(|x| format!("{}", HexDisplay::from(x))).collect::<Vec<_>>(),
-		);
-		// since transactions in `ready()` need to be ordered by nonce
-		// it's fine to continue with current iterator.
-		if tx.provides().get(0) == Some(&current_tag) {
-			current_nonce += traits::One::one();
-			current_tag = (account.clone(), current_nonce.clone()).encode();
+
+	if let Some(ready) = pool.ready(best) {
+		for tx in ready {
+			log::debug!(
+				target: "rpc",
+				"Current nonce to {}, checking {} vs {:?}",
+				current_nonce,
+				HexDisplay::from(&current_tag),
+				tx.provides().iter().map(|x| format!("{}", HexDisplay::from(x))).collect::<Vec<_>>(),
+			);
+			// since transactions in `ready()` need to be ordered by nonce
+			// it's fine to continue with current iterator.
+			if tx.provides().get(0) == Some(&current_tag) {
+				current_nonce += traits::One::one();
+				current_tag = (account.clone(), current_nonce.clone()).encode();
+			}
 		}
 	}
 
@@ -216,22 +225,26 @@ mod tests {
 
 	use assert_matches::assert_matches;
 	use futures::executor::block_on;
-	use sc_transaction_pool::BasicPool;
+	use sc_block_builder::BlockBuilderBuilder;
+	use sc_transaction_pool::FullPool;
+	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
 	use sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
-	use substrate_test_runtime_client::{runtime::Transfer, AccountKeyring};
+	use substrate_test_runtime_client::{
+		runtime::Transfer, sp_consensus::BlockOrigin, AccountKeyring, ClientBlockImportExt,
+	};
 
 	#[tokio::test]
 	async fn should_return_next_nonce_for_some_account() {
 		sp_tracing::try_init_simple();
 
 		// given
-		let client = Arc::new(substrate_test_runtime_client::new());
+		let mut client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let new_transaction = |nonce: u64| {
@@ -250,6 +263,23 @@ mod tests {
 		let ext1 = new_transaction(1);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
+		// import block no 1.
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_of_block0)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_of_block1 = block.header.hash();
+		block_on(client.import(BlockOrigin::Own, block)).unwrap();
+
+		// Let txpool process transactions.
+		block_on(
+			pool.maintain(ChainEvent::NewBestBlock { hash: hash_of_block1, tree_route: None }),
+		);
+
 		let accounts = System::new(client, pool, DenyUnsafe::Yes);
 
 		// when
@@ -267,7 +297,7 @@ mod tests {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let accounts = System::new(client, pool, DenyUnsafe::Yes);
 
@@ -286,7 +316,7 @@ mod tests {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let accounts = System::new(client, pool, DenyUnsafe::No);
 
@@ -314,7 +344,7 @@ mod tests {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+			FullPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let accounts = System::new(client, pool, DenyUnsafe::No);
 
