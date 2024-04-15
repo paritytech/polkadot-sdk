@@ -632,7 +632,7 @@ pub mod pallet {
 		/// Returns the updated pool and staker info.
 		///
 		/// NOTE: this function has no side-effects. Side-effects such as storage modifications are
-		/// the resopnsibility of the caller.
+		/// the responsibility of the caller.
 		pub fn update_pool_and_staker_rewards(
 			pool_info: &PoolInfoFor<T>,
 			staker_info: &PoolStakerInfo<T::Balance>,
