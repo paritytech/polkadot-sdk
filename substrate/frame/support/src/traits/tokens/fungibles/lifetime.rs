@@ -20,7 +20,6 @@
 //! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use super::Inspect;
-use crate::traits::tokens::{AssetId, Balance};
 use sp_runtime::{DispatchError, DispatchResult};
 
 /// Trait for providing the ability to create new fungible assets.
