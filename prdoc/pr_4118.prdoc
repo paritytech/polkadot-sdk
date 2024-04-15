@@ -1,4 +1,4 @@
-title: pallet assets: minor improvement on errors returned for some calls
+title: "pallet assets: minor improvement on errors returned for some calls"
 
 doc:
   - audience: Runtime Dev
