@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713197622781,
+  "lastUpdate": 1713202816803,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3569,6 +3569,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19700537266666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dónal Murray",
+            "username": "seadanda",
+            "email": "donal.murray@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0c9ad5306ce8bbc815d862121a42778c1ea734be",
+          "message": "[pallet-broker] add tests for renewing leases (#4099)\n\nThe first test proves that parachains who were migrated over on a legacy\nlease can renew without downtime.\n\nThe exception is if their lease expires in period 0 - aka within\n`region_length` timeslices after `start_sales` is called. The second\ntest is designed such that it passes if the issue exists and should be\nfixed.\nThis will require an intervention on Kusama to add these renewals to\nstorage as it is too tight to schedule a runtime upgrade before the\nstart_sales call. All leases will still have at least two full regions\nof coretime.",
+          "timestamp": "2024-04-15T16:28:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c9ad5306ce8bbc815d862121a42778c1ea734be"
+        },
+        "date": 1713202791307,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.73661113026667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18936899626666664,
             "unit": "seconds"
           }
         ]
