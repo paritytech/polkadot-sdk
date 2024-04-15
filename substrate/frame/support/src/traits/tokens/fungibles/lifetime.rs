@@ -35,9 +35,7 @@ pub trait Create<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for resetting the team configuration of an existing fungible asset.
-pub trait ResetTeam<AccountId> {
-	/// Means of identifying one asset class from another.
-	type AssetId: AssetId;
+pub trait ResetTeam<AccountId>: Inspect<AccountId> {
 	/// Reset the team for the asset with the given `id`.
 	///
 	/// ### Parameters
