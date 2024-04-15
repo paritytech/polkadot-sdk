@@ -32,6 +32,12 @@ pub mod bridge_to_rococo_config;
 mod weights;
 pub mod xcm_config;
 
+use bridge_runtime_common::extensions::{
+	check_obsolete_extension::{
+		CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
+	},
+	refund_relayer_extension::RefundableParachain,
+};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::ParaId;
 use sp_api::impl_runtime_apis;
@@ -502,9 +508,22 @@ construct_runtime!(
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
-	BridgeRococoGrandpa,
+	CheckAndBoostBridgeGrandpaTransactions<
+		Runtime,
+		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
+		bridge_to_rococo_config::PriorityBoostPerHeader,
+		xcm_config::TreasuryAccount,
+	>,
 	// Parachains
-	BridgeRococoParachains,
+	CheckAndBoostBridgeParachainsTransactions<
+		Runtime,
+		RefundableParachain<
+			bridge_to_rococo_config::BridgeParachainRococoInstance,
+			bp_bridge_hub_rococo::BridgeHubRococo,
+		>,
+		bridge_to_rococo_config::PriorityBoostPerHeader,
+		xcm_config::TreasuryAccount,
+	>,
 	// Messages
 	BridgeRococoMessages
 }

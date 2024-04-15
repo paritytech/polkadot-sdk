@@ -2146,6 +2146,7 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tuplex",
 ]
 
 [[package]]
@@ -2305,6 +2306,7 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tuplex",
  "westend-runtime-constants",
 ]
 

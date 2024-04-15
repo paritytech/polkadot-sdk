@@ -26,8 +26,8 @@ use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
+		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane,
 	},
 	messages,
 	messages::{
@@ -72,6 +72,8 @@ parameter_types! {
 	);
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	pub PriorityBoostPerHeader: u64 = PriorityBoostPerMessage::get() / 1_000_000; // TODO
 
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
@@ -191,9 +193,8 @@ impl ThisChainWithMessages for BridgeHubWestend {
 
 /// Signed extension that refunds relayers that are delivering messages from the Rococo parachain.
 pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = RefundSignedExtensionAdapter<
-	RefundBridgedParachainMessages<
+	RefundBridgedMessages<
 		Runtime,
-		RefundableParachain<BridgeParachainRococoInstance, bp_bridge_hub_rococo::BridgeHubRococo>,
 		RefundableMessagesLane<
 			WithBridgeHubRococoMessagesInstance,
 			AssetHubWestendToAssetHubRococoMessagesLane,
@@ -210,7 +211,8 @@ pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance1;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = bp_rococo::Rococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<5>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
 	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }

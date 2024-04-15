@@ -29,8 +29,8 @@ use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane, RefundableParachain,
+		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane,
 	},
 	messages,
 	messages::{
@@ -67,6 +67,8 @@ parameter_types! {
 	);
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	pub PriorityBoostPerHeader: u64 = PriorityBoostPerMessage::get() / 1_000_000; // TODO
 
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
@@ -174,12 +176,8 @@ impl messages::BridgedChainWithMessages for BridgeHubWestend {}
 
 /// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
 pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
-	RefundBridgedParachainMessages<
+	RefundBridgedMessages<
 		Runtime,
-		RefundableParachain<
-			BridgeParachainWestendInstance,
-			bp_bridge_hub_westend::BridgeHubWestend,
-		>,
 		RefundableMessagesLane<
 			WithBridgeHubWestendMessagesInstance,
 			AssetHubRococoToAssetHubWestendMessagesLane,

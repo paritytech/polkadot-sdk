@@ -20,17 +20,15 @@
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 use crate::{
-	bridge_common_config::{BridgeGrandpaRococoBulletinInstance, BridgeHubRococo},
-	weights,
-	xcm_config::UniversalLocation,
-	AccountId, BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime,
-	RuntimeEvent, XcmOverRococoBulletin, XcmRouter,
+	bridge_common_config::BridgeHubRococo, weights, xcm_config::UniversalLocation, AccountId,
+	BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedMessages, RefundSignedExtensionAdapter,
 		RefundableMessagesLane,
 	},
 	messages,
@@ -89,6 +87,8 @@ parameter_types! {
 	/// It is determined semi-automatically - see `FEE_BOOST_PER_MESSAGE` constant to get the
 	/// meaning of this value.
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+
+	pub PriorityBoostPerHeader: u64 = PriorityBoostPerMessage::get() / 1_000_000; // TODO
 
 	/// Identifier of the sibling Rococo People parachain.
 	pub RococoPeopleParaId: cumulus_primitives_core::ParaId = rococo_runtime_constants::system_parachain::PEOPLE_ID.into();
@@ -169,9 +169,8 @@ impl messages::BridgedChainWithMessages for RococoBulletin {}
 /// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
 pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
-	RefundBridgedGrandpaMessages<
+	RefundBridgedMessages<
 		Runtime,
-		BridgeGrandpaRococoBulletinInstance,
 		RefundableMessagesLane<
 			WithRococoBulletinMessagesInstance,
 			RococoPeopleToRococoBulletinMessagesLane,
