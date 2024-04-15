@@ -893,6 +893,161 @@ fn short_leases_are_cleaned() {
 }
 
 #[test]
+fn leases_can_be_renewed() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Timeslice period is 2.
+		//
+		// Sale 1 starts at block 7, Sale 2 starts at 13.
+
+		// Set lease to expire in sale 1 and start sales.
+		assert_ok!(Broker::do_set_lease(2001, 9));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+		// Start the sales with only one core for this lease.
+		assert_ok!(Broker::do_start_sales(100, 1));
+
+		// Advance to sale period 1, we should get an AllowedRenewal for task 2001 for the next
+		// sale.
+		advance_sale_period();
+		assert_eq!(
+			AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }),
+			Some(AllowedRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+						.try_into()
+						.unwrap()
+				)
+			})
+		);
+		// And the lease has been removed from storage.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// Advance to sale period 2, where we can renew.
+		advance_sale_period();
+		assert_ok!(Broker::do_renew(1, 0));
+		// We renew for the base price of the previous sale period.
+		assert_eq!(balance(1), 900);
+
+		// We just renewed for this period.
+		advance_sale_period();
+		// Now we are off core and the core is pooled.
+		advance_sale_period();
+		// Check the trace agrees.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				// Period 0 gets no assign core, but leases are on-core.
+				// Period 1:
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 2 - expiring at the end of this period, so we called renew.
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 3 - we get assigned a core because we called renew in period 2.
+				(
+					18,
+					AssignCore {
+						core: 0,
+						begin: 20,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 4 - we don't get a core as we didn't call renew again.
+				// This core is recycled into the pool.
+				(
+					24,
+					AssignCore {
+						core: 0,
+						begin: 26,
+						assignment: vec![(CoreAssignment::Pool, 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
+	});
+}
+
+// We understand that this does not work as intended for leases that expire within `region_length`
+// timeslices after calling `start_sales`.
+#[test]
+fn short_leases_cannot_be_renewed() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Timeslice period is 2.
+		//
+		// Sale 1 starts at block 7, Sale 2 starts at 13.
+
+		// Set lease to expire in sale period 0 and start sales.
+		assert_ok!(Broker::do_set_lease(2001, 3));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+		// Start the sales with one core for this lease.
+		assert_ok!(Broker::do_start_sales(100, 1));
+
+		// The lease is removed.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// We should have got an entry in AllowedRenewals, but we don't because rotate_sale
+		// schedules leases a period in advance. This renewal should be in the period after next
+		// because while bootstrapping our way into the sale periods, we give everything a lease for
+		// period 1, so they can renew for period 2. So we have a core until the end of period 1,
+		// but we are not marked as able to renew because we expired before sale period 1 starts.
+		//
+		// This should be fixed.
+		assert_eq!(AllowedRenewals::<Test>::get(AllowedRenewalId { core: 0, when: 10 }), None);
+		// And the lease has been removed from storage.
+		assert_eq!(Leases::<Test>::get().len(), 0);
+
+		// Advance to sale period 2, where we now cannot renew.
+		advance_to(13);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
+
+		// Check the trace.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				// Period 0 gets no assign core, but leases are on-core.
+				// Period 1 we get assigned a core due to the way the sales are bootstrapped.
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(CoreAssignment::Task(2001), 57600)],
+						end_hint: None,
+					},
+				),
+				// Period 2 - we don't get a core as we couldn't renew.
+				// This core is recycled into the pool.
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(CoreAssignment::Pool, 57600)],
+						end_hint: None,
+					},
+				),
+			]
+		);
+	});
+}
+
+#[test]
 fn leases_are_limited() {
 	TestExt::new().execute_with(|| {
 		let max_leases: u32 = <Test as Config>::MaxLeasedCores::get();
