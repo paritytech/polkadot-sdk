@@ -34,7 +34,11 @@ pub trait Create<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for refunding the deposit of a target asset account.
-pub trait Refund<AccountId>: Inspect<AccountId> {
+pub trait Refund<AccountId> {
+	/// Means of identifying one asset class from another.
+	type AssetId: AssetId;
+	/// Scalar type for representing balance of an account.
+	type Balance: Balance;
 	/// Returns the amount of account deposit and depositor address, if any.
 	fn deposit_held(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
 	/// Return the deposit (if any) of a target asset account.
