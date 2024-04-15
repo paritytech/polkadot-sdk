@@ -261,7 +261,6 @@ pub fn versioned_trait_name(trait_ident: &Ident, version: u64) -> Ident {
 }
 
 /// Extract the documentation from the provided attributes.
-#[cfg(feature = "frame-metadata")]
 pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Lit> {
 	use quote::ToTokens;
 	attrs
@@ -277,7 +276,6 @@ pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Lit> {
 }
 
 /// Filters all attributes except the cfg ones.
-#[cfg(feature = "frame-metadata")]
 pub fn filter_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
 	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
 }
