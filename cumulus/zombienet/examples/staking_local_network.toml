@@ -21,4 +21,4 @@ chain = "staking-rococo-dev"
   name = "charlie-collator"
   validator = true
   command = "~/cargo_target/debug/polkadot-parachain"
-  args = ["--force-authoring --log=runtime::multiblock-election=trace --offchain-worker=always"]
+  args = ["--force-authoring --log=runtime::multiblock-election=trace,runtime::staking=trace --offchain-worker=always"]

@@ -30,8 +30,8 @@ use sp_std::{cmp::Reverse, collections::btree_map::BTreeMap, vec, vec::Vec};
 macro_rules! log {
 	($level:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
-			target: $crate::LOG_PREFIX,
-			concat!("[#{:?}] 🗳🗳🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values)*
+			target: $crate::LOG_TARGET,
+			concat!("[#{:?}]:    🎯🎯🎯 🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
 }
@@ -42,8 +42,8 @@ macro_rules! sublog {
 		log!($level, $pattern $(, $values )*);
 		#[cfg(feature = "std")]
 		log::$level!(
-			target: format!("{}::{}", $crate::LOG_PREFIX, $sub_pallet).as_ref(),
-			concat!("[#{:?}] 🗳🗳🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values )*
+			target: format!("{}::{}", $crate::LOG_TARGET, $sub_pallet).as_ref(),
+			concat!("[#{:?}]:     🎯🎯🎯 🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values )*
 		)
 	};
 }

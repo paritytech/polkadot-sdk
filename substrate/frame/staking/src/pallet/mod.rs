@@ -785,7 +785,11 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
-		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
+		EraPaid {
+			era_index: EraIndex,
+			validator_payout: BalanceOf<T>,
+			remainder: BalanceOf<T>,
+		},
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
 			stash: T::AccountId,
@@ -793,43 +797,81 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		},
 		/// A staker (validator or nominator) has been slashed by the given amount.
-		Slashed { staker: T::AccountId, amount: BalanceOf<T> },
+		Slashed {
+			staker: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// A slash for the given validator, for the given percentage of their stake, at the given
 		/// era as been reported.
-		SlashReported { validator: T::AccountId, fraction: Perbill, slash_era: EraIndex },
+		SlashReported {
+			validator: T::AccountId,
+			fraction: Perbill,
+			slash_era: EraIndex,
+		},
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
-		OldSlashingReportDiscarded { session_index: SessionIndex },
+		OldSlashingReportDiscarded {
+			session_index: SessionIndex,
+		},
 		/// A new set of stakers was elected.
 		StakersElected,
 		/// An account has bonded this amount. \[stash, amount\]
 		///
 		/// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
 		/// it will not be emitted for staking rewards when they are added to stake.
-		Bonded { stash: T::AccountId, amount: BalanceOf<T> },
+		Bonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An account has unbonded this amount.
-		Unbonded { stash: T::AccountId, amount: BalanceOf<T> },
+		Unbonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue.
-		Withdrawn { stash: T::AccountId, amount: BalanceOf<T> },
+		Withdrawn {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// A nominator has been kicked from a validator.
-		Kicked { nominator: T::AccountId, stash: T::AccountId },
+		Kicked {
+			nominator: T::AccountId,
+			stash: T::AccountId,
+		},
 		/// The election failed. No new era is planned.
 		StakingElectionFailed,
 		/// An account has stopped participating as either a validator or nominator.
-		Chilled { stash: T::AccountId },
+		Chilled {
+			stash: T::AccountId,
+		},
 		/// The stakers' rewards are getting paid.
-		PayoutStarted { era_index: EraIndex, validator_stash: T::AccountId },
+		PayoutStarted {
+			era_index: EraIndex,
+			validator_stash: T::AccountId,
+		},
 		/// A validator has set their preferences.
-		ValidatorPrefsSet { stash: T::AccountId, prefs: ValidatorPrefs },
+		ValidatorPrefsSet {
+			stash: T::AccountId,
+			prefs: ValidatorPrefs,
+		},
 		/// Voters size limit reached.
-		SnapshotVotersSizeExceeded { size: u32 },
+		SnapshotVotersSizeExceeded {
+			size: u32,
+		},
 		/// Targets size limit reached.
-		SnapshotTargetsSizeExceeded { size: u32 },
+		SnapshotTargetsSizeExceeded {
+			size: u32,
+		},
 		/// A new force era mode was set.
-		ForceEra { mode: Forcing },
+		ForceEra {
+			mode: Forcing,
+		},
 
-		StakingTrace { election_estimation: BlockNumberFor<T>, now: BlockNumberFor<T> },
+		StakingTrace {
+			election_estimation: BlockNumberFor<T>,
+			now: BlockNumberFor<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -923,7 +965,10 @@ pub mod pallet {
 			} else {
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
 
-				Self::deposit_event(Event::StakingTrace{now, election_estimation: next_election});
+				Self::deposit_event(Event::StakingTrace {
+					now,
+					election_estimation: next_election,
+				});
 
 				if now == (next_election.saturating_sub(pages)) {
 					// start calling elect.

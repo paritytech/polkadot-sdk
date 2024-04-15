@@ -106,7 +106,7 @@ pub mod helpers;
 #[cfg(test)]
 mod mock;
 
-const LOG_PREFIX: &'static str = "runtime::multiblock-election";
+const LOG_TARGET: &'static str = "runtime::multiblock-election";
 
 pub mod signed;
 pub mod types;

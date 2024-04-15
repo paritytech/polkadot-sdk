@@ -678,7 +678,25 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		let partial_score =
 			Miner::<T, T::OffchainSolver>::compute_partial_score(&paged_solution, page)?;
 
+		// if it's the last page, clear the storage with data for the current round.
+		if page == EPM::<T>::lsp() {
+			Self::clear_cache();
+		}
+
 		Ok((full_score, partial_score, paged_solution))
+	}
+
+	fn clear_cache() {
+		let mut score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
+		score_storage.clear();
+
+		for idx in (0..EPM::<T>::msp()).into_iter() {
+			let cache_id = Self::paged_cache_id(idx as PageIndex)
+				.expect("page index was calculated based on the msp.");
+			let mut page_storage = StorageValueRef::persistent(&cache_id);
+
+			page_storage.clear();
+		}
 	}
 
 	fn paged_cache_id(page: PageIndex) -> Result<Vec<u8>, OffchainMinerError> {

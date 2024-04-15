@@ -33,9 +33,7 @@
 //! > TODO
 
 // TODO(gpestana): clean up imports.
-use frame_election_provider_support::{
-    NposSolution, PageIndex, TryIntoBoundedSupports,
-};
+use frame_election_provider_support::{NposSolution, PageIndex, TryIntoBoundedSupports};
 use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
@@ -426,8 +424,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				sublog!(
 					error,
 					"verifier",
-					"T::SolutionDataProvider failed to deliver page {}.",
-					current_page
+					"T::SolutionDataProvider failed to deliver page {} at {:?}.",
+					current_page,
+					crate::Pallet::<T>::current_phase(),
 				);
 				// reset election data and notify the `T::SolutionDataProvider`.
 				QueuedSolution::<T>::clear_invalid_and_backings();

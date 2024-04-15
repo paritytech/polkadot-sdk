@@ -105,7 +105,13 @@ pub(crate) mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_page_unsigned { page, solution, partial_score, claimed_full_score } = call {
+			if let Call::submit_page_unsigned {
+				page,
+				solution,
+				partial_score,
+				claimed_full_score,
+			} = call
+			{
 				Self::validate_inherent(page, solution, partial_score, claimed_full_score)
 			} else {
 				InvalidTransaction::Call.into()
