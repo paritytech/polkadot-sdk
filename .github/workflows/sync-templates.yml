@@ -26,6 +26,7 @@ on:
 jobs:
   sync-templates:
     runs-on: ubuntu-latest
+    environment: master
     strategy:
       fail-fast: false
       matrix:

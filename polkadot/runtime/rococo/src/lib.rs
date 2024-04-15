@@ -25,6 +25,7 @@ use beefy_primitives::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
+use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
@@ -73,9 +74,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
-		ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EnsureOrigin,
+		EnsureOriginWithArg, EverythingBut, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -234,6 +236,72 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 	}
 }
 
+/// Dynamic params that can be adjusted at runtime.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod nis {
+		use super::*;
+
+		#[codec(index = 0)]
+		pub static Target: Perquintill = Perquintill::zero();
+
+		#[codec(index = 1)]
+		pub static MinBid: Balance = 100 * UNITS;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod preimage {
+		use super::*;
+
+		#[codec(index = 0)]
+		pub static BaseDeposit: Balance = deposit(2, 64);
+
+		#[codec(index = 1)]
+		pub static ByteDeposit: Balance = deposit(0, 1);
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Preimage(dynamic_params::preimage::Parameters::BaseDeposit(
+			dynamic_params::preimage::BaseDeposit,
+			Some(1u32.into()),
+		))
+	}
+}
+
+/// Defines what origin can modify which dynamic parameters.
+pub struct DynamicParameterOrigin;
+impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParameterOrigin {
+	type Success = ();
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
+
+		match key {
+			Nis(nis::ParametersKey::MinBid(_)) => StakingAdmin::ensure_origin(origin.clone()),
+			Nis(nis::ParametersKey::Target(_)) => GeneralAdmin::ensure_origin(origin.clone()),
+			Preimage(_) => frame_system::ensure_root(origin.clone()),
+		}
+		.map_err(|_| origin)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		// Provide the origin for the parameter returned by `Default`:
+		Ok(RuntimeOrigin::root())
+	}
+}
+
 impl pallet_scheduler::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
@@ -250,8 +318,6 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -264,7 +330,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -1128,12 +1198,10 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 
 parameter_types! {
 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-	pub const MinBid: Balance = 100 * UNITS;
 	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
 	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
 	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
 	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-	pub storage NisTarget: Perquintill = Perquintill::zero();
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 }
 
@@ -1147,13 +1215,13 @@ impl pallet_nis::Config for Runtime {
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = (); // Mint
 	type IgnoredIssuance = ();
-	type Target = NisTarget;
+	type Target = dynamic_params::nis::Target;
 	type PalletId = NisPalletId;
 	type QueueCount = ConstU32<300>;
 	type MaxQueueLen = ConstU32<1000>;
 	type FifoQueueLen = ConstU32<250>;
 	type BasePeriod = NisBasePeriod;
-	type MinBid = MinBid;
+	type MinBid = dynamic_params::nis::MinBid;
 	type MinReceipt = MinReceipt;
 	type IntakePeriod = IntakePeriod;
 	type MaxIntakeWeight = MaxIntakeWeight;
@@ -1161,6 +1229,13 @@ impl pallet_nis::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = ();
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = DynamicParameterOrigin;
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1195,6 +1270,7 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type WeightInfo = ();
 	type LeafData = pallet_beefy_mmr::Pallet<Runtime>;
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 }
 
 parameter_types! {
@@ -1290,6 +1366,7 @@ construct_runtime! {
 		Timestamp: pallet_timestamp = 2,
 		Indices: pallet_indices = 3,
 		Balances: pallet_balances = 4,
+		Parameters: pallet_parameters = 6,
 		TransactionPayment: pallet_transaction_payment = 33,
 
 		// Consensus support.
@@ -1630,6 +1707,7 @@ mod benches {
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
+		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, FellowshipCollective]

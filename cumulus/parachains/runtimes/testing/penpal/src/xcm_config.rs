@@ -40,7 +40,7 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
-use sp_runtime::traits::{AccountIdConversion, ConvertInto};
+use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -84,7 +84,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting assets on this chain.
-pub type CurrencyTransactor = FungibleAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -131,7 +131,11 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-pub type ForeignAssetsConvertedConcreteId = assets_common::LocationConvertedConcreteId<
+// Using the latest `Location`, we don't need to worry about migrations for Penpal.
+pub type ForeignAssetsAssetId = Location;
+pub type ForeignAssetsConvertedConcreteId = xcm_builder::MatchedConvertedConcreteId<
+	Location,
+	Balance,
 	EverythingBut<(
 		// Here we rely on fact that something like this works:
 		// assert!(Location::new(1,
@@ -139,7 +143,8 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::LocationConvertedConc
 		// assert!([Parachain(100)].into().starts_with(&Here));
 		StartsWith<assets_common::matching::LocalLocationPattern>,
 	)>,
-	Balance,
+	Identity,
+	TryConvertInto,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -159,7 +164,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors = (CurrencyTransactor, ForeignFungiblesTransactor, FungiblesTransactor);
+pub type AssetTransactors = (FungibleTransactor, ForeignFungiblesTransactor, FungiblesTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -416,8 +421,8 @@ impl cumulus_pallet_xcm::Config for Runtime {
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> xcm::v3::Location {
-		xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(id)])
+impl pallet_assets::BenchmarkHelper<ForeignAssetsAssetId> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> ForeignAssetsAssetId {
+		Location::new(1, [Parachain(id)])
 	}
 }
