@@ -309,18 +309,20 @@ where
 
 	/// Generate the initial events reported by the RPC `follow` method.
 	///
-	/// Returns the initial events that should be reported directly, together with pruned
-	/// block hashes that should be ignored by the `Finalized` event.
+	/// Returns the initial events that should be reported directly.
 	fn generate_init_events(
 		&mut self,
 		startup_point: &StartupPoint<Block>,
-	) -> Result<(Vec<FollowEvent<Block::Hash>>, HashSet<Block::Hash>), SubscriptionManagementError>
-	{
+	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
 		let init = self.get_init_blocks_with_forks(startup_point.finalized_hash)?;
 
 		// The initialized event is the first one sent.
 		let initial_blocks = init.finalized_block_descendants;
 		let finalized_block_hashes = init.finalized_block_hashes;
+		// These are the pruned blocks that we should not report again.
+		for pruned in init.pruned_forks {
+			self.pruned_blocks.insert(pruned, ());
+		}
 
 		let finalized_block_hash = startup_point.finalized_hash;
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
@@ -355,7 +357,7 @@ where
 			finalized_block_descendants.push(best_block);
 		};
 
-		Ok((finalized_block_descendants, init.pruned_forks))
+		Ok(finalized_block_descendants)
 	}
 
 	/// Generate the "NewBlock" event and potentially the "BestBlockChanged" event for the
@@ -687,7 +689,7 @@ where
 			.map(|response| NotificationType::MethodResponse(response));
 
 		let startup_point = StartupPoint::from(self.client.info());
-		let (initial_events, pruned_forks) = match self.generate_init_events(&startup_point) {
+		let initial_events = match self.generate_init_events(&startup_point) {
 			Ok(blocks) => blocks,
 			Err(err) => {
 				debug!(
@@ -707,10 +709,6 @@ where
 		let merged = tokio_stream::StreamExt::merge(merged, stream_responses);
 		let stream = stream::once(futures::future::ready(initial)).chain(merged);
 
-		// These are the pruned blocks that we should not report again.
-		for pruned in pruned_forks {
-			self.pruned_blocks.insert(pruned, ());
-		}
 		self.submit_events(&startup_point, stream.boxed(), sink, sub_data.rx_stop).await
 	}
 }
