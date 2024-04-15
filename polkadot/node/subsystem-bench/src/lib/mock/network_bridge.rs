@@ -42,8 +42,8 @@ pub struct MockNetworkBridgeTx {
 	network: NetworkEmulatorHandle,
 	/// A channel to the network interface,
 	to_network_interface: UnboundedSender<NetworkMessage>,
-	/// Test authorithies
-	test_authorithies: TestAuthorities,
+	/// Test authorities
+	test_authorities: TestAuthorities,
 }
 
 /// A mock of the network bridge tx subsystem.
@@ -58,9 +58,9 @@ impl MockNetworkBridgeTx {
 	pub fn new(
 		network: NetworkEmulatorHandle,
 		to_network_interface: UnboundedSender<NetworkMessage>,
-		test_authorithies: TestAuthorities,
+		test_authorities: TestAuthorities,
 	) -> MockNetworkBridgeTx {
-		Self { network, to_network_interface, test_authorithies }
+		Self { network, to_network_interface, test_authorities }
 	}
 }
 
@@ -125,13 +125,13 @@ impl MockNetworkBridgeTx {
 						}
 					},
 					NetworkBridgeTxMessage::ReportPeer(_) => {
-						// ingore rep changes
+						// ignore rep changes
 					},
 					NetworkBridgeTxMessage::SendValidationMessage(peers, message) => {
 						for peer in peers {
 							self.to_network_interface
 								.unbounded_send(NetworkMessage::MessageFromNode(
-									self.test_authorithies
+									self.test_authorities
 										.peer_id_to_authority
 										.get(&peer)
 										.unwrap()

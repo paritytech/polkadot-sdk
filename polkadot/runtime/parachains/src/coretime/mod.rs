@@ -83,6 +83,8 @@ enum CoretimeCalls {
 	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
 	#[codec(index = 19)]
 	NotifyCoreCount(u16),
+	#[codec(index = 99)]
+	SwapLeases(ParaId, ParaId),
 }
 
 #[frame_support::pallet]
@@ -231,6 +233,24 @@ impl<T: Config> Pallet<T> {
 			) {
 				log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
 			}
+		}
+	}
+
+	// Handle legacy swaps in coretime. Notifies broker parachain that a lease swap has occurred via
+	// XCM message. This function is meant to be used in an implementation of `OnSwap` trait.
+	pub fn on_legacy_lease_swap(one: ParaId, other: ParaId) {
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			mk_coretime_call(crate::coretime::CoretimeCalls::SwapLeases(one, other)),
+		]);
+		if let Err(err) = send_xcm::<T::SendXcm>(
+			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
+			message,
+		) {
+			log::error!("Sending `SwapLeases` to coretime chain failed: {:?}", err);
 		}
 	}
 }

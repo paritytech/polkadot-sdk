@@ -121,6 +121,8 @@ impl pallet_nis::Config for Test {
 	type MinReceipt = MinReceipt;
 	type ThawThrottle = ThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
 }
 
 // This function basically just builds a genesis storage key/value store according to

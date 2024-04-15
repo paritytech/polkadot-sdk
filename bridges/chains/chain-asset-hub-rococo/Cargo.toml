@@ -1,0 +1,30 @@
+[package]
+name = "bp-asset-hub-rococo"
+description = "Primitives of AssetHubRococo parachain runtime."
+version = "0.4.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+
+# Substrate Dependencies
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+
+# Bridge Dependencies
+bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"bp-xcm-bridge-hub-router/std",
+	"codec/std",
+	"frame-support/std",
+	"scale-info/std",
+]

@@ -23,12 +23,12 @@ use crate::{
 	exec::{AccountIdOf, Key},
 	weights::WeightInfo,
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
-	Error, Pallet, TrieId, SENTINEL,
+	Error, TrieId, SENTINEL,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	storage::child::{self, ChildInfo},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
@@ -125,9 +125,7 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Same as [`Self::extra_deposit`] but including the base deposit.
 	pub fn total_deposit(&self) -> BalanceOf<T> {
-		self.extra_deposit()
-			.saturating_add(self.storage_base_deposit)
-			.saturating_sub(Pallet::<T>::min_balance())
+		self.extra_deposit().saturating_add(self.storage_base_deposit)
 	}
 
 	/// Returns the storage base deposit of the contract.
@@ -213,7 +211,6 @@ impl<T: Config> ContractInfo<T> {
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract's code.
 	pub fn update_base_deposit(&mut self, code_info: &CodeInfo<T>) -> BalanceOf<T> {
-		let ed = Pallet::<T>::min_balance();
 		let info_deposit =
 			Diff { bytes_added: self.encoded_size() as u32, items_added: 1, ..Default::default() }
 				.update_contract::<T>(None)
@@ -224,11 +221,7 @@ impl<T: Config> ContractInfo<T> {
 		// to prevent abuse.
 		let upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		// Instantiate needs to transfer at least the minimum balance in order to pull the
-		// contract's own account into existence, as the deposit itself does not contribute to the
-		// `ed`.
-		let deposit = info_deposit.saturating_add(upload_deposit).saturating_add(ed);
-
+		let deposit = info_deposit.saturating_add(upload_deposit);
 		self.storage_base_deposit = deposit;
 		deposit
 	}
@@ -279,14 +272,15 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Calculates the weight that is necessary to remove one key from the trie and how many
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
-	pub fn deletion_budget(weight_limit: Weight) -> (Weight, u32) {
+	pub fn deletion_budget(meter: &WeightMeter) -> (Weight, u32) {
 		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
 		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
 			T::WeightInfo::on_initialize_per_trie_key(0);
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
-		let key_budget = weight_limit
+		let key_budget = meter
+			.limit()
 			.saturating_sub(base_weight)
 			.checked_div_per_component(&weight_per_key)
 			.unwrap_or(0) as u32;
@@ -295,24 +289,18 @@ impl<T: Config> ContractInfo<T> {
 	}
 
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
-	///
-	/// It returns the amount of weight used for that task.
-	pub fn process_deletion_queue_batch(weight_limit: Weight) -> Weight {
+	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
+		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
+			return
+		};
+
 		let mut queue = <DeletionQueueManager<T>>::load();
-
 		if queue.is_empty() {
-			return Weight::zero()
+			return;
 		}
 
-		let (weight_per_key, mut remaining_key_budget) = Self::deletion_budget(weight_limit);
-
-		// We want to check whether we have enough weight to decode the queue before
-		// proceeding. Too little weight for decoding might happen during runtime upgrades
-		// which consume the whole block before the other `on_initialize` blocks are called.
-		if remaining_key_budget == 0 {
-			return weight_limit
-		}
-
+		let (weight_per_key, budget) = Self::deletion_budget(&meter);
+		let mut remaining_key_budget = budget;
 		while remaining_key_budget > 0 {
 			let Some(entry) = queue.next() else { break };
 
@@ -324,7 +312,10 @@ impl<T: Config> ContractInfo<T> {
 
 			match outcome {
 				// This happens when our budget wasn't large enough to remove all keys.
-				KillStorageResult::SomeRemaining(_) => return weight_limit,
+				KillStorageResult::SomeRemaining(keys_removed) => {
+					remaining_key_budget.saturating_reduce(keys_removed);
+					break
+				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
 					// charge at least one key even if none were removed.
@@ -333,7 +324,7 @@ impl<T: Config> ContractInfo<T> {
 			};
 		}
 
-		weight_limit.saturating_sub(weight_per_key.saturating_mul(u64::from(remaining_key_budget)))
+		meter.consume(weight_per_key.saturating_mul(u64::from(budget - remaining_key_budget)))
 	}
 
 	/// Returns the code hash of the contract specified by `account` ID.

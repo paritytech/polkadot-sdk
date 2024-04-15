@@ -16,6 +16,7 @@
 
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
+use codec::Encode;
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
 use frame_support::{
 	traits::fungible::{Inspect, Mutate},
@@ -107,6 +108,21 @@ benchmarks! {
 		.into();
 		let versioned_msg = VersionedXcm::from(msg);
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
+
+	send_blob {
+		let send_origin =
+			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+		}
+		let msg = Xcm::<()>(vec![ClearOrigin]);
+		let versioned_dest: VersionedLocation = T::reachable_dest().ok_or(
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
+		)?
+		.into();
+		let versioned_msg = VersionedXcm::from(msg);
+		let encoded_versioned_msg = versioned_msg.encode().try_into().unwrap();
+	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), encoded_versioned_msg)
 
 	teleport_assets {
 		let (asset, destination) = T::teleportable_asset_and_dest().ok_or(
@@ -226,6 +242,19 @@ benchmarks! {
 		}
 		let versioned_msg = VersionedXcm::from(msg);
 	}: _<RuntimeOrigin<T>>(execute_origin, Box::new(versioned_msg), Weight::MAX)
+
+	execute_blob {
+		let execute_origin =
+			T::ExecuteXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let origin_location = T::ExecuteXcmOrigin::try_origin(execute_origin.clone())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let msg = Xcm(vec![ClearOrigin]);
+		if !T::XcmExecuteFilter::contains(&(origin_location, msg.clone())) {
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+		}
+		let versioned_msg = VersionedXcm::from(msg);
+		let encoded_versioned_msg = versioned_msg.encode().try_into().unwrap();
+	}: _<RuntimeOrigin<T>>(execute_origin, encoded_versioned_msg, Weight::MAX)
 
 	force_xcm_version {
 		let loc = T::reachable_dest().ok_or(

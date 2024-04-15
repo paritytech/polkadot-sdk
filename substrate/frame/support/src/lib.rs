@@ -145,7 +145,7 @@ impl TypeId for PalletId {
 /// # Examples
 ///
 /// There are different ways to declare the `prefix` to use. The `prefix` type can either be
-/// declared explicetly by passing it to the macro as an attribute or by letting the macro
+/// declared explicitly by passing it to the macro as an attribute or by letting the macro
 /// guess on what the `prefix` type is. The `prefix` is always passed as the first generic
 /// argument to the type declaration. When using [`#[pallet::storage]`](pallet_macros::storage)
 /// this first generic argument is always `_`. Besides declaring the `prefix`, the rest of the
@@ -1110,7 +1110,7 @@ pub mod pallet_macros {
 
 	/// Declares a storage as unbounded in potential size.
 	///
-	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
+	/// When implementing the storage info (when `#[pallet::generate_storage_info]` is
 	/// specified on the pallet struct placeholder), the size of the storage will be declared
 	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
 	/// Validity).
@@ -2340,7 +2340,7 @@ pub mod pallet_macros {
 
 	/// Allows defining conditions for a task to run.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
 	/// given work item to be valid.
 	///
@@ -2351,7 +2351,7 @@ pub mod pallet_macros {
 
 	/// Allows defining an index for a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
 	/// work item.
 	///
@@ -2361,7 +2361,7 @@ pub mod pallet_macros {
 
 	/// Allows defining an iterator over available work items for a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`).
 	///
 	/// It takes an iterator as input that yields a tuple with same types as the function
@@ -2370,7 +2370,7 @@ pub mod pallet_macros {
 
 	/// Allows defining the weight of a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
 	/// item.
 	///

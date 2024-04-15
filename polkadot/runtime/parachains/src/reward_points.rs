@@ -45,7 +45,7 @@ where
 		indices: impl IntoIterator<Item = ValidatorIndex>,
 		points: u32,
 	) {
-		let validators = session_info::Pallet::<C>::account_keys(&session_index);
+		let validators = session_info::AccountKeys::<C>::get(&session_index);
 		let validators = match validators
 			.defensive_proof("account_keys are present for dispute_period sessions")
 		{
@@ -71,7 +71,7 @@ where
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
 {
 	fn reward_backing(indices: impl IntoIterator<Item = ValidatorIndex>) {
-		let session_index = shared::Pallet::<C>::session_index();
+		let session_index = shared::CurrentSessionIndex::<C>::get();
 		Self::reward_only_active(session_index, indices, BACKING_POINTS);
 	}
 

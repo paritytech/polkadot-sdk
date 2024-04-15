@@ -186,7 +186,7 @@ pub fn teleports_for_native_asset_works<
 
 				// Mint funds into account to ensure it has enough balance to pay delivery fees
 				let delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
 						(native_asset_id.clone(), native_asset_to_teleport_away.into()).into(),
 						0,
 						Unlimited,
@@ -579,7 +579,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				// Make sure the target account has enough native asset to pay for delivery fees
 				let delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
 						(foreign_asset_id_location_latest.clone(), asset_to_teleport_away).into(),
 						0,
 						Unlimited,
@@ -1120,7 +1120,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 	AssetId: Clone,
 	AssetIdConverter: MaybeEquivalence<Location, AssetId>,
 {
-	// foreign parachain with the same consenus currency as asset
+	// foreign parachain with the same consensus currency as asset
 	let foreign_asset_id_location = Location::new(1, [Parachain(2222), GeneralIndex(1234567)]);
 	let asset_id = AssetIdConverter::convert(&foreign_asset_id_location).unwrap();
 

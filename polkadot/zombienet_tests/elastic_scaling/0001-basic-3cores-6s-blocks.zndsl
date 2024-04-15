@@ -1,0 +1,28 @@
+Description: Test with adder collator using 3 cores and async backing
+Network: ./0001-basic-3cores-6s-blocks.toml
+Creds: config
+
+# Check authority status.
+elastic-validator-0: reports node_roles is 4
+elastic-validator-1: reports node_roles is 4
+elastic-validator-2: reports node_roles is 4
+elastic-validator-3: reports node_roles is 4
+elastic-validator-4: reports node_roles is 4
+
+
+# Register 2 extra cores to this some-parachain.
+elastic-validator-0: js-script ./assign-core.js with "2000,0" return is 0 within 600 seconds
+elastic-validator-0: js-script ./assign-core.js with "2000,1" return is 0 within 600 seconds
+
+# Wait for 20 relay chain blocks 
+elastic-validator-0: reports substrate_block_height{status="best"} is at least 20 within 600 seconds
+
+# Non elastic parachain should progress normally
+some-parachain-1: count of log lines containing "Parachain velocity: 1" is at least 5 within 20 seconds
+# Sanity
+some-parachain-1: count of log lines containing "Parachain velocity: 2" is 0
+
+# Parachain should progress 3 blocks per relay chain block ideally, however CI might not be
+# the most performant environment so we'd just use a lower bound of 2 blocks per RCB
+elastic-validator-0: parachain 2000 block height is at least 20 within 200 seconds
+
