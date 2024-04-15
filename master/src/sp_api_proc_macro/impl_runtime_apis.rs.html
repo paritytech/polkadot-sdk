@@ -1111,9 +1111,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#962" id="962">962</a>
 <a href="#963" id="963">963</a>
 <a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1937,10 +1934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>wasm_interface = generate_wasm_interface(api_impls)<span class="question-mark">?</span>;
 	<span class="kw">let </span>api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)<span class="question-mark">?</span>;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
-	</span><span class="kw">let </span>runtime_metadata = <span class="kw">crate</span>::runtime_metadata::generate_impl_runtime_metadata(api_impls)<span class="question-mark">?</span>;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;frame-metadata&quot;</span>))]
-	</span><span class="kw">let </span>runtime_metadata = <span class="macro">quote!</span>();
+	<span class="kw">let </span>runtime_metadata = <span class="kw">crate</span>::runtime_metadata::generate_impl_runtime_metadata(api_impls)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>impl_ = <span class="macro">quote!</span>(
 		#base_runtime_api

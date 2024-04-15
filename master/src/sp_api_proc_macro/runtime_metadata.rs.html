@@ -415,6 +415,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -581,15 +585,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>(impl_generics, <span class="kw">_</span>, where_clause) = generics.split_for_impl();
 
 	<span class="macro">quote!</span>(
-		#( #attrs )*
-		<span class="attr">#[inline(always)]
-		</span><span class="kw">pub fn </span>runtime_metadata #impl_generics () -&gt; #crate_::metadata_ir::RuntimeApiMetadataIR
-		#where_clause
-		{
-			#crate_::metadata_ir::RuntimeApiMetadataIR {
-				name: #trait_name,
-				methods: #<span class="macro">crate_::vec!</span>[ #( #methods, )* ],
-				docs: #docs,
+		#<span class="macro">crate_::frame_metadata_enabled! </span>{
+			#( #attrs )*
+			<span class="attr">#[inline(always)]
+			</span><span class="kw">pub fn </span>runtime_metadata #impl_generics () -&gt; #crate_::metadata_ir::RuntimeApiMetadataIR
+				#where_clause
+			{
+				#crate_::metadata_ir::RuntimeApiMetadataIR {
+					name: #trait_name,
+					methods: #<span class="macro">crate_::vec!</span>[ #( #methods, )* ],
+					docs: #docs,
+				}
 			}
 		}
 	)
@@ -672,15 +678,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// `construct_runtime!` is called.
 
 	</span><span class="prelude-val">Ok</span>(<span class="macro">quote!</span>(
-		<span class="attr">#[doc(hidden)]
-		</span><span class="kw">trait </span>InternalImplRuntimeApis {
-			<span class="attr">#[inline(always)]
-			</span><span class="kw">fn </span>runtime_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; #crate_::vec::Vec&lt;#crate_::metadata_ir::RuntimeApiMetadataIR&gt; {
-				#<span class="macro">crate_::vec!</span>[ #( #metadata, )* ]
+		#<span class="macro">crate_::frame_metadata_enabled! </span>{
+			<span class="attr">#[doc(hidden)]
+			</span><span class="kw">trait </span>InternalImplRuntimeApis {
+				<span class="attr">#[inline(always)]
+				</span><span class="kw">fn </span>runtime_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; #crate_::vec::Vec&lt;#crate_::metadata_ir::RuntimeApiMetadataIR&gt; {
+					#<span class="macro">crate_::vec!</span>[ #( #metadata, )* ]
+				}
 			}
+			<span class="attr">#[doc(hidden)]
+			</span><span class="kw">impl </span>InternalImplRuntimeApis <span class="kw">for </span>#runtime_name {}
 		}
-		<span class="attr">#[doc(hidden)]
-		</span><span class="kw">impl </span>InternalImplRuntimeApis <span class="kw">for </span>#runtime_name {}
 	))
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

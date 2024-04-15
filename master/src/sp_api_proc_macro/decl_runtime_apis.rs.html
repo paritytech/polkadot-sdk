@@ -883,9 +883,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1081,10 +1078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			get_api_version(<span class="kw-2">&amp;</span>found_attributes).map(|v| generate_runtime_api_version(v <span class="kw">as </span>u32))<span class="question-mark">?</span>;
 		<span class="kw">let </span>id = generate_runtime_api_id(<span class="kw-2">&amp;</span>decl.ident.to_string());
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
-		</span><span class="kw">let </span>metadata = <span class="kw">crate</span>::runtime_metadata::generate_decl_runtime_metadata(<span class="kw-2">&amp;</span>decl);
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;frame-metadata&quot;</span>))]
-		</span><span class="kw">let </span>metadata = <span class="macro">quote!</span>();
+		<span class="kw">let </span>metadata = <span class="kw">crate</span>::runtime_metadata::generate_decl_runtime_metadata(<span class="kw-2">&amp;</span>decl);
 
 		<span class="kw">let </span>trait_api_version = get_api_version(<span class="kw-2">&amp;</span>found_attributes)<span class="question-mark">?</span>;
 

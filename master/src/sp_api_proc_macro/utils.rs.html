@@ -476,8 +476,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -741,7 +739,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Extract the documentation from the provided attributes.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
 </span><span class="kw">pub fn </span>get_doc_literals(attrs: <span class="kw-2">&amp;</span>[syn::Attribute]) -&gt; Vec&lt;syn::Lit&gt; {
 	<span class="kw">use </span>quote::ToTokens;
 	attrs
@@ -757,7 +754,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Filters all attributes except the cfg ones.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
 </span><span class="kw">pub fn </span>filter_cfg_attributes(attrs: <span class="kw-2">&amp;</span>[syn::Attribute]) -&gt; Vec&lt;syn::Attribute&gt; {
 	attrs.iter().filter(|a| a.path().is_ident(<span class="string">&quot;cfg&quot;</span>)).cloned().collect()
 }
