@@ -81,14 +81,15 @@ parameter_types! {
 	pub const RococoPeopleToRococoBulletinMessagesLane: bp_messages::LaneId
 		= XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN;
 
+	// see the `FEE_BOOST_PER_RELAY_HEADER` constant get the meaning of this value
+	pub PriorityBoostPerRelayHeader: u64 = 58_014_163_614_163;
+
 	/// Priority boost that the registered relayer receives for every additional message in the message
 	/// delivery transaction.
 	///
 	/// It is determined semi-automatically - see `FEE_BOOST_PER_MESSAGE` constant to get the
 	/// meaning of this value.
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
-
-	pub PriorityBoostPerHeader: u64 = PriorityBoostPerMessage::get() / 1_000_000; // TODO
 
 	/// Identifier of the sibling Rococo People parachain.
 	pub RococoPeopleParaId: cumulus_primitives_core::ParaId = rococo_runtime_constants::system_parachain::PEOPLE_ID.into();
@@ -243,6 +244,9 @@ mod tests {
 	/// operational costs and a faster bridge), so this value should be significant.
 	const FEE_BOOST_PER_MESSAGE: Balance = 2 * rococo::currency::UNITS;
 
+	// see `FEE_BOOST_PER_MESSAGE` comment
+	const FEE_BOOST_PER_RELAY_HEADER: Balance = 2 * rococo::currency::UNITS;
+
 	#[test]
 	fn ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
 		check_message_lane_weights::<
@@ -272,7 +276,13 @@ mod tests {
 		// Bulletin chain - it has the same (almost) runtime for Polkadot Bulletin and Rococo
 		// Bulletin, so we have to adhere Polkadot names here
 
-		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::per_relay_header::ensure_priority_boost_is_sane::<
+			Runtime,
+			BridgeGrandpaRococoBulletinInstance,
+			PriorityBoostPerRelayHeader,
+		>(FEE_BOOST_PER_RELAY_HEADER);
+
+		bridge_runtime_common::extensions::priority_calculator::per_message::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
 			PriorityBoostPerMessage,

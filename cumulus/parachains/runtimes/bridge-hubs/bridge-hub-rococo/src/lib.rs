@@ -749,13 +749,13 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	CheckAndBoostBridgeGrandpaTransactions<
 		Runtime,
 		bridge_common_config::BridgeGrandpaWestendInstance,
-		bridge_to_westend_config::PriorityBoostPerHeader,
+		bridge_to_westend_config::PriorityBoostPerRelayHeader,
 		xcm_config::TreasuryAccount,
 	>,
 	CheckAndBoostBridgeGrandpaTransactions<
 		Runtime,
 		bridge_common_config::BridgeGrandpaRococoBulletinInstance,
-		bridge_to_bulletin_config::PriorityBoostPerHeader,
+		bridge_to_bulletin_config::PriorityBoostPerRelayHeader,
 		xcm_config::TreasuryAccount,
 	>,
 	// Parachains
@@ -765,7 +765,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		bridge_common_config::BridgeParachainWestendInstance,
 			bp_bridge_hub_westend::BridgeHubWestend,
 		>,
-		bridge_to_westend_config::PriorityBoostPerHeader,
+		bridge_to_westend_config::PriorityBoostPerParachainHeader,
 		xcm_config::TreasuryAccount,
 	>,
 	// Messages

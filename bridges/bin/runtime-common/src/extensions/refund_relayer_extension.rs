@@ -24,7 +24,7 @@ use crate::messages_call_ext::{
 };
 use bp_messages::{LaneId, MessageNonce};
 use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::{Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
+use bp_runtime::{Parachain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
@@ -67,19 +67,7 @@ pub trait RefundableParachainId {
 	/// The instance of the bridge parachains pallet.
 	type Instance: 'static;
 	/// The parachain Id.
-	type Id: Get<u32>;
-}
-
-/// Default implementation of `RefundableParachainId`.
-pub struct DefaultRefundableParachainId<Instance, Id>(PhantomData<(Instance, Id)>);
-
-impl<Instance, Id> RefundableParachainId for DefaultRefundableParachainId<Instance, Id>
-where
-	Instance: 'static,
-	Id: Get<u32>,
-{
-	type Instance = Instance;
-	type Id = Id;
+	type BridgedChain: Parachain;
 }
 
 /// Implementation of `RefundableParachainId` for `trait Parachain`.
@@ -91,7 +79,7 @@ where
 	Para: Parachain,
 {
 	type Instance = Instance;
-	type Id = ParachainIdOf<Para>;
+	type BridgedChain = Para;
 }
 
 /// Trait identifying a bridged messages lane. A relayer might be refunded for delivering messages
@@ -659,7 +647,7 @@ where
 		let para_finality_call = calls
 			.next()
 			.transpose()?
-			.and_then(|c| c.submit_parachain_heads_info_for(Para::Id::get()));
+			.and_then(|c| c.submit_parachain_heads_info_for(Para::BridgedChain::PARACHAIN_ID));
 		let relay_finality_call =
 			calls.next().transpose()?.and_then(|c| c.submit_finality_proof_info());
 
@@ -713,7 +701,7 @@ where
 					target: "runtime::bridge",
 					"{} from parachain {} via {:?}: relayer {:?} has submitted invalid parachain finality proof",
 					Id::STR,
-					Para::Id::get(),
+					Para::BridgedChain::PARACHAIN_ID,
 					Msgs::Id::get(),
 					relayer,
 				);

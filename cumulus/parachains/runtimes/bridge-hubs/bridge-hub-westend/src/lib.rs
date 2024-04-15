@@ -511,7 +511,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	CheckAndBoostBridgeGrandpaTransactions<
 		Runtime,
 		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
-		bridge_to_rococo_config::PriorityBoostPerHeader,
+		bridge_to_rococo_config::PriorityBoostPerRelayHeader,
 		xcm_config::TreasuryAccount,
 	>,
 	// Parachains
@@ -521,7 +521,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 			bridge_to_rococo_config::BridgeParachainRococoInstance,
 			bp_bridge_hub_rococo::BridgeHubRococo,
 		>,
-		bridge_to_rococo_config::PriorityBoostPerHeader,
+		bridge_to_rococo_config::PriorityBoostPerParachainHeader,
 		xcm_config::TreasuryAccount,
 	>,
 	// Messages

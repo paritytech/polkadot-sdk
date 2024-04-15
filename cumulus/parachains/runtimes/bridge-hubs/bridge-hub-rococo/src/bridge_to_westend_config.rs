@@ -65,10 +65,12 @@ parameter_types! {
 		2,
 		[GlobalConsensus(WestendGlobalConsensusNetwork::get())]
 	);
+	// see the `FEE_BOOST_PER_RELAY_HEADER` constant get the meaning of this value
+	pub PriorityBoostPerRelayHeader: u64 = 32_007_814_407_814;
+	// see the `FEE_BOOST_PER_PARACHAIN_HEADER` constant get the meaning of this value
+	pub PriorityBoostPerParachainHeader: u64 = 1_396_340_903_540_903;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
-
-	pub PriorityBoostPerHeader: u64 = PriorityBoostPerMessage::get() / 1_000_000; // TODO
 
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
@@ -244,6 +246,7 @@ mod tests {
 	use crate::bridge_common_config::BridgeGrandpaWestendInstance;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
+		extensions::refund_relayer_extension::RefundableParachain,
 		integrity::{
 			assert_complete_bridge_constants, check_message_lane_weights,
 			AssertBridgeMessagesPalletConstants, AssertBridgePalletNames, AssertChainConstants,
@@ -263,6 +266,11 @@ mod tests {
 	/// We want this tip to be large enough (delivery transactions with more messages = less
 	/// operational costs and a faster bridge), so this value should be significant.
 	const FEE_BOOST_PER_MESSAGE: Balance = 2 * rococo::currency::UNITS;
+
+	// see `FEE_BOOST_PER_MESSAGE` comment
+	const FEE_BOOST_PER_RELAY_HEADER: Balance = 2 * rococo::currency::UNITS;
+	// see `FEE_BOOST_PER_MESSAGE` comment
+	const FEE_BOOST_PER_PARACHAIN_HEADER: Balance = 2 * rococo::currency::UNITS;
 
 	#[test]
 	fn ensure_bridge_hub_rococo_message_lane_weights_are_correct() {
@@ -316,7 +324,19 @@ mod tests {
 			},
 		});
 
-		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::per_relay_header::ensure_priority_boost_is_sane::<
+			Runtime,
+			BridgeGrandpaWestendInstance,
+			PriorityBoostPerRelayHeader,
+		>(FEE_BOOST_PER_RELAY_HEADER);
+
+		bridge_runtime_common::extensions::priority_calculator::per_parachain_header::ensure_priority_boost_is_sane::<
+			Runtime,
+			RefundableParachain<WithBridgeHubWestendMessagesInstance, BridgeHubWestend>,
+			PriorityBoostPerParachainHeader,
+		>(FEE_BOOST_PER_PARACHAIN_HEADER);
+
+		bridge_runtime_common::extensions::priority_calculator::per_message::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithBridgeHubWestendMessagesInstance,
 			PriorityBoostPerMessage,

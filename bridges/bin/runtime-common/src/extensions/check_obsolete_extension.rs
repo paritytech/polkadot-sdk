@@ -23,6 +23,7 @@ use crate::{
 	messages_call_ext::MessagesCallSubType,
 };
 use bp_relayers::ExplicitOrAccountParams;
+use bp_runtime::Parachain;
 use pallet_bridge_grandpa::{
 	BridgedBlockNumber, CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper,
 };
@@ -141,7 +142,7 @@ where
 		match ParachainsCallSubtype::<T, RefPara::Instance>::check_obsolete_submit_parachain_heads(
 			call,
 		) {
-			Ok(Some(our_tx)) if our_tx.base.para_id.0 == RefPara::Id::get() => {
+			Ok(Some(our_tx)) if our_tx.base.para_id.0 == RefPara::BridgedChain::PARACHAIN_ID => {
 				let to_post_dispatch = Some(our_tx.base);
 				let total_priority_boost =
 					compute_priority_boost::<T, _, Priority>(&who, our_tx.improved_by);
