@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713173313126,
+  "lastUpdate": 1713190781657,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4315,6 +4315,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.014542183666666677,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Javier Bullrich",
+            "username": "Bullrich",
+            "email": "javier@bullrich.dev"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "8b4cfda7589325d1a34f70b3770ab494a9d4052c",
+          "message": "added script to require a review post push (#3431)\n\nCloses https://github.com/paritytech/opstooling/issues/174\n\nAdded a new step in the action that triggers review bot to stop approval\nfrom new pushes.\n\nThis step works in the following way:\n- If the **author of the PR**, who **is not** a member of the org,\npushed a new commit then:\n- Review-Trigger requests new reviews from the reviewers and fails.\n\nIt *does not dismiss reviews*. It simply request them again, but they\nwill still be available.\n\nThis way, if the author changed something in the code, they will still\nneed to have this latest change approved to stop them from uploading\nmalicious code.\n\nFind the requested issue linked to this PR (it is from a private repo so\nI can't link it here)",
+          "timestamp": "2024-04-15T13:46:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b4cfda7589325d1a34f70b3770ab494a9d4052c"
+        },
+        "date": 1713190755866,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023934027333333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1573839927333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006463533466666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012876985333333337,
             "unit": "seconds"
           }
         ]
