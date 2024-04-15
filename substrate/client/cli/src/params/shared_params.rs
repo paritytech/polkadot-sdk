@@ -88,8 +88,11 @@ pub struct SharedParams {
 	#[arg(long, value_name = "RECEIVER", value_enum, ignore_case = true, default_value_t = TracingReceiver::Log)]
 	pub tracing_receiver: TracingReceiver,
 
-	/// Sanity weight check for benchmarks. Checks that no benchmark function has a weight larger
-	/// than the (`DispatchClass::Normal`) max. normal class extrinsic weight.
+	/// Sanity weight check for benchmarks. Each extrinsic's weight function is executed
+	/// in the worst case scenario and compared with the maximum extrinsic weight (the maximum
+	/// weight that can be put in a single block for an extrinsic with `DispatchClass::Normal`). In
+	/// other words, each extrinsic is checked whether it will fit in an empty (meaning; empty of
+	/// `DispatchClass::Normal` extrinsics) block.
 	#[arg(
 		long,
 		value_name = "ERROR-LEVEL",

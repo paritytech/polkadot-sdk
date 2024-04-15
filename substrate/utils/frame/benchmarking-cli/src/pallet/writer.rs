@@ -25,6 +25,7 @@ use std::{
 
 use inflector::Inflector;
 use itertools::Itertools;
+use log::log;
 use sc_cli::SanityWeightCheck;
 use serde::Serialize;
 
@@ -189,9 +190,12 @@ pub(crate) fn sanity_weight_check(
 	db_weight: RuntimeDbWeight,
 	sanity_weight_check: SanityWeightCheck,
 ) -> Result<(), std::io::Error> {
-	if sanity_weight_check == SanityWeightCheck::Ignore {
-		return Ok(())
-	}
+	let log_level = match sanity_weight_check {
+		SanityWeightCheck::Error => log::Level::Error,
+		SanityWeightCheck::Warning => log::Level::Warn,
+		SanityWeightCheck::Ignore => return Ok(()),
+	};
+
 	// Helper function to return max. component value (i.e. max. complexity parameter).
 	fn max_component(parameter: &ComponentSlope, component_ranges: &Vec<ComponentRange>) -> u64 {
 		for component in component_ranges {
@@ -202,20 +206,13 @@ pub(crate) fn sanity_weight_check(
 		0
 	}
 
-	color_print::cprintln!(
-		"\n<s>Sanity Weight Check 🧐:</> each extrinsic's weight function is executed \
-		in the worst case scenario and compared with the maximum extrinsic weight (the maximum weight \
-		that can be put in a single block for an extrinsic with `DispatchClass::Normal`). In other words, \
-		each extrinsic is checked whether it will fit in an empty (meaning; empty of \
-		`DispatchClass::Normal` extrinsics) block. \n\nProvided values for the maximum extrinsic weight: \
-		{:?} (ref_time), {:?} (proof_size)\n\n<u>Results:</>\n",
-		max_extrinsic_weight.ref_time(),
-		max_extrinsic_weight.proof_size()
+	log::info!(
+		"Starting the Sanity Weight Check:\nMaximum extrinsic weight value: {:?}\nResults:\n",
+		max_extrinsic_weight
 	);
 	let mut sanity_weight_check_passed = true;
 	// Loop through all benchmark results.
-	for ((pallet, instance), results) in all_results.iter() {
-		println!("Pallet: {}\nInstance: {}\n", pallet, instance);
+	for (_, results) in all_results.iter() {
 		for result in results {
 			// Constant `ref_time` & `pov_size`.
 			let mut total_weight = Weight::from_parts(
@@ -261,36 +258,23 @@ pub(crate) fn sanity_weight_check(
 			}
 			// Comparing (worst case scenario) the extrinsic weight against the maximum extrinsic
 			// weight.
-			if total_weight.ref_time() > max_extrinsic_weight.ref_time() ||
-				total_weight.proof_size() > max_extrinsic_weight.proof_size()
-			{
+			if total_weight.any_gt(max_extrinsic_weight) {
 				sanity_weight_check_passed = false;
-				color_print::cprintln!("<s,r>WARNING!!!</>",);
-				color_print::cprintln!(
-					"<r>The following extrinsic exceeds the maximum extrinsic weight:</>",
-				);
-			}
-			color_print::cprintln!("- <s>'{}'</>: {:?}\nPercentage of max. extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n", 
+				log!(log_level, "The following extrinsic exceeds the maximum extrinsic weight: \n - '{}': {:?}\nPercentage of max. extrinsic weight: {:.2}% (ref_time), {:.2}% (proof_size)\n", 
 				result.name,
 				total_weight,
 				(total_weight.ref_time() as f64 / max_extrinsic_weight.ref_time() as f64) * 100.0,
 				(total_weight.proof_size() as f64 / max_extrinsic_weight.proof_size() as f64) * 100.0,
 			);
+			}
 		}
 	}
-	if sanity_weight_check_passed {
-		color_print::cprintln!("<g>Your extrinsics passed the Sanity Weight Check 😃!</>\n");
-	} else {
-		color_print::cprintln!(
-			"<r>Your extrinsics failed the Sanity Weight Check, please review \
-			the extrinsic's logic and/or the associated benchmark function.</>\n",
-		);
-		if sanity_weight_check == SanityWeightCheck::Error {
-			return Err(io_error(&String::from(
-				"One or more extrinsics exceed the maximum extrinsic weight",
-			)))
-		}
+	if !sanity_weight_check_passed && sanity_weight_check == SanityWeightCheck::Error {
+		return Err(io_error(&String::from(
+			"One or more extrinsics exceed the maximum extrinsic weight",
+		)))
 	}
+
 	Ok(())
 }
 

@@ -52,11 +52,11 @@ doc:
       }
       ```
 
-      Once the node is compiled with `runtime-benchmarks` feature, you can pass the `--sanity-check` flag to the benchmarking CLI or `ombi-bencher`:
+      Once the node is compiled with `runtime-benchmarks` feature, you can pass the `--sanity-weight-check` flag to the benchmarking CLI or `ombi-bencher`:
       
       ```
-      ./target/release/node benchmark pallet --sanity-check warning
-      frame-omni-bencher v1 benchmark pallet --sanity-check error
+      ./target/release/node benchmark pallet --sanity-weight-check warning ...
+      frame-omni-bencher v1 benchmark pallet --sanity-weight-check error ...
       ```
 
 crates:

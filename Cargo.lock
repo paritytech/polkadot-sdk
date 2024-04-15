@@ -5731,7 +5731,6 @@ dependencies = [
  "array-bytes 6.1.0",
  "chrono",
  "clap 4.5.3",
- "color-print",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",

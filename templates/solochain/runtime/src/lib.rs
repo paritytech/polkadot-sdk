@@ -527,6 +527,7 @@ impl_runtime_apis! {
 			let storage_info = AllPalletsWithSystem::storage_info();
 			let max_extrinsic_weight = BlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
 			let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
+
 			RuntimeBenchmarkInfo { list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
 		}
 

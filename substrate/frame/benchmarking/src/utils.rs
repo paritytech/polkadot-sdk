@@ -230,7 +230,7 @@ pub struct BenchmarkMetadata {
 	pub pov_modes: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
-/// Exhaustive benchmark info provided by the runtime.
+/// Benchmark info provided by the runtime.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
 pub struct RuntimeBenchmarkInfo {
 	/// List of all benchmarks available for this runtime.
@@ -255,6 +255,16 @@ sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
 	#[api_version(2)]
 	pub trait Benchmark {
+		/// Get the benchmark metadata available for this runtime.
+		///
+		/// Parameters
+		/// - `extra`: Also list benchmarks marked "extra" which would otherwise not be
+		///            needed for weight calculation.
+		///
+		/// Returns:
+		/// - `(Vec<BenchmarkList>, Vec<StorageInfo>);` - list of all benchmarks available for this runtime.
+		#[changed_in(2)]
+		fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>);
 		/// Get the benchmark metadata available for this runtime.
 		///
 		/// Parameters
