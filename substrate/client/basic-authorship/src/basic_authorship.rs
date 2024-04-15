@@ -412,20 +412,25 @@ where
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
 
-		let mut t1 = self.transaction_pool.ready_at(self.parent_number).fuse();
+		let mut t1 = self.transaction_pool.ready_at(self.parent_hash).fuse();
 		let mut t2 =
 			futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
 
-		let mut pending_iterator = select! {
-			res = t1 => res,
+		let pending_iterator = select! {
+			res = t1 => Some(res),
 			_ = t2 => {
 				warn!(target: LOG_TARGET,
 					"Timeout fired waiting for transaction pool at block #{}. \
 					Proceeding with production.",
 					self.parent_number,
 				);
-				self.transaction_pool.ready()
+				//todo: unwrap
+				self.transaction_pool.ready(self.parent_hash)
 			},
+		};
+
+		let Some(mut pending_iterator) = pending_iterator else {
+			return Ok(EndProposingReason::NoMoreTransactions);
 		};
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
@@ -652,9 +657,7 @@ mod tests {
 
 		block_on(
 			txpool.maintain(chain_event(
-				client
-					.expect_header(client.info().genesis_hash)
-					.expect("there should be header"),
+				client.expect_header(hashof0).expect("there should be header"),
 			)),
 		);
 
@@ -687,7 +690,7 @@ mod tests {
 		// then
 		// block should have some extrinsics although we have some more in the pool.
 		assert_eq!(block.extrinsics().len(), 1);
-		assert_eq!(txpool.ready().count(), 2);
+		assert_eq!(txpool.ready(hashof0).unwrap().count(), 2);
 	}
 
 	#[test]
@@ -833,7 +836,7 @@ mod tests {
 			// then
 			// block should have some extrinsics although we have some more in the pool.
 			assert_eq!(
-				txpool.ready().count(),
+				txpool.ready(hash).unwrap().count(),
 				expected_pool_transactions,
 				"at block: {}",
 				block.header.number
@@ -863,32 +866,32 @@ mod tests {
 					.expect("there should be header"),
 			)),
 		);
-		assert_eq!(txpool.ready().count(), 7);
+		assert_eq!(txpool.ready(client.info().genesis_hash).unwrap().count(), 7);
 
 		// let's create one block and import it
 		let block = propose_block(&client, 0, 2, 7);
-		import_and_maintain(client.clone(), block);
-		assert_eq!(txpool.ready().count(), 5);
+		import_and_maintain(client.clone(), block.clone());
+		assert_eq!(txpool.ready(block.hash()).unwrap().count(), 5);
 
 		// now let's make sure that we can still make some progress
 		let block = propose_block(&client, 1, 1, 5);
-		import_and_maintain(client.clone(), block);
-		assert_eq!(txpool.ready().count(), 4);
+		import_and_maintain(client.clone(), block.clone());
+		assert_eq!(txpool.ready(block.hash()).unwrap().count(), 4);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 2, 1, 4);
-		import_and_maintain(client.clone(), block);
-		assert_eq!(txpool.ready().count(), 3);
+		import_and_maintain(client.clone(), block.clone());
+		assert_eq!(txpool.ready(block.hash()).unwrap().count(), 3);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 3, 1, 3);
-		import_and_maintain(client.clone(), block);
-		assert_eq!(txpool.ready().count(), 2);
+		import_and_maintain(client.clone(), block.clone());
+		assert_eq!(txpool.ready(block.hash()).unwrap().count(), 2);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 4, 2, 2);
-		import_and_maintain(client.clone(), block);
-		assert_eq!(txpool.ready().count(), 0);
+		import_and_maintain(client.clone(), block.clone());
+		assert_eq!(txpool.ready(block.hash()).unwrap().count(), 0);
 	}
 
 	#[test]
@@ -1036,7 +1039,7 @@ mod tests {
 		block_on(txpool.maintain(chain_event(
 			client.expect_header(genesis_hash).expect("there should be header"),
 		)));
-		assert_eq!(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * 3);
+		assert_eq!(txpool.ready(genesis_hash).unwrap().count(), MAX_SKIPPED_TRANSACTIONS * 3);
 
 		let mut proposer_factory =
 			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
@@ -1107,7 +1110,7 @@ mod tests {
 		block_on(txpool.maintain(chain_event(
 			client.expect_header(genesis_hash).expect("there should be header"),
 		)));
-		assert_eq!(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * 2 + 4);
+		assert_eq!(txpool.ready(genesis_hash).unwrap().count(), MAX_SKIPPED_TRANSACTIONS * 2 + 4);
 
 		let mut proposer_factory =
 			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
