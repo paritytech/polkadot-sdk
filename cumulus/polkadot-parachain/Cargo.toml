@@ -95,7 +95,7 @@ substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/s
 # Use rococo-native as this is currently the default "local" relay chain
 polkadot-cli = { path = "../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../polkadot/primitives" }
-polkadot-service = { path = "../../polkadot/node/service" }
+polkadot-service = { path = "../../polkadot/node/service", features=["elastic-scaling-experimental"] }
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
 
 # Cumulus
@@ -171,4 +171,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
-elastic-scaling-experimental = ["polkadot-service/elastic-scaling-experimental"]
+# elastic-scaling-experimental = ["polkadot-service/elastic-scaling-experimental"]
