@@ -333,6 +333,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -352,7 +372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Code that allows `NamedReservableCurrency` to be used as a `StakeAndSlash`
 //! mechanism of the relayers pallet.
 
-</span><span class="kw">use </span>bp_relayers::{PayRewardFromAccount, RewardsAccountParams, StakeAndSlash};
+</span><span class="kw">use </span>bp_relayers::{ExplicitOrAccountParams, PayRewardFromAccount, StakeAndSlash};
 <span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 <span class="kw">use </span>sp_runtime::{traits::Get, DispatchError, DispatchResult};
@@ -390,11 +410,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>repatriate_reserved(
 		relayer: <span class="kw-2">&amp;</span>AccountId,
-		beneficiary: RewardsAccountParams,
+		beneficiary: ExplicitOrAccountParams&lt;AccountId&gt;,
 		amount: Currency::Balance,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Currency::Balance, DispatchError&gt; {
-		<span class="kw">let </span>beneficiary_account =
-			PayRewardFromAccount::&lt;(), AccountId&gt;::rewards_account(beneficiary);
+		<span class="kw">let </span>beneficiary_account = <span class="kw">match </span>beneficiary {
+			ExplicitOrAccountParams::Explicit(account) =&gt; account,
+			ExplicitOrAccountParams::Params(params) =&gt;
+				PayRewardFromAccount::&lt;(), AccountId&gt;::rewards_account(params),
+		};
 		Currency::repatriate_reserved_named(
 			<span class="kw-2">&amp;</span>ReserveId::get(),
 			relayer,
@@ -469,7 +492,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Balances::mint_into(<span class="kw-2">&amp;</span>beneficiary_account, expected_balance).unwrap();
 
 			<span class="macro">assert_eq!</span>(
-				TestStakeAndSlash::repatriate_reserved(<span class="kw-2">&amp;</span><span class="number">1</span>, beneficiary, test_stake()),
+				TestStakeAndSlash::repatriate_reserved(
+					<span class="kw-2">&amp;</span><span class="number">1</span>,
+					ExplicitOrAccountParams::Params(beneficiary),
+					test_stake()
+				),
 				<span class="prelude-val">Ok</span>(test_stake())
 			);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">0</span>);
@@ -481,7 +508,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Balances::mint_into(<span class="kw-2">&amp;</span><span class="number">2</span>, test_stake() * <span class="number">2</span>).unwrap();
 			TestStakeAndSlash::reserve(<span class="kw-2">&amp;</span><span class="number">2</span>, test_stake() / <span class="number">3</span>).unwrap();
 			<span class="macro">assert_eq!</span>(
-				TestStakeAndSlash::repatriate_reserved(<span class="kw-2">&amp;</span><span class="number">2</span>, beneficiary, test_stake()),
+				TestStakeAndSlash::repatriate_reserved(
+					<span class="kw-2">&amp;</span><span class="number">2</span>,
+					ExplicitOrAccountParams::Params(beneficiary),
+					test_stake()
+				),
 				<span class="prelude-val">Ok</span>(test_stake() - test_stake() / <span class="number">3</span>)
 			);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), test_stake() * <span class="number">2 </span>- test_stake() / <span class="number">3</span>);
@@ -493,7 +524,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Balances::mint_into(<span class="kw-2">&amp;</span><span class="number">3</span>, test_stake() * <span class="number">2</span>).unwrap();
 			TestStakeAndSlash::reserve(<span class="kw-2">&amp;</span><span class="number">3</span>, test_stake()).unwrap();
 			<span class="macro">assert_eq!</span>(
-				TestStakeAndSlash::repatriate_reserved(<span class="kw-2">&amp;</span><span class="number">3</span>, beneficiary, test_stake()),
+				TestStakeAndSlash::repatriate_reserved(
+					<span class="kw-2">&amp;</span><span class="number">3</span>,
+					ExplicitOrAccountParams::Params(beneficiary),
+					test_stake()
+				),
 				<span class="prelude-val">Ok</span>(<span class="number">0</span>)
 			);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), test_stake());
@@ -511,7 +546,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			Balances::mint_into(<span class="kw-2">&amp;</span><span class="number">3</span>, test_stake() * <span class="number">2</span>).unwrap();
 			TestStakeAndSlash::reserve(<span class="kw-2">&amp;</span><span class="number">3</span>, test_stake()).unwrap();
-			<span class="macro">assert!</span>(TestStakeAndSlash::repatriate_reserved(<span class="kw-2">&amp;</span><span class="number">3</span>, beneficiary, test_stake()).is_err());
+			<span class="macro">assert!</span>(TestStakeAndSlash::repatriate_reserved(
+				<span class="kw-2">&amp;</span><span class="number">3</span>,
+				ExplicitOrAccountParams::Params(beneficiary),
+				test_stake()
+			)
+			.is_err());
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), test_stake());
 			<span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="number">3</span>), test_stake());
 			<span class="macro">assert_eq!</span>(Balances::free_balance(beneficiary_account), <span class="number">0</span>);

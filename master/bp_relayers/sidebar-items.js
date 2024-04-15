@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["RewardsAccountOwner"],"struct":["PayRewardFromAccount","Registration","RelayerRewardsKeyProvider","RewardsAccountParams"],"trait":["PaymentProcedure","StakeAndSlash"]};
+window.SIDEBAR_ITEMS = {"enum":["ExplicitOrAccountParams","RewardsAccountOwner"],"struct":["PayRewardFromAccount","Registration","RelayerRewardsKeyProvider","RewardsAccountParams"],"trait":["PaymentProcedure","StakeAndSlash"]};

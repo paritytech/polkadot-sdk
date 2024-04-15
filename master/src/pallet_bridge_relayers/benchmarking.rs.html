@@ -386,7 +386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>slash_destination = RewardsAccountParams::new(lane, <span class="kw-2">*</span><span class="string">b&quot;test&quot;</span>, RewardsAccountOwner::ThisChain);
 		T::prepare_rewards_account(slash_destination, Zero::zero());
 	}: {
-		<span class="kw">crate</span>::Pallet::&lt;T&gt;::slash_and_deregister(<span class="kw-2">&amp;</span>relayer, slash_destination)
+		<span class="kw">crate</span>::Pallet::&lt;T&gt;::slash_and_deregister(<span class="kw-2">&amp;</span>relayer, slash_destination.into())
 	}
 	verify {
 		<span class="macro">assert!</span>(!<span class="kw">crate</span>::Pallet::&lt;T&gt;::is_registration_active(<span class="kw-2">&amp;</span>relayer));

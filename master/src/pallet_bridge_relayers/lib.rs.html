@@ -1069,6 +1069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#920" id="920">920</a>
 <a href="#921" id="921">921</a>
 <a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1092,7 +1093,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #![warn(missing_docs)]
 
 </span><span class="kw">use </span>bp_relayers::{
-	PaymentProcedure, Registration, RelayerRewardsKeyProvider, RewardsAccountParams, StakeAndSlash,
+	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
+	RewardsAccountParams, StakeAndSlash,
 };
 <span class="kw">use </span>bp_runtime::StorageDoubleMapKeyProvider;
 <span class="kw">use </span>frame_support::fail;
@@ -1313,7 +1315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// It may fail inside, but error is swallowed and we only log it.
 		</span><span class="kw">pub fn </span>slash_and_deregister(
 			relayer: <span class="kw-2">&amp;</span>T::AccountId,
-			slash_destination: RewardsAccountParams,
+			slash_destination: ExplicitOrAccountParams&lt;T::AccountId&gt;,
 		) {
 			<span class="kw">let </span>registration = <span class="kw">match </span>RegisteredRelayers::&lt;T&gt;::take(relayer) {
 				<span class="prelude-val">Some</span>(registration) =&gt; registration,
@@ -1330,7 +1332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">match </span>T::StakeAndSlash::repatriate_reserved(
 				relayer,
-				slash_destination,
+				slash_destination.clone(),
 				registration.stake,
 			) {
 				<span class="prelude-val">Ok</span>(failed_to_slash) <span class="kw">if </span>failed_to_slash.is_zero() =&gt; {

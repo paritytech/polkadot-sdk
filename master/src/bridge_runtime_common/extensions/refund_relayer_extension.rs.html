@@ -2733,6 +2733,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2584" id="2584">2584</a>
 <a href="#2585" id="2585">2585</a>
 <a href="#2586" id="2586">2586</a>
+<a href="#2587" id="2587">2587</a>
+<a href="#2588" id="2588">2588</a>
+<a href="#2589" id="2589">2589</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -2758,7 +2761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CallHelper <span class="kw">as </span>MessagesCallHelper, CallInfo <span class="kw">as </span>MessagesCallInfo, MessagesCallSubType,
 };
 <span class="kw">use </span>bp_messages::{LaneId, MessageNonce};
-<span class="kw">use </span>bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+<span class="kw">use </span>bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountParams};
 <span class="kw">use </span>bp_runtime::{Chain, Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>frame_support::{
@@ -3324,7 +3327,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =&gt;
-				RelayersPallet::&lt;T::Runtime&gt;::slash_and_deregister(<span class="kw-2">&amp;</span>relayer, slash_account),
+				RelayersPallet::&lt;T::Runtime&gt;::slash_and_deregister(
+					<span class="kw-2">&amp;</span>relayer,
+					ExplicitOrAccountParams::Params(slash_account),
+				),
 		}
 
 		<span class="prelude-val">Ok</span>(())
