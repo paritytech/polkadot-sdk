@@ -20,14 +20,12 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
@@ -49,6 +47,7 @@ struct MockSubsystemClient {
 	validation_outputs_results: HashMap<ParaId, bool>,
 	session_index_for_child: SessionIndex,
 	candidate_pending_availability: HashMap<ParaId, CommittedCandidateReceipt>,
+	candidates_pending_availability: HashMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	dmq_contents: HashMap<ParaId, Vec<InboundDownwardMessage>>,
 	hrmp_channels: HashMap<ParaId, BTreeMap<ParaId, Vec<InboundHrmpMessage>>>,
 	validation_code_by_hash: HashMap<ValidationCodeHash, ValidationCode>,
@@ -140,6 +139,14 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		para_id: ParaId,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
 		Ok(self.candidate_pending_availability.get(&para_id).cloned())
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		_: Hash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
+		Ok(self.candidates_pending_availability.get(&para_id).cloned().unwrap_or_default())
 	}
 
 	async fn candidate_events(&self, _: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {

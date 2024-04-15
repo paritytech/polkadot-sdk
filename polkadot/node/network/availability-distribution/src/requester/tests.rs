@@ -25,7 +25,7 @@ use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::NodeFeatures, BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, NodeFeatures,
 	ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::traits::SpawnNamed;
