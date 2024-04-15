@@ -128,7 +128,7 @@ pub struct PoolStakerInfo<Balance> {
 	reward_per_token_paid: Balance,
 }
 
-/// The state and configuration an incentive pool.
+/// The state and configuration of an incentive pool.
 #[derive(Debug, Clone, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The asset staked in this pool.
@@ -217,7 +217,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		PoolId,
-		PoolInfo<T::AccountId, T::AssetId, T::Balance, BlockNumberFor<T>>,
+		PoolInfoFor<T>,
 	>;
 
 	/// Stores the [`PoolId`] to use for the next pool.
@@ -629,7 +629,7 @@ pub mod pallet {
 		/// Returns the updated pool and staker info.
 		///
 		/// NOTE: this function has no side-effects. Side-effects such as storage modifications are
-		/// the resopnsibility of the caller.
+		/// the responsibility of the caller.
 		pub fn update_pool_and_staker_rewards(
 			pool_info: &PoolInfoFor<T>,
 			staker_info: &PoolStakerInfo<T::Balance>,
@@ -649,7 +649,7 @@ pub mod pallet {
 		/// Returns the updated pool and staker info.
 		///
 		/// NOTE: this function has no side-effects. Side-effects such as storage modifications are
-		/// the resopnsibility of the caller.
+		/// the responsibility of the caller.
 		pub fn update_pool_rewards(
 			pool_info: &PoolInfoFor<T>,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
