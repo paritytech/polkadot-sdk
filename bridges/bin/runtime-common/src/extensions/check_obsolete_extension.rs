@@ -18,7 +18,10 @@
 //! obsolete (duplicated) data or do not pass some additional pallet-specific
 //! checks.
 
-use crate::{messages_call_ext::MessagesCallSubType, RefundableParachainId};
+use crate::{
+	extensions::refund_relayer_extension::RefundableParachainId,
+	messages_call_ext::MessagesCallSubType,
+};
 use bp_relayers::ExplicitOrAccountParams;
 use pallet_bridge_grandpa::{
 	BridgedBlockNumber, CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper,
@@ -355,12 +358,14 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 mod tests {
 	use super::*;
 	use crate::{
-		extensions::refund_relayer_extension::tests::{
-			initialize_environment, relayer_account_at_this_chain, submit_parachain_head_call_ex,
-			submit_relay_header_call_ex, TestParachain,
+		extensions::refund_relayer_extension::{
+			tests::{
+				initialize_environment, relayer_account_at_this_chain,
+				submit_parachain_head_call_ex, submit_relay_header_call_ex, TestParachain,
+			},
+			DefaultRefundableParachainId,
 		},
 		mock::*,
-		DefaultRefundableParachainId,
 	};
 	use bp_polkadot_core::parachains::ParaId;
 	use bp_runtime::HeaderId;

@@ -19,9 +19,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_runtime::{Parachain, ParachainIdOf};
-use sp_runtime::traits::{Get, PhantomData};
-
 pub mod extensions;
 pub mod messages;
 pub mod messages_api;
@@ -37,36 +34,3 @@ mod mock;
 pub mod integrity;
 
 const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";
-
-/// Trait identifying a bridged parachain. A relayer might be refunded for delivering messages
-/// coming from this parachain.
-pub trait RefundableParachainId {
-	/// The instance of the bridge parachains pallet.
-	type Instance: 'static;
-	/// The parachain Id.
-	type Id: Get<u32>;
-}
-
-/// Default implementation of `RefundableParachainId`.
-pub struct DefaultRefundableParachainId<Instance, Id>(PhantomData<(Instance, Id)>);
-
-impl<Instance, Id> RefundableParachainId for DefaultRefundableParachainId<Instance, Id>
-where
-	Instance: 'static,
-	Id: Get<u32>,
-{
-	type Instance = Instance;
-	type Id = Id;
-}
-
-/// Implementation of `RefundableParachainId` for `trait Parachain`.
-pub struct RefundableParachain<Instance, Para>(PhantomData<(Instance, Para)>);
-
-impl<Instance, Para> RefundableParachainId for RefundableParachain<Instance, Para>
-where
-	Instance: 'static,
-	Para: Parachain,
-{
-	type Instance = Instance;
-	type Id = ParachainIdOf<Para>;
-}
