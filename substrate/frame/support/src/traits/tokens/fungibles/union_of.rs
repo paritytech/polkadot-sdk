@@ -907,18 +907,22 @@ impl<
 
 impl<
 		Left: fungibles::Inspect<AccountId> + fungibles::Refund<AccountId>,
-		Right: fungibles::Inspect<AccountId, Balance = Left::Balance> + fungibles::Refund<AccountId>,
+		Right: fungibles::Inspect<AccountId>
+			+ fungibles::Refund<AccountId, Balance = <Left as fungibles::Refund<AccountId>>::Balance>,
 		Criterion: Convert<
 			AssetKind,
 			Either<
-				<Left as fungibles::Inspect<AccountId>>::AssetId,
-				<Right as fungibles::Inspect<AccountId>>::AssetId,
+				<Left as fungibles::Refund<AccountId>>::AssetId,
+				<Right as fungibles::Refund<AccountId>>::AssetId,
 			>,
 		>,
 		AssetKind: AssetId,
 		AccountId,
 	> fungibles::Refund<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
 {
+	type AssetId = AssetKind;
+	type Balance = <Left as fungibles::Refund<AccountId>>::Balance;
+
 	fn deposit_held(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
 		match Criterion::convert(asset) {
 			Left(a) => <Left as fungibles::Refund<AccountId>>::deposit_held(a, who),
