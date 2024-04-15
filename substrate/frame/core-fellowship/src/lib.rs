@@ -79,10 +79,11 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 pub mod weights;
 
 pub use pallet::*;
-pub use weights::WeightInfo;
+pub use weights::*;
 
 /// The desired outcome for which evidence is presented.
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -117,15 +118,15 @@ pub struct ParamsType<
 	Ranks: Get<u32>,
 > {
 	/// The amounts to be paid when a member of a given rank (-1) is active.
-	active_salary: BoundedVec<Balance, Ranks>,
+	pub active_salary: BoundedVec<Balance, Ranks>,
 	/// The amounts to be paid when a member of a given rank (-1) is passive.
-	passive_salary: BoundedVec<Balance, Ranks>,
+	pub passive_salary: BoundedVec<Balance, Ranks>,
 	/// The period between which unproven members become demoted.
-	demotion_period: BoundedVec<BlockNumber, Ranks>,
+	pub demotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// The period between which members must wait before they may proceed to this rank.
-	min_promotion_period: BoundedVec<BlockNumber, Ranks>,
+	pub min_promotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// Amount by which an account can remain at rank 0 (candidate before being offboard entirely).
-	offboard_timeout: BlockNumber,
+	pub offboard_timeout: BlockNumber,
 }
 
 impl<
@@ -165,8 +166,11 @@ pub mod pallet {
 		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]

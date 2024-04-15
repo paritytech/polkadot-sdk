@@ -69,7 +69,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
-		make_member::<T, I>(9)?;
 		let max_rank: usize = T::Members::max_rank().into();
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
