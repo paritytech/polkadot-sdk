@@ -24,7 +24,7 @@ jobs:
       RUST_BACKTRACE: 1
       RUSTFLAGS: -C debuginfo=1
       SKIP_WASM_BUILD: 1
-      RUST_NIGHTLY_VERSION: nightly-2023-12-28
+      RUST_NIGHTLY_VERSION: nightly-2024-02-08
     steps:
       - uses: actions/checkout@v2
         with:

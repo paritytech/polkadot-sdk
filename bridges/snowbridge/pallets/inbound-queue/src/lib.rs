@@ -48,7 +48,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::H160;
 use sp_runtime::traits::Zero;
 use sp_std::{convert::TryFrom, vec};
 use xcm::prelude::{
@@ -71,6 +71,8 @@ pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_core::H256;
 
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;

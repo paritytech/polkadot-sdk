@@ -3,7 +3,7 @@
 # https://github.com/rust-lang/rustup/issues/2686
 # The auto-installation behaviour in rustup will likely be removed:
 # https://github.com/rust-lang/rustup/issues/1397
-channel = "1.75.0"
+channel = "1.76.0"
 components = [
 	"clippy",
 	"rust-analyzer",
