@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713202816803,
+  "lastUpdate": 1713211178468,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3611,6 +3611,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18936899626666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gui",
+            "username": "thiolliere",
+            "email": "gui.thiolliere@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a8f4f4f00f8fc0da512a09e1450bf4cda954d70d",
+          "message": "pallet assets: Fix errors (#4118)\n\n`LiveAsset` is an error to be returned when an asset is not supposed to\nbe live.\nAnd `AssetNotLive` is an error to be returned when an asset is supposed\nto be live, I don't think frozen qualifies as live.",
+          "timestamp": "2024-04-15T18:45:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a8f4f4f00f8fc0da512a09e1450bf4cda954d70d"
+        },
+        "date": 1713211152606,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.9139278406,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20274400873333326,
             "unit": "seconds"
           }
         ]
