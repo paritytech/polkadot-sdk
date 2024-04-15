@@ -22,6 +22,9 @@
 // Hence, `no_std` rather than sp-runtime.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// Because of XCMv2.
+#![allow(deprecated)]
+
 extern crate alloc;
 
 use derivative::Derivative;
@@ -428,6 +431,7 @@ pub type VersionedMultiAssets = VersionedAssets;
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
 	#[codec(index = 2)]
+	#[deprecated]
 	V2(v2::Xcm<RuntimeCall>),
 	#[codec(index = 3)]
 	V3(v3::Xcm<RuntimeCall>),

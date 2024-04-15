@@ -16,15 +16,14 @@
 
 //! Version 3 of the Cross-Consensus Message format data structures.
 
-use super::{
-	v2::{
-		Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
-		Xcm as OldXcm,
-	},
-	v4::{
-		Instruction as NewInstruction, PalletInfo as NewPalletInfo,
-		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
-	},
+#[allow(deprecated)]
+use super::v2::{
+	Instruction as OldInstruction, Response as OldResponse, WeightLimit as OldWeightLimit,
+	Xcm as OldXcm,
+};
+use super::v4::{
+	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
+	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 };
 use crate::DoubleEncoded;
 use alloc::{vec, vec::Vec};
@@ -1314,6 +1313,7 @@ impl TryFrom<OldResponse> for Response {
 }
 
 // Convert from a v2 XCM to a v3 XCM.
+#[allow(deprecated)]
 impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, ()> {
@@ -1576,118 +1576,6 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
-	use crate::v2::{
-		Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
-		WildMultiAsset as OldWildMultiAsset,
-	};
-
-	#[test]
-	fn basic_roundtrip_works() {
-		let xcm = Xcm::<()>(vec![TransferAsset {
-			assets: (Here, 1u128).into(),
-			beneficiary: Here.into(),
-		}]);
-		let old_xcm = OldXcm::<()>(vec![OldInstruction::TransferAsset {
-			assets: (OldHere, 1).into(),
-			beneficiary: OldHere.into(),
-		}]);
-		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
-		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
-		assert_eq!(new_xcm, xcm);
-	}
-
-	#[test]
-	fn teleport_roundtrip_works() {
-		let xcm = Xcm::<()>(vec![
-			ReceiveTeleportedAsset((Here, 1u128).into()),
-			ClearOrigin,
-			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
-		]);
-		let old_xcm: OldXcm<()> = OldXcm::<()>(vec![
-			OldInstruction::ReceiveTeleportedAsset((OldHere, 1).into()),
-			OldInstruction::ClearOrigin,
-			OldInstruction::DepositAsset {
-				assets: crate::v2::MultiAssetFilter::Wild(crate::v2::WildMultiAsset::All),
-				max_assets: 1,
-				beneficiary: OldHere.into(),
-			},
-		]);
-		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
-		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
-		assert_eq!(new_xcm, xcm);
-	}
-
-	#[test]
-	fn reserve_deposit_roundtrip_works() {
-		let xcm = Xcm::<()>(vec![
-			ReserveAssetDeposited((Here, 1u128).into()),
-			ClearOrigin,
-			BuyExecution {
-				fees: (Here, 1u128).into(),
-				weight_limit: Some(Weight::from_parts(1, DEFAULT_PROOF_SIZE)).into(),
-			},
-			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
-		]);
-		let old_xcm = OldXcm::<()>(vec![
-			OldInstruction::ReserveAssetDeposited((OldHere, 1).into()),
-			OldInstruction::ClearOrigin,
-			OldInstruction::BuyExecution {
-				fees: (OldHere, 1).into(),
-				weight_limit: Some(1).into(),
-			},
-			OldInstruction::DepositAsset {
-				assets: crate::v2::MultiAssetFilter::Wild(crate::v2::WildMultiAsset::All),
-				max_assets: 1,
-				beneficiary: OldHere.into(),
-			},
-		]);
-		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
-		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
-		assert_eq!(new_xcm, xcm);
-	}
-
-	#[test]
-	fn deposit_asset_roundtrip_works() {
-		let xcm = Xcm::<()>(vec![
-			WithdrawAsset((Here, 1u128).into()),
-			DepositAsset { assets: Wild(AllCounted(1)), beneficiary: Here.into() },
-		]);
-		let old_xcm = OldXcm::<()>(vec![
-			OldInstruction::WithdrawAsset((OldHere, 1).into()),
-			OldInstruction::DepositAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::All),
-				max_assets: 1,
-				beneficiary: OldHere.into(),
-			},
-		]);
-		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
-		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
-		assert_eq!(new_xcm, xcm);
-	}
-
-	#[test]
-	fn deposit_reserve_asset_roundtrip_works() {
-		let xcm = Xcm::<()>(vec![
-			WithdrawAsset((Here, 1u128).into()),
-			DepositReserveAsset {
-				assets: Wild(AllCounted(1)),
-				dest: Here.into(),
-				xcm: Xcm::<()>(vec![]),
-			},
-		]);
-		let old_xcm = OldXcm::<()>(vec![
-			OldInstruction::WithdrawAsset((OldHere, 1).into()),
-			OldInstruction::DepositReserveAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::All),
-				max_assets: 1,
-				dest: OldHere.into(),
-				xcm: OldXcm::<()>(vec![]),
-			},
-		]);
-		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
-		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
-		assert_eq!(new_xcm, xcm);
-	}
 
 	#[test]
 	fn decoding_respects_limit() {

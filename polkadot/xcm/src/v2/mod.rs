@@ -15,6 +15,9 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 //! # XCM Version 2
+//!
+//! WARNING: DEPRECATED, please use version 3 or 4.
+//!
 //! Version 2 of the Cross-Consensus Message format data structures. The comprehensive list of
 //! changes can be found in
 //! [this PR description](https://github.com/paritytech/polkadot/pull/3629#issue-968428279).
@@ -48,6 +51,8 @@
 //! - The `Weigher` configuration item must have sensible weights defined for `BuyExecution` and
 //!   `DepositAsset` instructions. Failing that, dispatch calls to `teleport_assets` and
 //!   `reserve_transfer_assets` will fail with `UnweighableMessage`.
+
+#![allow(deprecated)]
 
 use super::{
 	v3::{
@@ -262,6 +267,8 @@ pub const VERSION: super::Version = 2;
 /// An identifier for a query.
 pub type QueryId = u64;
 
+/// DEPRECATED. Please use XCMv3 or XCMv4 instead.
+#[deprecated(note = "XCMv2 will be removed after June 2024. Please use XCMv3 or XCMv4 instead.")]
 #[derive(Derivative, Default, Encode, Decode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
