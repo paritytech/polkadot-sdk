@@ -217,7 +217,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		PoolId,
-		PoolInfo<T::AccountId, T::AssetId, T::Balance, BlockNumberFor<T>>,
+		PoolInfoFor<T>,
 	>;
 
 	/// Stores the [`PoolId`] to use for the next pool.
