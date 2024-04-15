@@ -1501,6 +1501,30 @@ pub mod pallet_macros {
 	///   implement such items.
 	///
 	/// For more information, see [`frame_support::derive_impl`].
+	///
+	/// ### Compile error handling
+	///
+	/// When compilation fails due to conflict in bounds for trait items: 2 errors are
+	/// generated: one points to the `with_default` attribute, the other points to the actual
+	/// associated type.
+	///
+	/// It is recommended to look at the multiple error message following the ones pointing to the
+	/// `with_default` attribute to get more context.
+	///
+	/// For example this is an error message, the second error give more context on the first one.
+	/// ```nocode
+	/// error[E0220]: associated type `Block` not found for `Self`
+	///   --> tests/pallet_ui/test.rs:24:19
+	///    |
+	/// 24 |     #[pallet::config(with_default)]
+	///    |                      ^^^^^^^^^^^^ there is an associated type `Block` in the trait `frame_system::Config`
+	/// 
+	/// error[E0220]: associated type `Block` not found for `Self`
+	///   --> tests/pallet_ui/test.rs:27:31
+	///    |
+	/// 27 |         type MyGetParam2: Get<Self::Block>;
+	///    |                                     ^^^^^ there is an associated type `Block` in the trait `frame_system::Config`
+	/// ```
 	pub use frame_support_procedural::config;
 
 	/// Allows defining an enum that gets composed as an aggregate enum by `construct_runtime`.

@@ -1,0 +1,35 @@
+error[E0277]: the size for values of type `Self` cannot be known at compilation time
+  --> tests/pallet_ui/aaaaaadefault_config.rs:57:19
+   |
+57 |     #[pallet::config(with_default)]
+   |                      ^^^^^^^^^^^^ doesn't have a size known at compile-time
+   |
+note: required for `pallet2::Pallet<Self, I>` to implement `Foo`
+  --> tests/pallet_ui/aaaaaadefault_config.rs:51:13
+   |
+51 |     impl<T, I> Foo for Pallet<T, I> {
+   |          -     ^^^     ^^^^^^^^^^^^
+   |          |
+   |          unsatisfied trait bound introduced here
+help: consider further restricting `Self`
+   |
+57 |     #[pallet::config(with_default + Sized)]
+   |                                   +++++++
+
+error[E0277]: the size for values of type `Self` cannot be known at compilation time
+  --> tests/pallet_ui/aaaaaadefault_config.rs:59:3
+   |
+59 |         type MyGetParam3: Get<BarOf<Self, I>>;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+   |
+note: required for `pallet2::Pallet<Self, I>` to implement `Foo`
+  --> tests/pallet_ui/aaaaaadefault_config.rs:51:13
+   |
+51 |     impl<T, I> Foo for Pallet<T, I> {
+   |          -     ^^^     ^^^^^^^^^^^^
+   |          |
+   |          unsatisfied trait bound introduced here
+help: consider further restricting `Self`
+   |
+57 |     #[pallet::config(with_default + Sized)]
+   |                                   +++++++

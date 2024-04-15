@@ -38,13 +38,14 @@ mod keyword {
 	syn::custom_keyword!(constant);
 }
 
-#[derive(Default)]
 pub struct DefaultTrait {
 	/// A bool for each sub-trait item indicates whether the item has
 	/// `#[pallet::no_default_bounds]` attached to it. If true, the item will not have any bounds
 	/// in the generated default sub-trait.
 	pub items: Vec<(syn::TraitItem, bool)>,
 	pub has_system: bool,
+	/// The span of the attribute i.e. `with_default` in `#[pallet::config(with_default)]`.
+	pub attr_span: proc_macro2::Span,
 }
 
 /// Input definition for the pallet config.
@@ -331,7 +332,7 @@ impl ConfigDef {
 		attr_span: proc_macro2::Span,
 		index: usize,
 		item: &mut syn::Item,
-		enable_default: bool,
+		with_default_span: Option<proc_macro2::Span>,
 	) -> syn::Result<Self> {
 		let item = if let syn::Item::Trait(item) = item {
 			item
@@ -374,10 +375,12 @@ impl ConfigDef {
 
 		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
-		let mut default_sub_trait = if enable_default {
+		let enable_default = with_default_span.is_some();
+		let mut default_sub_trait = if let Some(with_default_span) = with_default_span {
 			Some(DefaultTrait {
 				items: Default::default(),
 				has_system: has_frame_system_supertrait,
+				attr_span: with_default_span,
 			})
 		} else {
 			None
