@@ -20,8 +20,8 @@ use crate::{
 	exec::Stack,
 	storage::meter::Meter,
 	wasm::Runtime,
-	BalanceOf, Config, DebugBufferVec, Determinism, GasMeter, Origin, Schedule, TypeInfo, WasmBlob,
-	Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
+	TypeInfo, WasmBlob, Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
@@ -34,18 +34,12 @@ type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 pub struct PreparedCall<'a, T: Config> {
 	func: wasmi::Func,
 	store: wasmi::Store<Runtime<'a, StackExt<'a, T>>>,
-	result: Option<Result<(), wasmi::Error>>,
 }
 
 impl<'a, T: Config> PreparedCall<'a, T> {
-	pub fn call(&mut self) {
-		self.result = Some(self.func.call(&mut self.store, &[], &mut []));
-	}
-
-	pub fn verify(self) {
-		let result = self.result.unwrap();
-		let result = WasmBlob::<T>::process_result(self.store, result).unwrap();
-		assert_eq!(result.did_revert(), false);
+	pub fn call(mut self) -> ExecReturnValue {
+		let result = self.func.call(&mut self.store, &[], &mut []);
+		WasmBlob::<T>::process_result(self.store, result).unwrap()
 	}
 }
 
@@ -151,7 +145,7 @@ where
 		input: Vec<u8>,
 	) -> PreparedCall<'a, T> {
 		let (func, store) = module.bench_prepare_call(ext, input);
-		PreparedCall { func, store, result: None }
+		PreparedCall { func, store }
 	}
 }
 
@@ -171,6 +165,6 @@ macro_rules! call_builder(
 		let data = $setup.data();
 		let $contract = $setup.contract();
 		let (mut ext, module) = $setup.ext();
-		let mut $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
+		let $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
 	};
 );
