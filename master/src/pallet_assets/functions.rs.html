@@ -1656,7 +1656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>d = Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id).ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(
 			d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-			Error::&lt;T, I&gt;::AssetNotLive
+			Error::&lt;T, I&gt;::IncorrectStatus
 		);
 
 		<span class="kw">let </span>actual = <span class="self">Self</span>::decrease_balance(id.clone(), target, amount, f, |actual, details| {

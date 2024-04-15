@@ -2860,7 +2860,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>d = Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id).ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::&lt;T, I&gt;::AssetNotLive
+				Error::&lt;T, I&gt;::IncorrectStatus
 			);
 			<span class="macro">ensure!</span>(origin == d.freezer, Error::&lt;T, I&gt;::NoPermission);
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
@@ -2897,7 +2897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>details = Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id).ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
-				Error::&lt;T, I&gt;::AssetNotLive
+				Error::&lt;T, I&gt;::IncorrectStatus
 			);
 			<span class="macro">ensure!</span>(origin == details.admin, Error::&lt;T, I&gt;::NoPermission);
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
@@ -2986,7 +2986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			Asset::&lt;T, I&gt;::try_mutate(id.clone(), |maybe_details| {
 				<span class="kw">let </span>details = maybe_details.as_mut().ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
-				<span class="macro">ensure!</span>(details.status == AssetStatus::Live, Error::&lt;T, I&gt;::LiveAsset);
+				<span class="macro">ensure!</span>(details.status == AssetStatus::Live, Error::&lt;T, I&gt;::AssetNotLive);
 				<span class="macro">ensure!</span>(origin == details.owner, Error::&lt;T, I&gt;::NoPermission);
 				<span class="kw">if </span>details.owner == owner {
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3542,7 +3542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>d = Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id).ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::&lt;T, I&gt;::AssetNotLive
+				Error::&lt;T, I&gt;::IncorrectStatus
 			);
 			<span class="macro">ensure!</span>(origin == d.freezer, Error::&lt;T, I&gt;::NoPermission);
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
