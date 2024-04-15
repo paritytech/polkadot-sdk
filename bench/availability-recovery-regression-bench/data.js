@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713131430900,
+  "lastUpdate": 1713167337263,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3401,6 +3401,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20363307246666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Svyatoslav Nikolsky",
+            "username": "svyatonik",
+            "email": "svyatonik@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6acf4787e168eea447b82b0a1f32e47bc794ae28",
+          "message": "Bridge: slash destination may be an explicit account (#4106)\n\nExtracted to a separate PR as requested here:\nhttps://github.com/paritytech/parity-bridges-common/pull/2873#discussion_r1562459573",
+          "timestamp": "2024-04-15T06:37:04Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6acf4787e168eea447b82b0a1f32e47bc794ae28"
+        },
+        "date": 1713167310004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.55380405726667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17742760686666667,
             "unit": "seconds"
           }
         ]
