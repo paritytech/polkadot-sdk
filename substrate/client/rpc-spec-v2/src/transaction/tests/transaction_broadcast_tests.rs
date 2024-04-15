@@ -94,7 +94,7 @@ async fn tx_broadcast_enters_pool() {
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, pool, _, tx_api, mut exec_middleware, _) = setup_api(Default::default());
+	let (_, pool, _, tx_api, exec_middleware, _) = setup_api(Default::default());
 
 	// Invalid parameters.
 	let err = tx_api
@@ -114,13 +114,10 @@ async fn tx_broadcast_invalid_tx() {
 
 	assert_eq!(0, pool.status().ready);
 
-	// Await the broadcast future to exit.
-	// Without this we'd be subject to races, where we try to call the stop before the tx is
-	// dropped.
-	let _ = get_next_event!(&mut exec_middleware.recv);
+	// The broadcast future should never be spawned when the tx decoding fails.
 	assert_eq!(0, exec_middleware.num_tasks());
 
-	// The broadcast future was dropped, and the operation is no longer active.
+	// The operation ID is no longer active.
 	// When the operation is not active, either from the tx being finalized or a
 	// terminal error; the stop method should return an error.
 	let err = tx_api
