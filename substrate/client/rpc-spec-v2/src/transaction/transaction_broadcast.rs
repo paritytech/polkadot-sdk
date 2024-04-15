@@ -53,7 +53,7 @@ struct BroadcastState<Pool: TransactionPool> {
 	/// Handle to abort the running future that broadcasts the transaction.
 	handle: AbortHandle,
 	/// Associated tx hash.
-	tx_hash: Option<<Pool as TransactionPool>::Hash>,
+	tx_hash: <Pool as TransactionPool>::Hash,
 }
 
 impl<Pool: TransactionPool, Client> TransactionBroadcast<Pool, Client> {
@@ -108,26 +108,19 @@ where
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
 
+		// There is nothing we could do with an extrinsic of invalid format.
+		let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
+			return Ok(Some(id));
+		};
+		// Save the tx hash to remove it later.
+		let tx_hash = pool.hash_of(&decoded_extrinsic);
+
 		let mut best_block_import_stream =
 			Box::pin(self.client.import_notification_stream().filter_map(
 				|notification| async move { notification.is_new_best.then_some(notification.hash) },
 			));
 
-		let broadcast_ids = self.broadcast_ids.clone();
-		let current_id = id.clone();
 		let broadcast_transaction_fut = async move {
-			// There is nothing we could do with an extrinsic of invalid format.
-			let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
-				return;
-			};
-
-			// Save the tx hash to remove it later.
-			let tx_hash = pool.hash_of(&decoded_extrinsic);
-			broadcast_ids
-				.write()
-				.get_mut(&current_id)
-				.map(|state| state.tx_hash = Some(tx_hash));
-
 			// Flag to determine if the we should broadcast the transaction again.
 			let mut is_done = false;
 
@@ -192,17 +185,14 @@ where
 				return
 			}
 
-			// Tx is associated with the terminated broadcast future.
-			let Some(tx_hash) = broadcast_state.tx_hash else { return };
-
 			// Best effort pool removal (tx can already be finalized).
-			pool.remove_invalid(&[tx_hash]);
+			pool.remove_invalid(&[broadcast_state.tx_hash]);
 		});
 
 		// Keep track of this entry and the abortable handle.
 		{
 			let mut broadcast_ids = self.broadcast_ids.write();
-			broadcast_ids.insert(id.clone(), BroadcastState { handle, tx_hash: None });
+			broadcast_ids.insert(id.clone(), BroadcastState { handle, tx_hash });
 		}
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
