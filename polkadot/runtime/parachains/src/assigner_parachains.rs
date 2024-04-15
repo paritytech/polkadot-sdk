@@ -46,7 +46,7 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		<paras::Pallet<T>>::parachains()
+		paras::Parachains::<T>::get()
 			.get(core_idx.0 as usize)
 			.copied()
 			.map(Assignment::Bulk)
