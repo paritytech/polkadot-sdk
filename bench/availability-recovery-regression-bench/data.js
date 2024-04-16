@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713285054937,
+  "lastUpdate": 1713288403408,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3779,6 +3779,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.16416971600000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6f3d890ed35bfdee3e3f7d59018345635a62d1cd",
+          "message": "FRAME: Unity Balance Conversion for Different IDs of Native Asset (#3659)\n\nIntroduce types to define 1:1 balance conversion for different relative\nasset ids/locations of native asset.\n\nExamples:\nnative asset on Asset Hub presented as `VersionedLocatableAsset` type in\nthe context of Relay Chain is\n```\n{\n  `location`: (0, Parachain(1000)),\n  `asset_id`: (1, Here),\n}\n```\nand it's balance should be converted 1:1 by implementations of\n`ConversionToAssetBalance` trait.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-16T16:11:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f3d890ed35bfdee3e3f7d59018345635a62d1cd"
+        },
+        "date": 1713288376611,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.667044661399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1711067200666667,
             "unit": "seconds"
           }
         ]
