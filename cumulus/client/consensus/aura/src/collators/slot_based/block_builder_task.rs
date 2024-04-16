@@ -131,34 +131,6 @@ impl SlotTimer {
 	}
 }
 
-/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
-///
-/// Falls back to 0 in case of an error.
-async fn max_ancestry_lookback(
-	relay_parent: PHash,
-	relay_client: &impl RelayChainInterface,
-) -> usize {
-	match load_abridged_host_configuration(relay_parent, relay_client).await {
-		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
-		Ok(None) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				"Active config is missing in relay chain storage",
-			);
-			0
-		},
-		Err(err) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				?relay_parent,
-				"Failed to read active config from relay chain client",
-			);
-			0
-		},
-	}
-}
-
 // Checks if we own the slot at the given block and whether there
 // is space in the unincluded segment.
 async fn can_build_upon<Block: BlockT, Client, P>(
@@ -423,7 +395,9 @@ where
 	let parent_search_params = ParentSearchParams {
 		relay_parent,
 		para_id,
-		ancestry_lookback: max_ancestry_lookback(relay_parent, relay_client).await,
+		ancestry_lookback: crate::collators::async_backing_params(relay_parent, relay_client)
+			.await
+			.map_or(0, |params| params.allowed_ancestry_len as usize),
 		max_depth: PARENT_SEARCH_DEPTH,
 		ignore_alternative_branches: true,
 	};
