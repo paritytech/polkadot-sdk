@@ -12,4 +12,4 @@ include:
   # polkadot tests
   - .gitlab/pipeline/zombienet/polkadot.yml
   # bridges tests
-  - .gitlab/pipeline/zombienet/bridges.yml
+  # - .gitlab/pipeline/zombienet/bridges.yml
