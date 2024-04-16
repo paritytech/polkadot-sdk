@@ -27,11 +27,13 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
 use pallet_staking::{BalanceOf, Exposure, ExposureOf, Pallet as Staking};
 use sp_runtime::Perbill;
 use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
-use sp_std::{vec, vec::Vec};
 
 pub use pallet::*;
 
@@ -113,7 +115,7 @@ pub mod pallet {
 				.into_iter()
 				.map(|(o, _)| OffenceDetails::<T> {
 					offender: (o.clone(), Staking::<T>::eras_stakers(now, &o)),
-					reporters: vec![],
+					reporters: Default::default(),
 				})
 				.collect())
 		}
