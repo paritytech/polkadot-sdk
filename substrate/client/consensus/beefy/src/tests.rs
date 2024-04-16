@@ -24,8 +24,9 @@ use crate::{
 	communication::{
 		fisherman::Fisherman,
 		gossip::{
-			proofs_topic, tests::sign_commitment, votes_topic, GossipFilterCfg, GossipMessage,
-			GossipValidator,
+			proofs_topic,
+			tests::{sign_commitment, TestNetwork},
+			votes_topic, GossipFilterCfg, GossipMessage, GossipValidator,
 		},
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
@@ -126,7 +127,11 @@ impl BeefyTestNet {
 		let mut net = BeefyTestNet { peers: Vec::with_capacity(n_authority), beefy_genesis };
 
 		for i in 0..n_authority {
-			let (rx, cfg) = on_demand_justifications_protocol_config(GENESIS_HASH, None);
+			let (rx, cfg) = on_demand_justifications_protocol_config::<
+				_,
+				Block,
+				sc_network::NetworkWorker<_, _>,
+			>(GENESIS_HASH, None);
 			let justif_protocol_name = cfg.name.clone();
 
 			net.add_authority_peer(vec![cfg]);
@@ -432,6 +437,7 @@ async fn voter_init_setup(
 		Arc::new(api.clone()),
 		&key_store,
 		&metrics,
+		true,
 	)
 	.await
 }
@@ -492,6 +498,7 @@ where
 			min_block_delta,
 			prometheus_registry: None,
 			on_demand_justifications_handler: on_demand_justif_handler,
+			is_authority: true,
 		};
 		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
 
@@ -1505,7 +1512,8 @@ async fn gossiped_finality_proofs() {
 	let fisherman = create_fisherman(&BeefyKeyring::Alice, api, backend.clone());
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
-	let (gossip_validator, _) = GossipValidator::new(known_peers, fisherman);
+	let gossip_validator =
+		GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0), fisherman);
 	let charlie_gossip_validator = Arc::new(gossip_validator);
 	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block> {
 		start: 1,

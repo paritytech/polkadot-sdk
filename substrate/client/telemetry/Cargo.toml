@@ -18,12 +18,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 chrono = "0.4.31"
-futures = "0.3.21"
+futures = "0.3.30"
 libp2p = { version = "0.51.4", features = ["dns", "tcp", "tokio", "wasm-ext", "websocket"] }
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 pin-project = "1.0.12"
 sc-utils = { path = "../utils" }
+sc-network = { path = "../network" }
 rand = "0.8.5"
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

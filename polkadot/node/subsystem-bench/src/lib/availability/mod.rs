@@ -51,8 +51,9 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::GroupIndex;
+use polkadot_primitives::{Block, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
+
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use std::{ops::Sub, sync::Arc, time::Instant};
@@ -69,7 +70,7 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 pub struct DataAvailabilityReadOptions {
 	#[clap(short, long, default_value_t = false)]
 	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
+	/// we don't need to re-construct from chunks. Typically this is only faster if nodes have
 	/// enough bandwidth.
 	pub fetch_from_backers: bool,
 }
@@ -140,20 +141,32 @@ pub fn prepare_test(
 	mode: TestDataAvailability,
 	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	let (collation_req_receiver, collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (pov_req_receiver, pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let req_cfgs = vec![collation_req_cfg, pov_req_cfg];
-
 	let dependencies = TestEnvironmentDependencies::default();
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
 		available_data: state.available_data.clone(),
 		chunks: state.chunks.clone(),
 	};
+
+	let mut req_cfgs = Vec::new();
+
+	let (collation_req_receiver, collation_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+	req_cfgs.push(collation_req_cfg);
+
+	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+
+	let (chunk_req_receiver, chunk_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+	req_cfgs.push(pov_req_cfg);
+
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,
 		&dependencies,
@@ -404,7 +417,7 @@ pub async fn benchmark_availability_write(
 		let network = env.network().clone();
 		let authorities = env.authorities().clone();
 
-		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
+		// Spawn a task that will generate `n_validator` - 1 signed bitfields and
 		// send them from the emulated peers to the subsystem.
 		// TODO: Implement topology.
 		let messages = state.signed_bitfields.get(&relay_block_hash).expect("pregenerated").clone();
@@ -425,7 +438,7 @@ pub async fn benchmark_availability_write(
 
 		// Wait for all bitfields to be processed.
 		env.wait_until_metric(
-			"polkadot_parachain_received_availabilty_bitfields_total",
+			"polkadot_parachain_received_availability_bitfields_total",
 			None,
 			|value| value == (config.connected_count() * block_num) as f64,
 		)

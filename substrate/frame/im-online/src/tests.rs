@@ -416,7 +416,7 @@ fn should_handle_non_linear_session_progress() {
 
 		Session::rotate_session();
 
-		// if we don't have valid results for the current session progres then
+		// if we don't have valid results for the current session progress then
 		// we'll fallback to `HeartbeatAfter` and only heartbeat on block 5.
 		MockCurrentSessionProgress::mutate(|p| *p = Some(None));
 		assert_eq!(ImOnline::send_heartbeats(2).err(), Some(OffchainErr::TooEarly));

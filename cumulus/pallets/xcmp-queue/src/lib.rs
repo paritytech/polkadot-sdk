@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
 		let max_message_size = channel_info.max_message_size as usize;
 		let format_size = format.encoded_size();
-		// We check the encoded fragment length plus the format size agains the max message size
+		// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
 		let size_to_check = encoded_fragment
 			.len()
@@ -942,7 +942,10 @@ impl<T: Config> SendXcm for Pallet<T> {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
-			Err(e) => Err(SendError::Transport(e.into())),
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
+				Err(SendError::Transport(e.into()))
+			},
 		}
 	}
 }

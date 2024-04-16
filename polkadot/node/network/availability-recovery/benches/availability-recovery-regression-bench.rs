@@ -28,10 +28,11 @@ use polkadot_subsystem_bench::{
 	},
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
+	utils::save_to_file,
 };
 use std::io::Write;
 
-const BENCH_COUNT: usize = 50;
+const BENCH_COUNT: usize = 5;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -39,6 +40,8 @@ fn main() -> Result<(), String> {
 	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
 	let mut config = TestConfiguration::default();
 	config.num_blocks = 3;
+	config.connectivity = 100;
+	config.latency = None;
 	config.generate_pov_sizes();
 
 	let state = TestState::new(&config);
@@ -58,7 +61,13 @@ fn main() -> Result<(), String> {
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
+
 	let average_usage = BenchmarkUsage::average(&usages);
+	save_to_file(
+		"charts/availability-recovery-regression-bench.json",
+		average_usage.to_chart_json().map_err(|e| e.to_string())?,
+	)
+	.map_err(|e| e.to_string())?;
 	println!("{}", average_usage);
 
 	// We expect no variance for received and sent

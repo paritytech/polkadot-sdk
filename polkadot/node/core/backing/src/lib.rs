@@ -105,12 +105,11 @@ use polkadot_node_subsystem_util::{
 	Validator,
 };
 use polkadot_primitives::{
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, PersistedValidationData, PvfExecKind, SessionIndex,
-	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
-	ValidityAttestation,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
+	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
+	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -292,7 +291,7 @@ struct State {
 	/// Cache the per-session Validator->Group mapping.
 	validator_to_group_cache:
 		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
-	/// A cloneable sender which is dispatched to background candidate validation tasks to inform
+	/// A clonable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
@@ -911,7 +910,7 @@ async fn handle_active_leaves_update<Context>(
 			}
 
 			let mut seconded_at_depth = HashMap::new();
-			if let Some(response) = membership_answers.next().await {
+			while let Some(response) = membership_answers.next().await {
 				match response {
 					Err(oneshot::Canceled) => {
 						gum::warn!(

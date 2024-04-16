@@ -51,7 +51,7 @@ fn genesis_session_initializes_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
 	let want = authorities.clone();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		let authorities = beefy::Authorities::<Test>::get();
 
 		assert_eq!(authorities.len(), 4);
@@ -73,131 +73,140 @@ fn session_change_updates_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
 	let want_validators = authorities.clone();
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		assert!(0 == beefy::ValidatorSetId::<Test>::get());
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			assert!(0 == beefy::ValidatorSetId::<Test>::get());
 
-		init_block(1);
+			init_block(1);
 
-		assert!(1 == beefy::ValidatorSetId::<Test>::get());
+			assert!(1 == beefy::ValidatorSetId::<Test>::get());
 
-		let want = beefy_log(ConsensusLog::AuthoritiesChange(
-			ValidatorSet::new(want_validators, 1).unwrap(),
-		));
+			let want = beefy_log(ConsensusLog::AuthoritiesChange(
+				ValidatorSet::new(want_validators, 1).unwrap(),
+			));
 
-		let log = System::digest().logs[0].clone();
-		assert_eq!(want, log);
+			let log = System::digest().logs[0].clone();
+			assert_eq!(want, log);
 
-		init_block(2);
+			init_block(2);
 
-		assert!(2 == beefy::ValidatorSetId::<Test>::get());
+			assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
-		let want = beefy_log(ConsensusLog::AuthoritiesChange(
-			ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)], 2)
-				.unwrap(),
-		));
+			let want = beefy_log(ConsensusLog::AuthoritiesChange(
+				ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
+			));
 
-		let log = System::digest().logs[1].clone();
-		assert_eq!(want, log);
-	});
+			let log = System::digest().logs[1].clone();
+			assert_eq!(want, log);
+		});
 }
 
 #[test]
 fn session_change_updates_next_authorities() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		let next_authorities = beefy::NextAuthorities::<Test>::get();
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-		assert_eq!(next_authorities.len(), 4);
-		assert_eq!(want[0], next_authorities[0]);
-		assert_eq!(want[1], next_authorities[1]);
-		assert_eq!(want[2], next_authorities[2]);
-		assert_eq!(want[3], next_authorities[3]);
+			assert_eq!(next_authorities.len(), 4);
+			assert_eq!(want[0], next_authorities[0]);
+			assert_eq!(want[1], next_authorities[1]);
+			assert_eq!(want[2], next_authorities[2]);
+			assert_eq!(want[3], next_authorities[3]);
 
-		init_block(1);
+			init_block(1);
 
-		let next_authorities = beefy::NextAuthorities::<Test>::get();
+			let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-		assert_eq!(next_authorities.len(), 3);
-		assert_eq!(want[1], next_authorities[0]);
-		assert_eq!(want[3], next_authorities[2]);
-	});
+			assert_eq!(next_authorities.len(), 3);
+			assert_eq!(want[1], next_authorities[0]);
+			assert_eq!(want[3], next_authorities[2]);
+		});
 }
 
 #[test]
 fn validator_set_at_genesis() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2)];
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		let vs = Beefy::validator_set().unwrap();
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let vs = Beefy::validator_set().unwrap();
 
-		assert_eq!(vs.id(), 0u64);
-		assert_eq!(vs.validators()[0], want[0]);
-		assert_eq!(vs.validators()[1], want[1]);
-	});
+			assert_eq!(vs.id(), 0u64);
+			assert_eq!(vs.validators()[0], want[0]);
+			assert_eq!(vs.validators()[1], want[1]);
+		});
 }
 
 #[test]
 fn validator_set_updates_work() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		let vs = Beefy::validator_set().unwrap();
-		assert_eq!(vs.id(), 0u64);
-		assert_eq!(want[0], vs.validators()[0]);
-		assert_eq!(want[1], vs.validators()[1]);
-		assert_eq!(want[2], vs.validators()[2]);
-		assert_eq!(want[3], vs.validators()[3]);
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let vs = Beefy::validator_set().unwrap();
+			assert_eq!(vs.id(), 0u64);
+			assert_eq!(want[0], vs.validators()[0]);
+			assert_eq!(want[1], vs.validators()[1]);
+			assert_eq!(want[2], vs.validators()[2]);
+			assert_eq!(want[3], vs.validators()[3]);
 
-		init_block(1);
+			init_block(1);
 
-		let vs = Beefy::validator_set().unwrap();
+			let vs = Beefy::validator_set().unwrap();
 
-		assert_eq!(vs.id(), 1u64);
-		assert_eq!(want[0], vs.validators()[0]);
-		assert_eq!(want[1], vs.validators()[1]);
+			assert_eq!(vs.id(), 1u64);
+			assert_eq!(want[0], vs.validators()[0]);
+			assert_eq!(want[1], vs.validators()[1]);
 
-		init_block(2);
+			init_block(2);
 
-		let vs = Beefy::validator_set().unwrap();
+			let vs = Beefy::validator_set().unwrap();
 
-		assert_eq!(vs.id(), 2u64);
-		assert_eq!(want[1], vs.validators()[0]);
-		assert_eq!(want[3], vs.validators()[2]);
-	});
+			assert_eq!(vs.id(), 2u64);
+			assert_eq!(want[1], vs.validators()[0]);
+			assert_eq!(want[3], vs.validators()[2]);
+		});
 }
 
 #[test]
 fn cleans_up_old_set_id_session_mappings() {
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		let max_set_id_session_entries = MaxSetIdSessionEntries::get();
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let max_set_id_session_entries = MaxSetIdSessionEntries::get();
 
-		// we have 3 sessions per era
-		let era_limit = max_set_id_session_entries / 3;
-		// sanity check against division precision loss
-		assert_eq!(0, max_set_id_session_entries % 3);
-		// go through `max_set_id_session_entries` sessions
-		start_era(era_limit);
+			// we have 3 sessions per era
+			let era_limit = max_set_id_session_entries / 3;
+			// sanity check against division precision loss
+			assert_eq!(0, max_set_id_session_entries % 3);
+			// go through `max_set_id_session_entries` sessions
+			start_era(era_limit);
 
-		// we should have a session id mapping for all the set ids from
-		// `max_set_id_session_entries` eras we have observed
-		for i in 1..=max_set_id_session_entries {
-			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
-		}
+			// we should have a session id mapping for all the set ids from
+			// `max_set_id_session_entries` eras we have observed
+			for i in 1..=max_set_id_session_entries {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
+			}
 
-		// go through another `max_set_id_session_entries` sessions
-		start_era(era_limit * 2);
+			// go through another `max_set_id_session_entries` sessions
+			start_era(era_limit * 2);
 
-		// we should keep tracking the new mappings for new sessions
-		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
-			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
-		}
+			// we should keep tracking the new mappings for new sessions
+			for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
+			}
 
-		// but the old ones should have been pruned by now
-		for i in 1..=max_set_id_session_entries {
-			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
-		}
-	});
+			// but the old ones should have been pruned by now
+			for i in 1..=max_set_id_session_entries {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
+			}
+		});
 }
 
 /// Returns a list with 3 authorities with known keys:
@@ -267,7 +276,7 @@ fn should_sign_and_verify() {
 fn report_vote_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		assert_eq!(Staking::current_era(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
@@ -347,7 +356,7 @@ fn report_vote_equivocation_current_set_works() {
 fn report_vote_equivocation_old_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -430,7 +439,7 @@ fn report_vote_equivocation_old_set_works() {
 fn report_vote_equivocation_invalid_set_id() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -468,7 +477,7 @@ fn report_vote_equivocation_invalid_set_id() {
 fn report_vote_equivocation_invalid_session() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -511,7 +520,7 @@ fn report_vote_equivocation_invalid_session() {
 fn report_vote_equivocation_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -559,7 +568,7 @@ fn report_vote_equivocation_invalid_key_owner_proof() {
 fn report_vote_equivocation_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -632,7 +641,7 @@ fn report_vote_equivocation_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -736,7 +745,7 @@ fn report_vote_equivocation_has_valid_weight() {
 fn valid_vote_equivocation_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -806,7 +815,7 @@ fn valid_vote_equivocation_reports_dont_pay_fees() {
 fn report_fork_equivocation_vote_current_set_works() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -901,7 +910,7 @@ fn report_fork_equivocation_vote_current_set_works() {
 fn report_fork_equivocation_vote_old_set_works() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1015,7 +1024,7 @@ fn report_fork_equivocation_vote_old_set_works() {
 fn report_fork_equivocation_vote_future_block_works() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1104,7 +1113,7 @@ fn report_fork_equivocation_vote_future_block_works() {
 fn report_fork_equivocation_vote_invalid_set_id() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1156,7 +1165,7 @@ fn report_fork_equivocation_vote_invalid_set_id() {
 fn report_fork_equivocation_vote_invalid_session() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1214,7 +1223,7 @@ fn report_fork_equivocation_vote_invalid_session() {
 fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1277,7 +1286,7 @@ fn report_fork_equivocation_vote_invalid_key_owner_proof() {
 fn report_fork_equivocation_vote_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1364,7 +1373,7 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1464,7 +1473,7 @@ fn report_fork_equivocation_vote_validate_unsigned_prevents_duplicates() {
 fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1548,7 +1557,7 @@ fn valid_fork_equivocation_vote_reports_dont_pay_fees() {
 fn report_fork_equivocation_sc_current_set_works() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1656,7 +1665,7 @@ fn report_fork_equivocation_sc_current_set_works() {
 fn report_fork_equivocation_sc_old_set_works() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1764,7 +1773,7 @@ fn report_fork_equivocation_sc_old_set_works() {
 			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 			assert_eq!(
-				Staking::eras_stakers(era, equivocation_validator_id),
+				Staking::eras_stakers(era, &equivocation_validator_id),
 				pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 			);
 		}
@@ -1790,7 +1799,7 @@ fn report_fork_equivocation_sc_old_set_works() {
 fn report_fork_equivocation_sc_future_block_works() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1890,7 +1899,7 @@ fn report_fork_equivocation_sc_future_block_works() {
 fn report_fork_equivocation_sc_invalid_set_id() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -1954,7 +1963,7 @@ fn report_fork_equivocation_sc_invalid_set_id() {
 fn report_fork_equivocation_sc_invalid_session() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -2023,7 +2032,7 @@ fn report_fork_equivocation_sc_invalid_session() {
 fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -2098,7 +2107,7 @@ fn report_fork_equivocation_sc_invalid_key_owner_proof() {
 fn report_fork_equivocation_sc_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -2211,7 +2220,7 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -2311,7 +2320,7 @@ fn report_fork_equivocation_sc_validate_unsigned_prevents_duplicates() {
 fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -2393,7 +2402,7 @@ fn valid_fork_equivocation_sc_reports_dont_pay_fees() {
 fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 	let authorities = test_authorities();
 
-	let mut ext = new_test_ext_raw_authorities(authorities);
+	let mut ext = ExtBuilder::default().add_authorities(authorities).build();
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -2541,7 +2550,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 			assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 			assert_eq!(
-				Staking::eras_stakers(era, equivocation_validator_id),
+				Staking::eras_stakers(era, &equivocation_validator_id),
 				pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 			);
 		}
@@ -2567,7 +2576,7 @@ fn report_fork_equivocation_sc_stacked_reports_stack_correctly() {
 fn set_new_genesis_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let new_genesis_delay = 10u64;

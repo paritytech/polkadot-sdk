@@ -18,24 +18,20 @@
 
 use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
-use sc_network::{PeerId, ReputationChange};
+use sc_network::{NetworkPeers, ReputationChange};
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace};
 use parking_lot::{Mutex, RwLock};
 use sc_client_api::Backend;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::ProvideRuntimeApi;
 use wasm_timer::Instant;
 
 use crate::{
-	communication::{
-		benefit, cost,
-		fisherman::Fisherman,
-		peers::{KnownPeers, PeerReport},
-	},
+	communication::{benefit, cost, fisherman::Fisherman, peers::KnownPeers},
 	justification::{
 		proof_block_num_and_set_id, verify_with_validator_set, BeefyVersionedFinalityProof,
 	},
@@ -230,17 +226,20 @@ impl<B: Block> Filter<B> {
 /// to create forks before head of GRANDPA are reported.
 ///
 ///All messaging is handled in a single BEEFY global topic.
-pub(crate) struct GossipValidator<B: Block, BE, P, R> {
+pub(crate) struct GossipValidator<B, N, BE, P, R>
+where
+	B: Block,
+{
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
 	gossip_filter: RwLock<Filter<B>>,
 	next_rebroadcast: Mutex<Instant>,
 	known_peers: Arc<Mutex<KnownPeers<B>>>,
-	report_sender: TracingUnboundedSender<PeerReport>,
+	network: Arc<N>,
 	pub(crate) fisherman: Fisherman<B, BE, P, R>,
 }
 
-impl<B, BE, P, R> GossipValidator<B, BE, P, R>
+impl<B, N, BE, P, R> GossipValidator<B, N, BE, P, R>
 where
 	B: Block,
 	BE: Backend<B> + Send + Sync,
@@ -250,19 +249,18 @@ where
 {
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
+		network: Arc<N>,
 		fisherman: Fisherman<B, BE, P, R>,
-	) -> (GossipValidator<B, BE, P, R>, TracingUnboundedReceiver<PeerReport>) {
-		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 100_000);
-		let val = GossipValidator {
+	) -> Self {
+		Self {
 			votes_topic: votes_topic::<B>(),
 			justifs_topic: proofs_topic::<B>(),
 			gossip_filter: RwLock::new(Filter::new()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
 			known_peers,
-			report_sender: tx,
+			network,
 			fisherman,
-		};
-		(val, rx)
+		}
 	}
 
 	/// Update gossip validator filter.
@@ -276,9 +274,15 @@ where
 		);
 		self.gossip_filter.write().update(filter);
 	}
+}
 
+impl<B, N, BE, P, R> GossipValidator<B, N, BE, P, R>
+where
+	B: Block,
+	N: NetworkPeers,
+{
 	fn report(&self, who: PeerId, cost_benefit: ReputationChange) {
-		let _ = self.report_sender.unbounded_send(PeerReport { who, cost_benefit });
+		self.network.report_peer(who, cost_benefit);
 	}
 
 	fn validate_vote(
@@ -396,9 +400,10 @@ where
 	}
 }
 
-impl<B, BE, P, R> Validator<B> for GossipValidator<B, BE, P, R>
+impl<B, N, BE, P, R> Validator<B> for GossipValidator<B, N, BE, P, R>
 where
 	B: Block,
+	N: NetworkPeers + Send + Sync,
 	BE: Backend<B> + Send + Sync,
 	P: PayloadProvider<B> + Send + Sync,
 	R: ProvideRuntimeApi<B> + Send + Sync,
@@ -536,6 +541,7 @@ where
 pub(crate) mod tests {
 	use super::*;
 	use crate::{
+		communication::peers::PeerReport,
 		keystore::BeefyKeystore,
 		tests::{create_fisherman, BeefyTestNet, TestApi},
 	};
@@ -547,20 +553,114 @@ pub(crate) mod tests {
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
+	pub(crate) struct TestNetwork {
+		report_sender: futures::channel::mpsc::UnboundedSender<PeerReport>,
+	}
+
+	impl TestNetwork {
+		pub fn new() -> (Self, futures::channel::mpsc::UnboundedReceiver<PeerReport>) {
+			let (tx, rx) = futures::channel::mpsc::unbounded();
+
+			(Self { report_sender: tx }, rx)
+		}
+	}
+
+	#[async_trait::async_trait]
+	impl NetworkPeers for TestNetwork {
+		fn set_authorized_peers(&self, _: std::collections::HashSet<PeerId>) {
+			unimplemented!()
+		}
+
+		fn set_authorized_only(&self, _: bool) {
+			unimplemented!()
+		}
+
+		fn add_known_address(&self, _: PeerId, _: sc_network::Multiaddr) {
+			unimplemented!()
+		}
+
+		fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
+			let _ = self.report_sender.unbounded_send(PeerReport { who: peer_id, cost_benefit });
+		}
+
+		fn peer_reputation(&self, _: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _: PeerId, _: sc_network::ProtocolName) {
+			unimplemented!()
+		}
+
+		fn accept_unreserved_peers(&self) {
+			unimplemented!()
+		}
+
+		fn deny_unreserved_peers(&self) {
+			unimplemented!()
+		}
+
+		fn add_reserved_peer(
+			&self,
+			_: sc_network::config::MultiaddrWithPeerId,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn remove_reserved_peer(&self, _: PeerId) {
+			unimplemented!()
+		}
+
+		fn set_reserved_peers(
+			&self,
+			_: sc_network::ProtocolName,
+			_: std::collections::HashSet<sc_network::Multiaddr>,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn add_peers_to_reserved_set(
+			&self,
+			_: sc_network::ProtocolName,
+			_: std::collections::HashSet<sc_network::Multiaddr>,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn remove_peers_from_reserved_set(
+			&self,
+			_: sc_network::ProtocolName,
+			_: Vec<PeerId>,
+		) -> Result<(), String> {
+			unimplemented!()
+		}
+
+		fn sync_num_connected(&self) -> usize {
+			unimplemented!()
+		}
+
+		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
+			unimplemented!()
+		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
+	}
+
 	struct TestContext;
 	impl<B: sp_runtime::traits::Block> ValidatorContext<B> for TestContext {
 		fn broadcast_topic(&mut self, _topic: B::Hash, _force: bool) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn broadcast_message(&mut self, _topic: B::Hash, _message: Vec<u8>, _force: bool) {}
 
-		fn send_message(&mut self, _who: &sc_network::PeerId, _message: Vec<u8>) {
-			todo!()
+		fn send_message(&mut self, _who: &sc_network_types::PeerId, _message: Vec<u8>) {
+			unimplemented!()
 		}
 
-		fn send_topic(&mut self, _who: &sc_network::PeerId, _topic: B::Hash, _force: bool) {
-			todo!()
+		fn send_topic(&mut self, _who: &sc_network_types::PeerId, _topic: B::Hash, _force: bool) {
+			unimplemented!()
 		}
 	}
 
@@ -608,19 +708,24 @@ pub(crate) mod tests {
 		BeefyVersionedFinalityProof::<Block>::V1(SignedCommitment { commitment, signatures })
 	}
 
-	#[test]
-	fn should_validate_messages() {
+	#[tokio::test]
+	async fn should_validate_messages() {
 		let keyring = Keyring::<AuthorityId>::Alice;
 		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
+
+		let (network, mut report_stream) = TestNetwork::new();
 
 		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
 		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
 
-		let (gv, mut report_stream) =
-			GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
+		let gv = GossipValidator::new(
+			Arc::new(Mutex::new(KnownPeers::new())),
+			Arc::new(network),
+			fisherman,
+		);
 		let sender = PeerId::random();
 		let mut context = TestContext;
 
@@ -633,7 +738,7 @@ pub(crate) mod tests {
 		let mut expected_report = PeerReport { who: sender, cost_benefit: expected_cost };
 		let res = gv.validate(&mut context, &sender, bad_encoding);
 		assert!(matches!(res, ValidationResult::Discard));
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// verify votes validation
 
@@ -644,14 +749,14 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
 		// nothing reported
-		assert!(report_stream.try_recv().is_err());
+		assert!(report_stream.try_next().is_err());
 
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		// nothing in cache first time
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VOTE_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// reject vote, voter not in validator set
 		let mut bad_vote = vote.clone();
@@ -660,7 +765,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &bad_vote);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::UNKNOWN_VOTER;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// reject if the round is not GRANDPA finalized
 		gv.update_filter(GossipFilterCfg { start: 1, end: 2, validator_set: &validator_set });
@@ -670,7 +775,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// reject if the round is not live anymore
 		gv.update_filter(GossipFilterCfg { start: 7, end: 10, validator_set: &validator_set });
@@ -680,7 +785,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// now verify proofs validation
 
@@ -690,7 +795,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// accept next proof with good set_id
 		let proof = dummy_proof(7, &validator_set);
@@ -698,7 +803,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// accept future proof with good set_id
 		let proof = dummy_proof(20, &validator_set);
@@ -706,7 +811,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::ProcessAndKeep(_)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// reject proof, future set_id
 		let bad_validator_set = ValidatorSet::<AuthorityId>::new(keys, 1).unwrap();
@@ -715,7 +820,7 @@ pub(crate) mod tests {
 		let res = gv.validate(&mut context, &sender, &encoded_proof);
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		// reject proof, bad signatures (Bob instead of Alice)
 		let bad_validator_set =
@@ -726,11 +831,11 @@ pub(crate) mod tests {
 		assert!(matches!(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::INVALID_PROOF;
 		expected_report.cost_benefit.value += cost::PER_SIGNATURE_CHECKED;
-		assert_eq!(report_stream.try_recv().unwrap(), expected_report);
+		assert_eq!(report_stream.try_next().unwrap().unwrap(), expected_report);
 	}
 
-	#[test]
-	fn messages_allowed_and_expired() {
+	#[tokio::test]
+	async fn messages_allowed_and_expired() {
 		let keyring = Keyring::Alice;
 		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
@@ -740,9 +845,13 @@ pub(crate) mod tests {
 		let backend = net.peer(0).client().as_backend();
 		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
 
-		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
+		let gv = GossipValidator::new(
+			Arc::new(Mutex::new(KnownPeers::new())),
+			Arc::new(TestNetwork::new().0),
+			fisherman,
+		);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
-		let sender = sc_network::PeerId::random();
+		let sender = PeerId::random();
 		let topic = Default::default();
 		let intent = MessageIntent::Broadcast;
 
@@ -813,8 +922,8 @@ pub(crate) mod tests {
 		assert!(!expired(topic, &mut encoded_proof));
 	}
 
-	#[test]
-	fn messages_rebroadcast() {
+	#[tokio::test]
+	async fn messages_rebroadcast() {
 		let keyring = Keyring::Alice;
 		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
@@ -824,9 +933,13 @@ pub(crate) mod tests {
 		let backend = net.peer(0).client().as_backend();
 		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
 
-		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
+		let gv = GossipValidator::new(
+			Arc::new(Mutex::new(KnownPeers::new())),
+			Arc::new(TestNetwork::new().0),
+			fisherman,
+		);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
-		let sender = sc_network::PeerId::random();
+		let sender = PeerId::random();
 		let topic = Default::default();
 
 		let vote = dummy_vote(1);

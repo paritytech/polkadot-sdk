@@ -45,19 +45,19 @@ pub fn import_sp_io() {
 
 #[runtime_interface]
 pub trait TestApi {
-	fn test_versionning(&self, _data: u32) -> bool {
+	fn test_versioning(&self, _data: u32) -> bool {
 		// should not be called
 		unimplemented!()
 	}
 }
 
 wasm_export_functions! {
-	fn test_versionning_works() {
+	fn test_versioning_works() {
 		// old api allows only 42 and 50
-		assert!(test_api::test_versionning(42));
-		assert!(test_api::test_versionning(50));
+		assert!(test_api::test_versioning(42));
+		assert!(test_api::test_versioning(50));
 
-		assert!(!test_api::test_versionning(142));
-		assert!(!test_api::test_versionning(0));
+		assert!(!test_api::test_versioning(142));
+		assert!(!test_api::test_versioning(0));
 	}
 }

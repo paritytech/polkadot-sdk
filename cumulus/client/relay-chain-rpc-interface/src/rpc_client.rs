@@ -32,13 +32,12 @@ use parity_scale_codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
-		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-		GroupRotationInfo, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-		ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+		ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -654,6 +653,20 @@ impl RelayChainRpcClient {
 	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
 			.await
+	}
+
+	/// Get the receipt of all candidates pending availability.
+	pub async fn parachain_host_candidates_pending_availability(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_candidates_pending_availability",
+			at,
+			Some(para_id),
+		)
+		.await
 	}
 
 	pub async fn validation_code_hash(

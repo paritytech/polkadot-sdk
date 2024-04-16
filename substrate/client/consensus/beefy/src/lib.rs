@@ -72,7 +72,7 @@ pub mod import;
 pub mod justification;
 
 use crate::{
-	communication::{gossip::GossipValidator, peers::PeerReport},
+	communication::gossip::GossipValidator,
 	justification::BeefyVersionedFinalityProof,
 	metrics::VoterMetrics,
 	round::Rounds,
@@ -81,7 +81,6 @@ use crate::{
 pub use communication::beefy_protocol_name::{
 	gossip_protocol_name, justifications_protocol_name as justifs_protocol_name,
 };
-use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::generic::OpaqueDigestItemId;
 
 #[cfg(test)]
@@ -225,14 +224,15 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 	pub links: BeefyVoterLinks<B>,
 	/// Handler for incoming BEEFY justifications requests from a remote peer.
 	pub on_demand_justifications_handler: BeefyJustifsRequestHandler<B, C>,
+	/// Whether running under "Authority" role.
+	pub is_authority: bool,
 }
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block, BE, P, R> {
+pub(crate) struct BeefyComms<B: Block, N, BE, P, R> {
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
-	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
+	pub gossip_validator: Arc<GossipValidator<B, N, BE, P, R>>,
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
 
@@ -265,14 +265,15 @@ where
 	/// persisted state in AUX DB and latest chain information/progress.
 	///
 	/// Returns a sane `BeefyWorkerBuilder` that can build the `BeefyWorker`.
-	pub async fn async_initialize<P: PayloadProvider<B> + Send + Sync>(
+	pub async fn async_initialize<N, P: PayloadProvider<B> + Send + Sync>(
 		backend: Arc<BE>,
 		runtime: Arc<R>,
 		key_store: Arc<BeefyKeystore<AuthorityId>>,
 		metrics: Option<VoterMetrics>,
 		min_block_delta: u32,
-		gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
+		gossip_validator: Arc<GossipValidator<B, N, BE, P, R>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
+		is_authority: bool,
 	) -> Result<Self, Error> {
 		// Wait for BEEFY pallet to be active before starting voter.
 		let (beefy_genesis, best_grandpa) =
@@ -286,6 +287,7 @@ where
 			runtime.clone(),
 			&key_store,
 			&metrics,
+			is_authority,
 		)
 		.await?;
 		// Update the gossip validator with the right starting round and set id.
@@ -297,14 +299,15 @@ where
 	}
 
 	/// Takes rest of missing pieces as params and builds the `BeefyWorker`.
-	pub fn build<P, S>(
+	pub fn build<P, S, N>(
 		self,
 		payload_provider: P,
 		sync: Arc<S>,
-		comms: BeefyComms<B, BE, P, R>,
+		comms: BeefyComms<B, N, BE, P, R>,
 		links: BeefyVoterLinks<B>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
-	) -> BeefyWorker<B, BE, P, R, S> {
+		is_authority: bool,
+	) -> BeefyWorker<B, BE, P, R, S, N> {
 		BeefyWorker {
 			backend: self.backend,
 			runtime: self.runtime,
@@ -316,6 +319,7 @@ where
 			comms,
 			links,
 			pending_justifications,
+			is_authority,
 		}
 	}
 
@@ -426,6 +430,7 @@ where
 		runtime: Arc<R>,
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
+		is_authority: bool,
 	) -> Result<PersistedState<B>, Error> {
 		// Initialize voter state from AUX DB if compatible.
 		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
@@ -458,7 +463,13 @@ where
 					"🥩 Handling missed BEEFY session after node restart: {:?}.",
 					new_session_start
 				);
-				state.init_session_at(new_session_start, validator_set, key_store, metrics);
+				state.init_session_at(
+					new_session_start,
+					validator_set,
+					key_store,
+					metrics,
+					is_authority,
+				);
 			}
 			return Ok(state)
 		}
@@ -494,6 +505,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		prometheus_registry,
 		links,
 		mut on_demand_justifications_handler,
+		is_authority,
 	} = beefy_params;
 
 	let key_store: Arc<BeefyKeystore<AuthorityId>> = Arc::new(key_store.into());
@@ -524,8 +536,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	};
 	// Default votes filter is to discard everything.
 	// Validator is updated later with correct starting round and set id.
-	let (gossip_validator, gossip_report_stream) =
-		communication::gossip::GossipValidator::new(known_peers.clone(), fisherman);
+	let gossip_validator = GossipValidator::new(known_peers.clone(), network.clone(), fisherman);
 	let gossip_validator = Arc::new(gossip_validator);
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
@@ -544,45 +555,35 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		known_peers,
 		prometheus_registry.clone(),
 	);
-	let mut beefy_comms = BeefyComms {
-		gossip_engine,
-		gossip_validator,
-		gossip_report_stream,
-		on_demand_justifications,
-	};
+	let mut beefy_comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 
 	// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
 	// select recoverable errors.
 	loop {
 		// Make sure to pump gossip engine while waiting for initialization conditions.
-		let worker_builder = loop {
-			futures::select! {
-				builder_init_result = BeefyWorkerBuilder::async_initialize(
-					backend.clone(),
-					runtime.clone(),
-					key_store.clone(),
-					metrics.clone(),
-					min_block_delta,
-					beefy_comms.gossip_validator.clone(),
-					&mut finality_notifications,
-				).fuse() => {
-					match builder_init_result {
-						Ok(builder) => break builder,
-						Err(e) => {
-							error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
-							return
-						},
-					}
-				},
-				// Pump peer reports
-				_ = &mut beefy_comms.gossip_report_stream.next() => {
-					continue
-				},
-				// Pump gossip engine.
-				_ = &mut beefy_comms.gossip_engine => {
-					error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
-					return
+		let worker_builder = futures::select! {
+			builder_init_result = BeefyWorkerBuilder::async_initialize(
+				backend.clone(),
+				runtime.clone(),
+				key_store.clone().into(),
+				metrics.clone(),
+				min_block_delta,
+				beefy_comms.gossip_validator.clone(),
+				&mut finality_notifications,
+				is_authority,
+			).fuse() => {
+				match builder_init_result {
+					Ok(builder) => builder,
+					Err(e) => {
+						error!(target: LOG_TARGET, "🥩 Error: {:?}. Terminating.", e);
+						return
+					},
 				}
+			},
+			// Pump gossip engine.
+			_ = &mut beefy_comms.gossip_engine => {
+				error!(target: LOG_TARGET, "🥩 Gossip engine has unexpectedly terminated.");
+				return
 			}
 		};
 
@@ -592,6 +593,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			beefy_comms,
 			links.clone(),
 			BTreeMap::new(),
+			is_authority,
 		);
 
 		match futures::future::select(

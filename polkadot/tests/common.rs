@@ -48,8 +48,8 @@ pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 
 /// Read the WS address from the output.
 ///
-/// This is hack to get the actual binded sockaddr because
-/// polkadot assigns a random port if the specified port was already binded.
+/// This is hack to get the actual bound sockaddr because
+/// polkadot assigns a random port if the specified port was already bound.
 ///
 /// You must call
 /// `Command::new("cmd").stdout(process::Stdio::piped()).stderr(process::Stdio::piped())`

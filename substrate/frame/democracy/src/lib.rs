@@ -484,7 +484,7 @@ pub mod pallet {
 		Blacklisted { proposal_hash: T::Hash },
 		/// An account has voted in a referendum
 		Voted { voter: T::AccountId, ref_index: ReferendumIndex, vote: AccountVote<BalanceOf<T>> },
-		/// An account has secconded a proposal
+		/// An account has seconded a proposal
 		Seconded { seconder: T::AccountId, prop_index: PropIndex },
 		/// A proposal got canceled.
 		ProposalCanceled { prop_index: PropIndex },

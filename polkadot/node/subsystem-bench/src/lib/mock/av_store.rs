@@ -39,7 +39,7 @@ pub struct AvailabilityStoreState {
 
 const LOG_TARGET: &str = "subsystem-bench::av-store-mock";
 
-/// Mockup helper. Contains Ccunks and full availability data of all parachain blocks
+/// Mockup helper. Contains Chunks and full availability data of all parachain blocks
 /// used in a test.
 #[derive(Clone)]
 pub struct NetworkAvailabilityState {
