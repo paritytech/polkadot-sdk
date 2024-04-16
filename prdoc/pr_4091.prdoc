@@ -6,7 +6,7 @@ title: Remove `pallet::getter` usage from authority-discovery pallet
 doc:
   - audience: Runtime Dev
     description: |
-      This PR removes `pallet::getter` usage from `pallet-authority-discovery`.
+      This PR removes `pallet::getter`s from `pallet-authority-discovery`.
       The syntax `StorageItem::<T, I>::get()` should be used instead.
 
 crates:
