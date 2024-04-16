@@ -147,7 +147,7 @@ pub mod v2 {
 		fn on_runtime_upgrade() -> Weight {
 			let in_code_version = Pallet::<T>::in_code_storage_version();
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
-			if on_chain_version == 0 && in_code_version == 1 {
+			if on_chain_version == 1 && in_code_version == 2 {
 				in_code_version.put::<Pallet<T>>();
 				log::info!(
 					target: LOG_TARGET,
@@ -196,7 +196,9 @@ pub mod v2 {
 
 			Asset::<T>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {
 				ensure!(
-					asset.status == AssetStatus::Live || asset.status == AssetStatus::Frozen || asset.status == AssetStatus::Destroying,
+					asset.status == AssetStatus::Live
+						|| asset.status == AssetStatus::Frozen
+						|| asset.status == AssetStatus::Destroying,
 					 "assets should only be live or frozen or destroying. None should be in LiveAndNoPrivileges status, or undefined state"
 				);
 				Ok(())

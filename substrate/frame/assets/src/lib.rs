@@ -192,7 +192,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
+type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 const LOG_TARGET: &str = "runtime::assets";
@@ -633,6 +633,7 @@ pub mod pallet {
 		/// The signing account has no permission to do the operation due to the asset being live
 		/// and with no privileges.
 		NoPermissionAssetLiveAndNoPrivileges,
+		/// Operation fails because the asset status is `Destroying`.
 		DestroyingAsset,
 	}
 
@@ -950,7 +951,7 @@ pub mod pallet {
 		/// Move some assets from one account to another.
 		///
 		/// Origin must be Signed and the sender should be the Admin of the asset `id` and the
-		/// asset must not be `LiveAndNoPrivileges`.
+		/// asset status must not be `LiveAndNoPrivileges`.
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `source`: The account to be debited.
@@ -1593,7 +1594,6 @@ pub mod pallet {
 
 			let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			Self::check_owner_right(&details, &origin)?;
-			ensure!(details.status != AssetStatus::Destroying, Error::<T, I>::DestroyingAsset);
 
 			let old_min_balance = details.min_balance;
 			// If the asset is marked as sufficient it won't be allowed to
@@ -1702,16 +1702,18 @@ pub mod pallet {
 		///
 		/// Warning: this action is irreversible.
 		///
-		/// The deposit of the asset details and metadata will be unreserved then withdrawn and sent
-		/// to `DepositDestinationOnRevocation`. If no metadata was set then the new deposit will be
-		/// withdrawn from the owner.
-		///
 		/// Origin must be either Signed and the sender should be the Owner of the asset `id` or
-		/// ForceOrigin.
+		/// `ForceOrigin`.
+		///
+		/// If origin is the owner: The deposit of the asset details and metadata will be
+		/// unreserved then withdrawn and sent to `DepositDestinationOnRevocation`. If no metadata
+		/// was set then the new deposit will be withdrawn from the owner.
+		///
+		/// If origin is `ForceOrigin`: The deposit of owner is unreserved.
 		///
 		/// - `id`: The identifier of the asset.
 		///
-		/// Emits `OwnerAndTeamRevoked`.
+		/// Emits `OwnerAndTeamRevoked` and `MetadataSet`.
 		///
 		/// Weight: `O(1)`
 		#[pallet::call_index(32)]
@@ -1719,32 +1721,31 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
 		) -> DispatchResult {
-			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
+			let maybe_owner_origin = match T::ForceOrigin::try_origin(origin) {
 				Ok(_) => None,
 				Err(origin) => Some(ensure_signed(origin)?),
 			};
 			let id: T::AssetId = id.into();
-
 			let mut asset = Asset::<T, I>::get(id.clone()).ok_or(Error::<T, I>::Unknown)?;
 
-			if let Some(check_owner) = maybe_check_owner.as_ref() {
-				Self::check_owner_right(&asset, check_owner)?;
+			if let Some(owner) = maybe_owner_origin.as_ref() {
+				Self::check_owner_right(&asset, owner)?;
 			}
 			Self::ensure_live_asset(&asset)?;
 
 			let old_metadata = Metadata::<T, I>::get(&id);
-			let old_metadata_deposit = old_metadata.deposit;
 
-			let fee_imbalance = if let Some(owner) = maybe_check_owner {
+			let deposit_amount = asset.deposit + old_metadata.deposit;
+
+			let fee_imbalance = if let Some(owner) = maybe_owner_origin {
 				let new_metadata_deposit =
 					Self::calc_metadata_deposit(&old_metadata.name, &old_metadata.symbol);
 
-				// NOTE: if new deposit is less than old deposit. The excess is not refunded
+				// NOTE: if new deposit is less than old deposit then the excess is not refunded.
 				let metadata_deposit_diff =
-					new_metadata_deposit.saturating_sub(old_metadata_deposit);
+					new_metadata_deposit.saturating_sub(old_metadata.deposit);
 
 				with_storage_layer::<_, DispatchError, _>(|| {
-					let deposit_amount = asset.deposit + old_metadata_deposit;
 					T::Currency::unreserve(&asset.owner, deposit_amount);
 					let imbalance = T::Currency::withdraw(
 						&owner,
@@ -1755,11 +1756,9 @@ pub mod pallet {
 					Ok(imbalance)
 				})?
 			} else {
-				T::Currency::unreserve(&asset.owner, asset.deposit + old_metadata_deposit);
+				T::Currency::unreserve(&asset.owner, deposit_amount);
 				Imbalance::zero()
 			};
-
-			T::DepositDestinationOnRevocation::on_unbalanced(fee_imbalance);
 
 			let new_metadata = AssetMetadata {
 				deposit: Zero::zero(),
@@ -1768,12 +1767,10 @@ pub mod pallet {
 				decimals: old_metadata.decimals,
 				is_frozen: true,
 			};
-
 			Metadata::<T, I>::insert(&id, &new_metadata);
 
 			asset.deposit = Zero::zero();
 			asset.status = AssetStatus::LiveAndNoPrivileges;
-
 			Asset::<T, I>::insert(&id, &asset);
 
 			Self::deposit_event(Event::OwnerAndTeamRevoked { asset_id: id.clone() });
@@ -1784,6 +1781,9 @@ pub mod pallet {
 				decimals: new_metadata.decimals,
 				is_frozen: new_metadata.is_frozen,
 			});
+
+			T::DepositDestinationOnRevocation::on_unbalanced(fee_imbalance);
+
 			Ok(())
 		}
 	}
