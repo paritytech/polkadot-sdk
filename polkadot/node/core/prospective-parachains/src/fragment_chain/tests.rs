@@ -1306,7 +1306,9 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 }
 
 #[test]
-fn test_multiple_unconnected_potential_candidates() {}
+fn test_multiple_unconnected_potential_candidates() {
+	// TODO
+}
 
 // #[test]
 // fn hypothetical_depths_known_and_unknown() {
@@ -1478,130 +1480,6 @@ fn test_multiple_unconnected_potential_candidates() {}
 // 			false,
 // 		)
 // 		.is_empty());
-// }
-
-// #[test]
-// fn hypothetical_depths_backed_in_path() {
-// 	let mut storage = CandidateStorage::new();
-
-// 	let para_id = ParaId::from(5u32);
-// 	let relay_parent_a = Hash::repeat_byte(1);
-
-// 	let (pvd_a, candidate_a) = make_committed_candidate(
-// 		para_id,
-// 		relay_parent_a,
-// 		0,
-// 		vec![0x0a].into(),
-// 		vec![0x0b].into(),
-// 		0,
-// 	);
-// 	let candidate_a_hash = candidate_a.hash();
-
-// 	let (pvd_b, candidate_b) = make_committed_candidate(
-// 		para_id,
-// 		relay_parent_a,
-// 		0,
-// 		vec![0x0b].into(),
-// 		vec![0x0c].into(),
-// 		0,
-// 	);
-// 	let candidate_b_hash = candidate_b.hash();
-
-// 	let (pvd_c, candidate_c) = make_committed_candidate(
-// 		para_id,
-// 		relay_parent_a,
-// 		0,
-// 		vec![0x0b].into(),
-// 		vec![0x0d].into(),
-// 		0,
-// 	);
-
-// 	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
-// 	let pending_availability = Vec::new();
-
-// 	let relay_parent_a_info = RelayChainBlockInfo {
-// 		number: pvd_a.relay_parent_number,
-// 		hash: relay_parent_a,
-// 		storage_root: pvd_a.relay_parent_storage_root,
-// 	};
-
-// 	let max_depth = 4;
-// 	storage.add_candidate(candidate_a, pvd_a).unwrap();
-// 	storage.add_candidate(candidate_b, pvd_b).unwrap();
-// 	storage.add_candidate(candidate_c, pvd_c).unwrap();
-
-// 	// `A` and `B` are backed, `C` is not.
-// 	storage.mark_backed(&candidate_a_hash);
-// 	storage.mark_backed(&candidate_b_hash);
-
-// 	let scope = Scope::with_ancestors(
-// 		para_id,
-// 		relay_parent_a_info,
-// 		base_constraints,
-// 		pending_availability,
-// 		max_depth,
-// 		vec![],
-// 	)
-// 	.unwrap();
-// 	let tree = FragmentTree::populate(scope, &storage);
-
-// 	let candidates: Vec<_> = tree.candidates().collect();
-// 	assert_eq!(candidates.len(), 3);
-// 	assert_eq!(tree.nodes.len(), 3);
-
-// 	let candidate_d_hash = CandidateHash(Hash::repeat_byte(0xAA));
-
-// 	assert_eq!(
-// 		tree.hypothetical_depths(
-// 			candidate_d_hash,
-// 			HypotheticalCandidate::Incomplete {
-// 				parent_head_data_hash: HeadData::from(vec![0x0a]).hash(),
-// 				relay_parent: relay_parent_a,
-// 			},
-// 			&storage,
-// 			true,
-// 		),
-// 		vec![0],
-// 	);
-
-// 	assert_eq!(
-// 		tree.hypothetical_depths(
-// 			candidate_d_hash,
-// 			HypotheticalCandidate::Incomplete {
-// 				parent_head_data_hash: HeadData::from(vec![0x0c]).hash(),
-// 				relay_parent: relay_parent_a,
-// 			},
-// 			&storage,
-// 			true,
-// 		),
-// 		vec![2],
-// 	);
-
-// 	assert_eq!(
-// 		tree.hypothetical_depths(
-// 			candidate_d_hash,
-// 			HypotheticalCandidate::Incomplete {
-// 				parent_head_data_hash: HeadData::from(vec![0x0d]).hash(),
-// 				relay_parent: relay_parent_a,
-// 			},
-// 			&storage,
-// 			true,
-// 		),
-// 		Vec::<usize>::new(),
-// 	);
-
-// 	assert_eq!(
-// 		tree.hypothetical_depths(
-// 			candidate_d_hash,
-// 			HypotheticalCandidate::Incomplete {
-// 				parent_head_data_hash: HeadData::from(vec![0x0d]).hash(),
-// 				relay_parent: relay_parent_a,
-// 			},
-// 			&storage,
-// 			false,
-// 		),
-// 		vec![2], // non-empty if `false`.
-// 	);
 // }
 
 // #[test]
