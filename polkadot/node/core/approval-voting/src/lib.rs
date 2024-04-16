@@ -119,6 +119,10 @@ const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
 const APPROVAL_DELAY: Tick = 2;
+
+/// Interval to check if no show was covered by approval
+/// of the same candidate on a different fork.
+const CHECK_NO_SHOW_COVERED: Tick = 36;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
 // The max number of ticks we delay sending the approval after we are ready to issue the approval
@@ -2176,9 +2180,24 @@ fn schedule_wakeup_action(
 					.map(|t| t as Tick + block_tick + clock_drift)
 			};
 
-			min_prefer_some(next_non_empty_tranche, next_no_show).map(|tick| {
-				Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick }
-			})
+			min_prefer_some(next_non_empty_tranche, next_no_show)
+				.map(|tick| Action::ScheduleWakeup {
+					block_hash,
+					block_number,
+					candidate_hash,
+					tick,
+				})
+				// Make sure we always wake-up if we have pending tranches.
+				// We might end up in this situation if our assignment was already triggered,
+				// and all assignments that we know of have already been no-showed, so we need
+				// to wake up from time to time to check if the no-show was maybe covered by an
+				// approval for the same candidate, but on a different relay chain fork.
+				.or(Some(Action::ScheduleWakeup {
+					block_hash,
+					block_number,
+					candidate_hash,
+					tick: tick_now + CHECK_NO_SHOW_COVERED,
+				}))
 		},
 	};
 
