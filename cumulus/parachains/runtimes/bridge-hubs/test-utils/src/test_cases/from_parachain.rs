@@ -37,7 +37,7 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::XcmAsPlainPayload,
 };
-use frame_support::traits::{Get, OnFinalize, OnInitialize};
+use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
@@ -446,16 +446,8 @@ where
 			message_proof,
 			helpers::relayer_id_at_bridged_chain::<RuntimeHelper::Runtime, RuntimeHelper::MPI>(),
 		);
-		let estimated_fee = compute_extrinsic_fee(batch);
 
-		log::error!(
-			target: "bridges::estimate",
-			"Estimate fee: {:?} for single message delivery for runtime: {:?}",
-			estimated_fee,
-			<RuntimeHelper::Runtime as frame_system::Config>::Version::get(),
-		);
-
-		estimated_fee
+		compute_extrinsic_fee(batch)
 	})
 }
 
@@ -531,15 +523,7 @@ where
 			message_delivery_proof,
 			unrewarded_relayers,
 		);
-		let estimated_fee = compute_extrinsic_fee(batch);
 
-		log::error!(
-			target: "bridges::estimate",
-			"Estimate fee: {:?} for single message confirmation for runtime: {:?}",
-			estimated_fee,
-			<RuntimeHelper::Runtime as frame_system::Config>::Version::get(),
-		);
-
-		estimated_fee
+		compute_extrinsic_fee(batch)
 	})
 }

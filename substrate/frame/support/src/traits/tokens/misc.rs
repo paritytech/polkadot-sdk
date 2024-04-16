@@ -130,7 +130,7 @@ impl<Balance: Zero> WithdrawConsequence<Balance> {
 pub enum DepositConsequence {
 	/// Deposit couldn't happen due to the amount being too low. This is usually because the
 	/// account doesn't yet exist and the deposit wouldn't bring it to at least the minimum needed
-	/// for existance.
+	/// for existence.
 	BelowMinimum,
 	/// Deposit cannot happen since the account cannot be created (usually because it's a consumer
 	/// and there exists no provider reference).

@@ -1892,7 +1892,9 @@ pub(crate) async fn handle_network_update<Context, R>(
 				?authority_ids,
 				"Updated `AuthorityDiscoveryId`s"
 			);
-
+			topology_storage
+				.get_current_topology_mut()
+				.update_authority_ids(peer, &authority_ids);
 			// Remove the authority IDs which were previously mapped to the peer
 			// but aren't part of the new set.
 			authorities.retain(|a, p| p != &peer || authority_ids.contains(a));

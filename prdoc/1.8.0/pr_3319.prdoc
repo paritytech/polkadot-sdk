@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Coretime to Westend
+
+doc:
+  - audience: Runtime User
+    description: |
+      Add the on demand and coretime assigners and migrate from legacy parachain auctions to coretime.
+
+crates: [ ]

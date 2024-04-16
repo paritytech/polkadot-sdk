@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts-mock-network"
-version = "1.0.0"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -30,7 +30,7 @@ pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = 
 polkadot-parachain-primitives = { path = "../../../../polkadot/parachain" }
 polkadot-primitives = { path = "../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains" }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 sp-api = { path = "../../../primitives/api", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
@@ -55,7 +55,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-contracts-proc-macro/full",
 	"pallet-contracts/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-proxy/std",

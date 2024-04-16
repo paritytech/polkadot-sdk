@@ -37,14 +37,9 @@ use crate::{
 };
 
 use crate as pallet_message_queue;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame_support::{derive_impl, parameter_types};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rand_distr::Pareto;
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -57,31 +52,9 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -100,6 +73,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
@@ -356,6 +330,11 @@ fn process_some_messages(num_msgs: u32) {
 	let weight = (num_msgs as u64).into_weight();
 	ServiceWeight::set(Some(weight));
 	let consumed = next_block();
+
+	for origin in BookStateFor::<Test>::iter_keys() {
+		let fp = MessageQueue::footprint(origin);
+		assert_eq!(fp.pages, fp.ready_pages);
+	}
 
 	assert_eq!(consumed, weight, "\n{}", MessageQueue::debug_info());
 	assert_eq!(NumMessagesProcessed::take(), num_msgs as usize);

@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix algorithmic complexity of the on-demand scheduler.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Improves on demand performance by a significant factor. Previously, having many on-demand cores
+      would cause really poor blocktimes due to the fact that for each core the full order queue was
+      processed. This allows for increasing the max size of the on-demand queue if needed.
+
+      At the same time, the spot price for on-demand is now checked prior to every order, ensuring
+      that economic backpressure will be applied.
+
+crates:
+  - name: polkadot-runtime-parachains

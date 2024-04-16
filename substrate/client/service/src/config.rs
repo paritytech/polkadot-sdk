@@ -18,6 +18,7 @@
 
 //! Service configuration.
 
+pub use jsonrpsee::server::BatchRequestConfig as RpcBatchRequestConfig;
 use prometheus_endpoint::Registry;
 use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
@@ -39,6 +40,7 @@ use sp_core::crypto::SecretString;
 use std::{
 	io, iter,
 	net::SocketAddr,
+	num::NonZeroU32,
 	path::{Path, PathBuf},
 };
 use tempfile::TempDir;
@@ -102,6 +104,10 @@ pub struct Configuration {
 	pub rpc_port: u16,
 	/// The number of messages the JSON-RPC server is allowed to keep in memory.
 	pub rpc_message_buffer_capacity: u32,
+	/// JSON-RPC server batch config.
+	pub rpc_batch_config: RpcBatchRequestConfig,
+	/// RPC rate limit per minute.
+	pub rpc_rate_limit: Option<NonZeroU32>,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.
@@ -230,7 +236,7 @@ impl Configuration {
 		ProtocolId::from(protocol_id_full)
 	}
 
-	/// Returns true if the genesis state writting will be skipped while initializing the genesis
+	/// Returns true if the genesis state writing will be skipped while initializing the genesis
 	/// block.
 	pub fn no_genesis(&self) -> bool {
 		matches!(self.network.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp { .. })

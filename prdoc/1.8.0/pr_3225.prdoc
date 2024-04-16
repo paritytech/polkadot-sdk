@@ -1,0 +1,11 @@
+title: "Introduce submit_finality_proof_ex call to bridges GRANDPA pallet"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      New call has been added to pallet-bridge-grandpa: submit_finality_proof_ex. It should be
+      used instead of deprecated submit_finality_proof. submit_finality_proof will be removed
+      later.
+
+crates:
+  - name: "pallet-bridge-grandpa"

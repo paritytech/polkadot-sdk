@@ -21,22 +21,19 @@ use super::{
 	XcmpQueue,
 };
 use assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
-		PalletInfoAccess,
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
-	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
@@ -47,20 +44,22 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
+use testnet_parachains_constants::rococo::snowbridge::{
+	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+};
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
 	DenyThenTry, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
-	LocalMint, NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignPaidRemoteExporter,
-	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	FungibleAdapter, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
+	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
+	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -83,8 +82,6 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
-	pub PoolAssetsPalletLocationV3: xcm::v3::Location =
-		xcm::v3::Junction::PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
@@ -113,8 +110,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
-#[allow(deprecated)]
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -181,6 +177,7 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
 	Balance,
+	xcm::v3::Location,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
@@ -193,7 +190,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We dont need to check teleports here.
+	// We don't need to check teleports here.
 	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
@@ -222,36 +219,12 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
-	CurrencyTransactor,
+	FungibleTransactor,
 	FungiblesTransactor,
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
 	UniquesTransactor,
 );
-
-/// Simple `Location` matcher for Local and Foreign asset `Location`.
-pub struct LocalAndForeignAssetsLocationMatcher;
-impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
-	for LocalAndForeignAssetsLocationMatcher
-{
-	fn is_local(location: &xcm::v3::Location) -> bool {
-		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location =
-			if let Ok(location) = (*location).try_into() { location } else { return false };
-		TrustBackedAssetsConvertedConcreteId::contains(&latest_location)
-	}
-	fn is_foreign(location: &xcm::v3::Location) -> bool {
-		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location =
-			if let Ok(location) = (*location).try_into() { location } else { return false };
-		ForeignAssetsConvertedConcreteId::contains(&latest_location)
-	}
-}
-impl Contains<xcm::v3::Location> for LocalAndForeignAssetsLocationMatcher {
-	fn contains(location: &xcm::v3::Location) -> bool {
-		Self::is_local(location) || Self::is_foreign(location)
-	}
-}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -311,8 +284,8 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
-					k.eq(&bridging::XcmBridgeHubRouterByteFee::key()) |
-						k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) |
+					k.eq(&bridging::XcmBridgeHubRouterByteFee::key()) ||
+						k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) ||
 						k.eq(&bridging::to_ethereum::BridgeHubEthereumBaseFee::key())
 				}) =>
 				return true,
@@ -594,14 +567,24 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		UsingComponents<
+			WeightToFee,
+			TokenLocation,
+			AccountId,
+			Balances,
+			ResolveTo<StakingPot, Balances>,
+		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			TokenLocationV3,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
 			(
-				TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance>,
+				TrustBackedAssetsAsLocation<
+					TrustBackedAssetsPalletLocation,
+					Balance,
+					xcm::v3::Location,
+				>,
 				ForeignAssetsConvertedConcreteId,
 			),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
@@ -653,6 +636,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 /// Converts a local signed origin into an XCM location.
@@ -687,11 +673,9 @@ impl pallet_xcm::Config for Runtime {
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = XcmRouter;
-	// We support local origins dispatching XCM executions in principle...
+	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	// ... but disallow generic XCM execution. As a result only teleports and reserve transfers are
-	// allowed.
-	type XcmExecuteFilter = Nothing;
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
@@ -875,7 +859,7 @@ pub mod bridging {
 				1,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX)
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
 				]
 			);
 

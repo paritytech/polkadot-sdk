@@ -35,7 +35,6 @@ use assets_common::{
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
-use parachains_common::rococo::snowbridge::EthereumNetwork;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -44,6 +43,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -55,14 +55,14 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
 		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
 		TransformOrigin,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
+	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
 };
 use frame_system::{
@@ -74,12 +74,11 @@ use pallet_nfts::PalletFeatures;
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
-	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
-	NORMAL_DISPATCH_RATIO,
+	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
 	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
@@ -114,7 +113,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_006_000,
+	spec_version: 1_010_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 14,
@@ -127,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_006_000,
+	spec_version: 1_010_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 14,
@@ -139,28 +138,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
-
-/// We allow for 2 seconds of compute with a 6 second average block.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
-	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
-);
-
-/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -188,7 +165,7 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
@@ -210,10 +187,7 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
-	#[cfg(not(feature = "experimental"))]
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
@@ -241,10 +215,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	// We allow each account to have holds on it from:
-	//   - `NftFractionalization`: 1
-	//   - `StateTrieMigration`: 1
-	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -256,7 +226,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -346,7 +316,7 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3, xcm::v3::Location>,
 		AssetIdForTrustBackedAssets,
 		xcm::v3::Location,
 	>,
@@ -410,8 +380,8 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = xcm::v3::MultiLocation;
-	type AssetIdParameter = xcm::v3::MultiLocation;
+	type AssetId = xcm::v3::Location;
+	type AssetIdParameter = xcm::v3::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
@@ -690,6 +660,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = MessageQueueServiceWeight;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -750,7 +721,6 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
@@ -985,6 +955,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -995,6 +966,8 @@ pub type Migrations = (
 	InitStorageVersions,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
@@ -1011,37 +984,37 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 		let mut writes = 0;
 
 		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
-			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
 			writes.saturating_inc();
 		}
 
 		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
-			Multisig::current_storage_version().put::<Multisig>();
+			Multisig::in_code_storage_version().put::<Multisig>();
 			writes.saturating_inc();
 		}
 
 		if Assets::on_chain_storage_version() == StorageVersion::new(0) {
-			Assets::current_storage_version().put::<Assets>();
+			Assets::in_code_storage_version().put::<Assets>();
 			writes.saturating_inc();
 		}
 
 		if Uniques::on_chain_storage_version() == StorageVersion::new(0) {
-			Uniques::current_storage_version().put::<Uniques>();
+			Uniques::in_code_storage_version().put::<Uniques>();
 			writes.saturating_inc();
 		}
 
 		if Nfts::on_chain_storage_version() == StorageVersion::new(0) {
-			Nfts::current_storage_version().put::<Nfts>();
+			Nfts::in_code_storage_version().put::<Nfts>();
 			writes.saturating_inc();
 		}
 
 		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			ForeignAssets::current_storage_version().put::<ForeignAssets>();
+			ForeignAssets::in_code_storage_version().put::<ForeignAssets>();
 			writes.saturating_inc();
 		}
 
 		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			PoolAssets::current_storage_version().put::<PoolAssets>();
+			PoolAssets::in_code_storage_version().put::<PoolAssets>();
 			writes.saturating_inc();
 		}
 
@@ -1068,6 +1041,7 @@ mod benches {
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
@@ -1077,6 +1051,7 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWestend]
 		// XCM
@@ -1094,7 +1069,7 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::<Runtime>::get().into_inner()
 		}
 	}
 
@@ -1116,7 +1091,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block)
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
@@ -1378,8 +1353,31 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
+			}
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					>,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>
+				);
+
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
@@ -1388,7 +1386,7 @@ impl_runtime_apis! {
 					// Relay/native token can be teleported between AH and Relay.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -1396,17 +1394,13 @@ impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
-					// AH can reserve transfer native token to some random parachain.
-					let random_para_id = 43211234;
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						random_para_id.into()
-					);
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
-						ParentThen(Parachain(random_para_id).into()).into(),
+						// AH can reserve transfer native token to some random parachain.
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
 
@@ -1458,6 +1452,13 @@ impl_runtime_apis! {
 					});
 					Some((assets, fee_index as u32, dest, verify))
 				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
+				}
 			}
 
 			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
@@ -1491,13 +1492,6 @@ impl_runtime_apis! {
 
 			use xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
@@ -1655,12 +1649,16 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			vec![]
 		}
 	}
 }
@@ -1721,9 +1719,9 @@ fn ensure_key_ss58() {
 mod tests {
 	use super::*;
 	use crate::{CENTS, MILLICENTS};
-	use parachains_common::rococo::fee;
 	use sp_runtime::traits::Zero;
 	use sp_weights::WeightToFee;
+	use testnet_parachains_constants::rococo::fee;
 
 	/// We can fit at least 1000 transfers in a block.
 	#[test]

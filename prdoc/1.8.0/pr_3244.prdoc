@@ -1,0 +1,18 @@
+title: "Make the `benchmark pallet` command only require a Hasher"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Currently the `benchmark pallet` command requires a `Block` type, while only using its hasher.
+      Now this is changed to only require the hasher. This means to use `HashingFor<Block>` in the
+      place where `Block` was required.  
+      Example patch for your node with `cmd` being `BenchmarkCmd::Pallet(cmd)`:
+
+      ```patch
+      - cmd.run::<Block, ()>(config)
+      + cmd.run::<HashingFor<Block>, ()>(config)
+      ```
+
+crates:
+  - name: sc-client-db
+  - name: frame-benchmarking-cli

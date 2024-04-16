@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime-interface-proc-macro"
-version = "11.0.0"
+version = "17.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,6 +22,6 @@ proc-macro = true
 Inflector = "0.11.4"
 proc-macro-crate = "3.0.0"
 proc-macro2 = "1.0.56"
-quote = "1.0.28"
+quote = { workspace = true }
 expander = "2.0.0"
-syn = { version = "2.0.48", features = ["extra-traits", "fold", "full", "visit"] }
+syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }

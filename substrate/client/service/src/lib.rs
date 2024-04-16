@@ -38,13 +38,15 @@ use std::{collections::HashMap, net::SocketAddr};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
-use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
+use jsonrpsee::RpcModule;
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
-	config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo, PeerId,
+	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
+	NetworkPeers, NetworkStateInfo,
 };
 use sc_network_sync::SyncingService;
+use sc_network_types::PeerId;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
@@ -109,17 +111,14 @@ impl RpcHandlers {
 	pub async fn rpc_query(
 		&self,
 		json_query: &str,
-	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), JsonRpseeError> {
+	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), serde_json::Error> {
 		// Because `tokio::sync::mpsc::channel` is used under the hood
 		// it will panic if it's set to usize::MAX.
 		//
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0
-			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
-			.await
-			.map(|(method_res, recv)| (method_res.result, recv))
+		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
@@ -160,8 +159,9 @@ async fn build_network_future<
 		+ Sync
 		+ 'static,
 	H: sc_network_common::ExHashT,
+	N: NetworkBackend<B, <B as BlockT>::Hash>,
 >(
-	network: sc_network::NetworkWorker<B, H>,
+	network: N,
 	client: Arc<C>,
 	sync_service: Arc<SyncingService<B>>,
 	announce_imported_blocks: bool,
@@ -228,7 +228,7 @@ pub async fn build_system_rpc_future<
 	H: sc_network_common::ExHashT,
 >(
 	role: Role,
-	network_service: Arc<sc_network::NetworkService<B, H>>,
+	network_service: Arc<dyn NetworkService>,
 	sync_service: Arc<SyncingService<B>>,
 	client: Arc<C>,
 	mut rpc_rx: TracingUnboundedReceiver<sc_rpc::system::Request<B>>,
@@ -313,14 +313,12 @@ pub async fn build_system_rpc_future<
 				};
 			},
 			sc_rpc::system::Request::NetworkReservedPeers(sender) => {
-				let reserved_peers = network_service.reserved_peers().await;
-				if let Ok(reserved_peers) = reserved_peers {
-					let reserved_peers =
-						reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect();
-					let _ = sender.send(reserved_peers);
-				} else {
-					break
-				}
+				let Ok(reserved_peers) = network_service.reserved_peers().await else {
+					break;
+				};
+
+				let _ =
+					sender.send(reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect());
 			},
 			sc_rpc::system::Request::NodeRoles(sender) => {
 				use sc_rpc::system::NodeRole;
@@ -368,7 +366,7 @@ mod waiting {
 }
 
 /// Starts RPC servers.
-fn start_rpc_servers<R>(
+pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
@@ -396,6 +394,7 @@ where
 
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
+		batch_config: config.rpc_batch_config,
 		max_connections: config.rpc_max_connections,
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,
@@ -406,6 +405,7 @@ where
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
+		rate_limit: config.rpc_rate_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

@@ -17,17 +17,17 @@
 
 pub mod frame_system;
 pub mod pallet_asset_rate;
-pub mod pallet_balances;
+pub mod pallet_balances_balances;
 pub mod pallet_balances_nis_counterpart_balances;
 pub mod pallet_bounties;
 pub mod pallet_child_bounties;
 pub mod pallet_conviction_voting;
 pub mod pallet_identity;
-pub mod pallet_im_online;
 pub mod pallet_indices;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
 pub mod pallet_nis;
+pub mod pallet_parameters;
 pub mod pallet_preimage;
 pub mod pallet_proxy;
 pub mod pallet_ranked_collective;

@@ -37,9 +37,9 @@
 #![warn(missing_docs)]
 
 use futures::{channel::mpsc, prelude::*};
-use libp2p::Multiaddr;
 use log::{error, warn};
 use parking_lot::Mutex;
+use sc_network::Multiaddr;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use serde::Serialize;
 use std::{
@@ -413,7 +413,7 @@ impl Telemetry {
 			.map_err(|_| Error::TelemetryWorkerDropped)
 	}
 
-	/// Make a new cloneable handle to this [`Telemetry`]. This is used for reporting telemetries.
+	/// Make a new clonable handle to this [`Telemetry`]. This is used for reporting telemetries.
 	pub fn handle(&self) -> TelemetryHandle {
 		TelemetryHandle {
 			message_sender: Arc::new(Mutex::new(self.message_sender.clone())),

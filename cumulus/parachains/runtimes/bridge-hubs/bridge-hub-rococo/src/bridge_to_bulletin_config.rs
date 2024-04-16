@@ -29,6 +29,10 @@ use crate::{
 use bp_messages::LaneId;
 use bp_runtime::Chain;
 use bridge_runtime_common::{
+	extensions::refund_relayer_extension::{
+		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
+		RefundableMessagesLane,
+	},
 	messages,
 	messages::{
 		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
@@ -38,10 +42,6 @@ use bridge_runtime_common::{
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
-	},
-	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
-		RefundableMessagesLane,
 	},
 };
 
@@ -230,7 +230,8 @@ mod tests {
 	use bridge_runtime_common::{
 		assert_complete_bridge_types, integrity::check_message_lane_weights,
 	};
-	use parachains_common::{rococo, Balance};
+	use parachains_common::Balance;
+	use testnet_parachains_constants::rococo;
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -272,7 +273,7 @@ mod tests {
 		// Bulletin chain - it has the same (almost) runtime for Polkadot Bulletin and Rococo
 		// Bulletin, so we have to adhere Polkadot names here
 
-		bridge_runtime_common::priority_calculator::ensure_priority_boost_is_sane::<
+		bridge_runtime_common::extensions::priority_calculator::ensure_priority_boost_is_sane::<
 			Runtime,
 			WithRococoBulletinMessagesInstance,
 			PriorityBoostPerMessage,

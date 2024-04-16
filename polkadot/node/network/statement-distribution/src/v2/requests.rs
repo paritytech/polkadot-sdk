@@ -315,7 +315,16 @@ impl RequestManager {
 		request_props: impl Fn(&CandidateIdentifier) -> Option<RequestProperties>,
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
-		if response_manager.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+		// The number of parallel requests a node can answer is limited by
+		// `MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS`, however there is no
+		// need for the current node to limit itself to the same amount the
+		// requests, because the requests are going to different nodes anyways.
+		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
+		// found out that this requests take around 100ms to fulfill, so it
+		// would make sense to try to request things as early as we can, given
+		// we would need to request it for each candidate, around 25 right now
+		// on kusama.
+		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 			return None
 		}
 
@@ -1027,6 +1036,7 @@ mod tests {
 			let peer_advertised = |_identifier: &CandidateIdentifier, _peer: &_| {
 				Some(StatementFilter::full(group_size))
 			};
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1148,6 +1158,7 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1230,6 +1241,7 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();

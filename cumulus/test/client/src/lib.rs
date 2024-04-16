@@ -17,24 +17,30 @@
 //! A Cumulus test client.
 
 mod block_builder;
+pub use block_builder::*;
 use codec::{Decode, Encode};
+pub use cumulus_test_runtime as runtime;
+use cumulus_test_runtime::AuraId;
+pub use polkadot_parachain_primitives::primitives::{
+	BlockData, HeadData, ValidationParams, ValidationResult,
+};
 use runtime::{
 	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra, SignedPayload,
 	UncheckedExtrinsic, VERSION,
 };
+use sc_consensus_aura::standalone::{seal, slot_author};
+pub use sc_executor::error::Result as ExecutorResult;
 use sc_executor::HeapAllocStrategy;
 use sc_executor_common::runtime_blob::RuntimeBlob;
+use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
+use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::Pair;
 use sp_io::TestExternalities;
-use sp_runtime::{generic::Era, BuildStorage, SaturatedConversion};
-
-pub use block_builder::*;
-pub use cumulus_test_runtime as runtime;
-pub use polkadot_parachain_primitives::primitives::{
-	BlockData, HeadData, ValidationParams, ValidationResult,
-};
-pub use sc_executor::error::Result as ExecutorResult;
+use sp_keystore::testing::MemoryKeystore;
+use sp_runtime::{generic::Era, traits::Header, BuildStorage, SaturatedConversion};
+use std::sync::Arc;
 pub use substrate_test_client::*;
 
 pub type ParachainBlockData = cumulus_primitives_core::ParachainBlockData<Block>;
@@ -151,6 +157,7 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
 	);
 
 	let function = function.into();
@@ -158,7 +165,7 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		extra.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
@@ -203,13 +210,16 @@ pub fn validate_block(
 	let mut ext_ext = ext.ext();
 
 	let heap_pages = HeapAllocStrategy::Static { extra_pages: 1024 };
-	let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
-		.with_execution_method(WasmExecutionMethod::default())
-		.with_max_runtime_instances(1)
-		.with_runtime_cache_size(2)
-		.with_onchain_heap_alloc_strategy(heap_pages)
-		.with_offchain_heap_alloc_strategy(heap_pages)
-		.build();
+	let executor = WasmExecutor::<(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)>::builder()
+	.with_execution_method(WasmExecutionMethod::default())
+	.with_max_runtime_instances(1)
+	.with_runtime_cache_size(2)
+	.with_onchain_heap_alloc_strategy(heap_pages)
+	.with_offchain_heap_alloc_strategy(heap_pages)
+	.build();
 
 	executor
 		.uncached_call(
@@ -220,4 +230,41 @@ pub fn validate_block(
 			&validation_params.encode(),
 		)
 		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
+}
+
+fn get_keystore() -> sp_keystore::KeystorePtr {
+	let keystore = MemoryKeystore::new();
+	sp_keyring::Sr25519Keyring::iter().for_each(|key| {
+		keystore
+			.sr25519_generate_new(
+				sp_consensus_aura::sr25519::AuthorityPair::ID,
+				Some(&key.to_seed()),
+			)
+			.expect("Key should be created");
+	});
+	Arc::new(keystore)
+}
+
+/// Given parachain block data and a slot, seal the block with an aura seal. Assumes that the
+/// authorities of the test runtime are present in the keyring.
+pub fn seal_block(
+	block: ParachainBlockData,
+	parachain_slot: Slot,
+	client: &Client,
+) -> ParachainBlockData {
+	let parent_hash = block.header().parent_hash;
+	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
+		.expect("Should be able to find author");
+
+	let (mut header, extrinsics, proof) = block.deconstruct();
+	let keystore = get_keystore();
+	let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
+		&header.hash(),
+		expected_author,
+		&keystore,
+	)
+	.expect("Should be able to create seal");
+	header.digest_mut().push(seal_digest);
+	ParachainBlockData::new(header, extrinsics, proof)
 }

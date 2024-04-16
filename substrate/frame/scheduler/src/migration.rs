@@ -81,7 +81,7 @@ pub mod v3 {
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
 	/// Migrate the scheduler pallet from V3 to V4.
-	pub struct MigrateToV4<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV4<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
 		#[cfg(feature = "try-runtime")]
@@ -194,7 +194,7 @@ pub mod v4 {
 	///
 	/// This should be run on a scheduler that does not have
 	/// <https://github.com/paritytech/substrate/pull/12989> since it piles up `None`-only agendas. This does not modify the pallet version.
-	pub struct CleanupAgendas<T>(sp_std::marker::PhantomData<T>);
+	pub struct CleanupAgendas<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for CleanupAgendas<T> {
 		#[cfg(feature = "try-runtime")]

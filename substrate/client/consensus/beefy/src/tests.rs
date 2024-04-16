@@ -23,15 +23,18 @@ use crate::{
 	beefy_block_import_and_links,
 	communication::{
 		gossip::{
-			proofs_topic, tests::sign_commitment, votes_topic, GossipFilterCfg, GossipMessage,
-			GossipValidator,
+			proofs_topic,
+			tests::{sign_commitment, TestNetwork},
+			votes_topic, GossipFilterCfg, GossipMessage, GossipValidator,
 		},
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
+	error::Error,
 	gossip_protocol_name,
 	justification::*,
-	load_or_init_voter_state, wait_for_runtime_pallet, BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
-	PersistedState,
+	wait_for_runtime_pallet,
+	worker::PersistedState,
+	BeefyRPCLinks, BeefyVoterLinks, BeefyWorkerBuilder, KnownPeers,
 };
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use parking_lot::Mutex;
@@ -55,9 +58,10 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, Keyring as BeefyKeyring, MmrRootHash,
-	OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	test_utils::Keyring as BeefyKeyring,
+	BeefyApi, Commitment, ConsensusLog, EquivocationProof, MmrRootHash, OpaqueKeyOwnershipProof,
+	Payload, SignedCommitment, ValidatorSet, ValidatorSetId, VersionedFinalityProof, VoteMessage,
+	BEEFY_ENGINE_ID,
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
@@ -121,7 +125,11 @@ impl BeefyTestNet {
 		let mut net = BeefyTestNet { peers: Vec::with_capacity(n_authority), beefy_genesis };
 
 		for i in 0..n_authority {
-			let (rx, cfg) = on_demand_justifications_protocol_config(GENESIS_HASH, None);
+			let (rx, cfg) = on_demand_justifications_protocol_config::<
+				_,
+				Block,
+				sc_network::NetworkWorker<_, _>,
+			>(GENESIS_HASH, None);
 			let justif_protocol_name = cfg.name.clone();
 
 			net.add_authority_peer(vec![cfg]);
@@ -347,11 +355,11 @@ fn add_auth_change_digest(builder: &mut impl BlockBuilderExt, new_auth_set: Beef
 		.unwrap();
 }
 
-pub(crate) fn make_beefy_ids(keys: &[BeefyKeyring]) -> Vec<AuthorityId> {
-	keys.iter().map(|&key| key.public().into()).collect()
+pub(crate) fn make_beefy_ids(keys: &[BeefyKeyring<AuthorityId>]) -> Vec<AuthorityId> {
+	keys.iter().map(|key| key.public().into()).collect()
 }
 
-pub(crate) fn create_beefy_keystore(authority: BeefyKeyring) -> KeystorePtr {
+pub(crate) fn create_beefy_keystore(authority: &BeefyKeyring<AuthorityId>) -> KeystorePtr {
 	let keystore = MemoryKeystore::new();
 	keystore
 		.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&authority.to_seed()))
@@ -363,28 +371,28 @@ async fn voter_init_setup(
 	net: &mut BeefyTestNet,
 	finality: &mut futures::stream::Fuse<FinalityNotifications<Block>>,
 	api: &TestApi,
-) -> sp_blockchain::Result<PersistedState<Block>> {
+) -> Result<PersistedState<Block>, Error> {
 	let backend = net.peer(0).client().as_backend();
-	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
-	let gossip_validator = Arc::new(gossip_validator);
-	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
-		net.peer(0).network_service().clone(),
-		net.peer(0).sync_service().clone(),
-		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
-		"/beefy/whatever",
-		gossip_validator,
-		None,
-	);
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(api, &mut gossip_engine, finality).await.unwrap();
-	load_or_init_voter_state(&*backend, api, beefy_genesis, best_grandpa, 1).await
+	let (beefy_genesis, best_grandpa) = wait_for_runtime_pallet(api, finality).await.unwrap();
+	let key_store = None.into();
+	let metrics = None;
+	BeefyWorkerBuilder::load_or_init_state(
+		beefy_genesis,
+		best_grandpa,
+		1,
+		backend,
+		Arc::new(api.clone()),
+		&key_store,
+		&metrics,
+		true,
+	)
+	.await
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
 fn initialize_beefy<API>(
 	net: &mut BeefyTestNet,
-	peers: Vec<(usize, &BeefyKeyring, Arc<API>)>,
+	peers: Vec<(usize, &BeefyKeyring<AuthorityId>, Arc<API>)>,
 	min_block_delta: u32,
 ) -> impl Future<Output = ()>
 where
@@ -404,7 +412,7 @@ where
 	for (peer_id, key, api) in peers.into_iter() {
 		let peer = &net.peers[peer_id];
 
-		let keystore = create_beefy_keystore(*key);
+		let keystore = create_beefy_keystore(key);
 
 		let (_, _, peer_data) = net.make_block_import(peer.client().clone());
 		let PeerData { beefy_rpc_links, beefy_voter_links, .. } = peer_data;
@@ -436,6 +444,7 @@ where
 			min_block_delta,
 			prometheus_registry: None,
 			on_demand_justifications_handler: on_demand_justif_handler,
+			is_authority: true,
 		};
 		let task = crate::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
 
@@ -462,7 +471,7 @@ async fn run_for(duration: Duration, net: &Arc<Mutex<BeefyTestNet>>) {
 pub(crate) fn get_beefy_streams(
 	net: &mut BeefyTestNet,
 	// peer index and key
-	peers: impl Iterator<Item = (usize, BeefyKeyring)>,
+	peers: impl Iterator<Item = (usize, BeefyKeyring<AuthorityId>)>,
 ) -> (Vec<NotificationReceiver<H256>>, Vec<NotificationReceiver<BeefyVersionedFinalityProof<Block>>>)
 {
 	let mut best_block_streams = Vec::new();
@@ -560,7 +569,7 @@ async fn streams_empty_after_timeout<T>(
 async fn finalize_block_and_wait_for_beefy(
 	net: &Arc<Mutex<BeefyTestNet>>,
 	// peer index and key
-	peers: impl Iterator<Item = (usize, BeefyKeyring)> + Clone,
+	peers: impl Iterator<Item = (usize, BeefyKeyring<AuthorityId>)> + Clone,
 	finalize_target: &H256,
 	expected_beefy: &[u64],
 ) {
@@ -1055,26 +1064,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	net.peer(0).client().as_client().finalize_block(hashes[8], None).unwrap();
 
 	// load persistent state - nothing in DB, should init at genesis
-	//
-	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
-	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
-	// first `GossipEngine`
-	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
-	let gossip_validator = Arc::new(gossip_validator);
-	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
-		net.peer(0).network_service().clone(),
-		net.peer(0).sync_service().clone(),
-		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
-		"/beefy/whatever",
-		gossip_validator,
-		None,
-	);
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let persisted_state = load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
-		.await
-		.unwrap();
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with single session starting at block `custom_pallet_genesis` (7)
@@ -1104,13 +1094,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	net.peer(0).client().as_client().finalize_block(hashes[10], None).unwrap();
 	// load persistent state - state preset in DB, but with different pallet genesis
-	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
-	let (beefy_genesis, best_grandpa) =
-		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let new_persisted_state =
-		load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
-			.await
-			.unwrap();
+	let new_persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block `new_pallet_genesis` (10)
 	let sessions = new_persisted_state.voting_oracle().sessions();
@@ -1286,6 +1270,68 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 }
 
 #[tokio::test]
+async fn should_catch_up_when_loading_saved_voter_state() {
+	let keys = &[BeefyKeyring::Alice];
+	let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
+	let mut net = BeefyTestNet::new(1);
+	let backend = net.peer(0).client().as_backend();
+
+	// push 30 blocks with `AuthorityChange` digests every 10 blocks
+	let hashes = net.generate_blocks_and_sync(30, 10, &validator_set, false).await;
+	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	// finalize 13 without justifications
+	net.peer(0).client().as_client().finalize_block(hashes[13], None).unwrap();
+
+	let api = TestApi::with_validator_set(&validator_set);
+
+	// load persistent state - nothing in DB, should init at genesis
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+
+	// Test initialization at session boundary.
+	// verify voter initialized with two sessions starting at blocks 1 and 10
+	let sessions = persisted_state.voting_oracle().sessions();
+	assert_eq!(sessions.len(), 2);
+	assert_eq!(sessions[0].session_start(), 1);
+	assert_eq!(sessions[1].session_start(), 10);
+	let rounds = persisted_state.active_round().unwrap();
+	assert_eq!(rounds.session_start(), 1);
+	assert_eq!(rounds.validator_set_id(), validator_set.id());
+
+	// verify next vote target is mandatory block 1
+	assert_eq!(persisted_state.best_beefy(), 0);
+	assert_eq!(persisted_state.best_grandpa_number(), 13);
+	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(1));
+
+	// verify state also saved to db
+	assert!(verify_persisted_version(&*backend));
+	let state = load_persistent(&*backend).unwrap().unwrap();
+	assert_eq!(state, persisted_state);
+
+	// now let's consider that the node goes offline, and then it restarts after a while
+
+	// finalize 25 without justifications
+	net.peer(0).client().as_client().finalize_block(hashes[25], None).unwrap();
+	// load persistent state - state preset in DB
+	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+
+	// Verify voter initialized with old sessions plus a new one starting at block 20.
+	// There shouldn't be any duplicates.
+	let sessions = persisted_state.voting_oracle().sessions();
+	assert_eq!(sessions.len(), 3);
+	assert_eq!(sessions[0].session_start(), 1);
+	assert_eq!(sessions[1].session_start(), 10);
+	assert_eq!(sessions[2].session_start(), 20);
+	let rounds = persisted_state.active_round().unwrap();
+	assert_eq!(rounds.session_start(), 1);
+	assert_eq!(rounds.validator_set_id(), validator_set.id());
+
+	// verify next vote target is mandatory block 1
+	assert_eq!(persisted_state.best_beefy(), 0);
+	assert_eq!(persisted_state.best_grandpa_number(), 25);
+	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(1));
+}
+
+#[tokio::test]
 async fn beefy_finalizing_after_pallet_genesis() {
 	sp_tracing::try_init_simple();
 
@@ -1409,7 +1455,7 @@ async fn gossipped_finality_proofs() {
 	let charlie = &mut net.peers[2];
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
+	let gossip_validator = GossipValidator::new(known_peers, Arc::new(TestNetwork::new().0));
 	let charlie_gossip_validator = Arc::new(gossip_validator);
 	charlie_gossip_validator.update_filter(GossipFilterCfg::<Block> {
 		start: 1,

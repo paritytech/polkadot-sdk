@@ -25,7 +25,10 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq)]
 pub enum BridgeHubRuntimeType {
 	Kusama,
+	KusamaLocal,
+
 	Polkadot,
+	PolkadotLocal,
 
 	Rococo,
 	RococoLocal,
@@ -44,7 +47,9 @@ impl FromStr for BridgeHubRuntimeType {
 	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		match value {
 			polkadot::BRIDGE_HUB_POLKADOT => Ok(BridgeHubRuntimeType::Polkadot),
+			polkadot::BRIDGE_HUB_POLKADOT_LOCAL => Ok(BridgeHubRuntimeType::PolkadotLocal),
 			kusama::BRIDGE_HUB_KUSAMA => Ok(BridgeHubRuntimeType::Kusama),
+			kusama::BRIDGE_HUB_KUSAMA_LOCAL => Ok(BridgeHubRuntimeType::KusamaLocal),
 			westend::BRIDGE_HUB_WESTEND => Ok(BridgeHubRuntimeType::Westend),
 			westend::BRIDGE_HUB_WESTEND_LOCAL => Ok(BridgeHubRuntimeType::WestendLocal),
 			westend::BRIDGE_HUB_WESTEND_DEVELOPMENT => Ok(BridgeHubRuntimeType::WestendDevelopment),
@@ -103,6 +108,7 @@ impl BridgeHubRuntimeType {
 				Some("Bob".to_string()),
 				|_| (),
 			))),
+			other => Err(std::format!("No default config present for {:?}", other)),
 		}
 	}
 }
@@ -133,7 +139,7 @@ pub mod rococo {
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
 	pub(crate) const BRIDGE_HUB_ROCOCO_DEVELOPMENT: &str = "bridge-hub-rococo-dev";
 	const BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
-		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config<ModifyProperties: Fn(&mut sc_chain_spec::Properties)>(
 		id: &str,
@@ -242,6 +248,7 @@ pub mod rococo {
 /// Sub-module for Kusama setup
 pub mod kusama {
 	pub(crate) const BRIDGE_HUB_KUSAMA: &str = "bridge-hub-kusama";
+	pub(crate) const BRIDGE_HUB_KUSAMA_LOCAL: &str = "bridge-hub-kusama-local";
 }
 
 /// Sub-module for Westend setup.
@@ -257,7 +264,7 @@ pub mod westend {
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
 	pub(crate) const BRIDGE_HUB_WESTEND_DEVELOPMENT: &str = "bridge-hub-westend-dev";
 	const BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
-		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
 		id: &str,
@@ -358,4 +365,5 @@ pub mod westend {
 /// Sub-module for Polkadot setup
 pub mod polkadot {
 	pub(crate) const BRIDGE_HUB_POLKADOT: &str = "bridge-hub-polkadot";
+	pub(crate) const BRIDGE_HUB_POLKADOT_LOCAL: &str = "bridge-hub-polkadot-local";
 }

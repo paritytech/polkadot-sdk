@@ -58,12 +58,12 @@ impl<T: frame_system::Config> snowbridge_pallet_inbound_queue::WeightInfo for We
 	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	fn submit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `457`
-		//  Estimated: `3601`
-		// Minimum execution time: 69_000_000 picoseconds.
-		Weight::from_parts(70_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3601))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(2))
+		//  Measured:  `800`
+		//  Estimated: `7200`
+		// Minimum execution time: 200_000_000 picoseconds.
+		Weight::from_parts(200_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7200))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 }

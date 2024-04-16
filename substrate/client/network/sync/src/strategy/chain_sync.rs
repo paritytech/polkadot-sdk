@@ -30,7 +30,7 @@
 
 use crate::{
 	blocks::BlockCollection,
-	extra_requests::ExtraRequests,
+	justification_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	strategy::{
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
@@ -41,7 +41,6 @@ use crate::{
 };
 
 use codec::Encode;
-use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -49,6 +48,7 @@ use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
+use sc_network_types::PeerId;
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, BlockStatus};
@@ -117,7 +117,7 @@ mod rep {
 	/// Reputation change for peers which send us a block with bad justifications.
 	pub const BAD_JUSTIFICATION: Rep = Rep::new(-(1 << 16), "Bad justification");
 
-	/// Reputation change when a peer sent us invlid ancestry result.
+	/// Reputation change when a peer sent us invalid ancestry result.
 	pub const UNKNOWN_ANCESTOR: Rep = Rep::new(-(1 << 16), "DB Error");
 
 	/// Peer response data does not have requested bits.
@@ -212,10 +212,10 @@ struct GapSync<B: BlockT> {
 pub enum ChainSyncAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
-	/// Drop stale block request.
-	CancelBlockRequest { peer_id: PeerId },
 	/// Send state request to peer.
 	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	/// Drop stale request.
+	CancelRequest { peer_id: PeerId },
 	/// Peer misbehaved. Disconnect, report it and cancel the block request to it.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -373,6 +373,7 @@ where
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		metrics_registry: Option<Registry>,
+		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -405,6 +406,10 @@ where
 		};
 
 		sync.reset_sync_start_point()?;
+		initial_peers.for_each(|(peer_id, best_hash, best_number)| {
+			sync.add_peer(peer_id, best_hash, best_number);
+		});
+
 		Ok(sync)
 	}
 
@@ -1058,7 +1063,7 @@ where
 		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer
 		} else {
-			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID");
+			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
 			return Some((hash, number))
 		};
 
@@ -1312,34 +1317,35 @@ where
 		);
 		let old_peers = std::mem::take(&mut self.peers);
 
-		old_peers.into_iter().for_each(|(peer_id, mut p)| {
-			// peers that were downloading justifications
-			// should be kept in that state.
-			if let PeerSyncState::DownloadingJustification(_) = p.state {
-				// We make sure our commmon number is at least something we have.
-				trace!(
-					target: LOG_TARGET,
-					"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
-					peer_id,
-					p.common_number,
-					self.best_queued_number,
-				);
-				p.common_number = self.best_queued_number;
-				self.peers.insert(peer_id, p);
-				return
+		old_peers.into_iter().for_each(|(peer_id, mut peer_sync)| {
+			match peer_sync.state {
+				PeerSyncState::Available => {
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+				},
+				PeerSyncState::AncestorSearch { .. } |
+				PeerSyncState::DownloadingNew(_) |
+				PeerSyncState::DownloadingStale(_) |
+				PeerSyncState::DownloadingGap(_) |
+				PeerSyncState::DownloadingState => {
+					// Cancel a request first, as `add_peer` may generate a new request.
+					self.actions.push(ChainSyncAction::CancelRequest { peer_id });
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+				},
+				PeerSyncState::DownloadingJustification(_) => {
+					// Peers that were downloading justifications
+					// should be kept in that state.
+					// We make sure our common number is at least something we have.
+					trace!(
+						target: LOG_TARGET,
+						"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
+						peer_id,
+						peer_sync.common_number,
+						self.best_queued_number,
+					);
+					peer_sync.common_number = self.best_queued_number;
+					self.peers.insert(peer_id, peer_sync);
+				},
 			}
-
-			// handle peers that were in other states.
-			let action = match self.add_peer_inner(peer_id, p.best_hash, p.best_number) {
-				// since the request is not a justification, remove it from pending responses
-				Ok(None) => ChainSyncAction::CancelBlockRequest { peer_id },
-				// update the request if the new one is available
-				Ok(Some(request)) => ChainSyncAction::SendBlockRequest { peer_id, request },
-				// this implies that we need to drop pending response from the peer
-				Err(bad_peer) => ChainSyncAction::DropPeer(bad_peer),
-			};
-
-			self.actions.push(action);
 		});
 	}
 

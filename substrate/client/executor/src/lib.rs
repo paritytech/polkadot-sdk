@@ -29,7 +29,6 @@
 //! wasm engine used, instance cache.
 
 #![warn(missing_docs)]
-#![recursion_limit = "128"]
 
 #[macro_use]
 mod executor;

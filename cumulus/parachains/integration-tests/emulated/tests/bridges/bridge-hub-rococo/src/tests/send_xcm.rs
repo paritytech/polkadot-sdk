@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::tests::*;
+use codec::Encode;
 
 #[test]
 fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable() {
@@ -26,7 +27,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 
 	let remote_xcm = Xcm(vec![ClearOrigin]);
 
-	let xcm = VersionedXcm::from(Xcm(vec![
+	let xcm = VersionedXcm::from(Xcm::<()>(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: WestendId.into(),
@@ -38,10 +39,10 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			bx!(xcm),
+			xcm.encode().try_into().unwrap(),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;

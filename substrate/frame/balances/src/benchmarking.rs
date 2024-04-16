@@ -286,6 +286,17 @@ mod benchmarks {
 		}
 	}
 
+	#[benchmark]
+	fn force_adjust_total_issuance() {
+		let ti = Balances::<T, I>::total_issuance();
+		let delta = 123u32.into();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, AdjustmentDirection::Increase, delta);
+
+		assert_eq!(Balances::<T, I>::total_issuance(), ti + delta);
+	}
+
 	impl_benchmark_test_suite! {
 		Balances,
 		crate::tests::ExtBuilder::default().build(),

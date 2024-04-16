@@ -18,8 +18,8 @@
 
 //! API trait for transactions.
 
-use crate::transaction::event::TransactionEvent;
-use jsonrpsee::proc_macros::rpc;
+use crate::transaction::{error::ErrorBroadcast, event::TransactionEvent};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
 
 #[rpc(client, server)]
@@ -28,10 +28,33 @@ pub trait TransactionApi<Hash: Clone> {
 	///
 	/// See [`TransactionEvent`](crate::transaction::event::TransactionEvent) for details on
 	/// transaction life cycle.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "transaction_unstable_submitAndWatch" => "transaction_unstable_watchEvent",
-		unsubscribe = "transaction_unstable_unwatch",
+		name = "transactionWatch_unstable_submitAndWatch" => "transactionWatch_unstable_watchEvent",
+		unsubscribe = "transactionWatch_unstable_unwatch",
 		item = TransactionEvent<Hash>,
 	)]
 	fn submit_and_watch(&self, bytes: Bytes);
+}
+
+#[rpc(client, server)]
+pub trait TransactionBroadcastApi {
+	/// Broadcast an extrinsic to the chain.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "transaction_unstable_broadcast")]
+	fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>>;
+
+	/// Broadcast an extrinsic to the chain.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "transaction_unstable_stop")]
+	fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast>;
 }

@@ -91,6 +91,7 @@ impl SubstrateCli for Cli {
 			"polkadot" => Box::new(service::chain_spec::polkadot_config()?),
 			name if name.starts_with("polkadot-") && !name.ends_with(".json") =>
 				Err(format!("`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."))?,
+			"paseo" => Box::new(service::chain_spec::paseo_config()?),
 			"rococo" => Box::new(service::chain_spec::rococo_config()?),
 			#[cfg(feature = "rococo-native")]
 			"dev" | "rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
@@ -299,7 +300,7 @@ pub fn run() -> Result<()> {
 	match &cli.subcommand {
 		None => run_node_inner(
 			cli,
-			service::RealOverseerGen,
+			service::ValidatorOverseerGen,
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),
@@ -450,8 +451,10 @@ pub fn run() -> Result<()> {
 
 					if cfg!(feature = "runtime-benchmarks") {
 						runner.sync_run(|config| {
-							cmd.run::<service::Block, ()>(config)
-								.map_err(|e| Error::SubstrateCli(e))
+							cmd.run_with_spec::<sp_runtime::traits::HashingFor<service::Block>, ()>(
+								Some(config.chain_spec),
+							)
+							.map_err(|e| Error::SubstrateCli(e))
 						})
 					} else {
 						Err(sc_cli::Error::Input(
@@ -473,13 +476,6 @@ pub fn run() -> Result<()> {
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
-		#[cfg(feature = "try-runtime")]
-		Some(Subcommand::TryRuntime) => Err(try_runtime_cli::DEPRECATION_NOTICE.to_owned().into()),
-		#[cfg(not(feature = "try-runtime"))]
-		Some(Subcommand::TryRuntime) => Err("TryRuntime wasn't enabled when building the node. \
-				You can enable it with `--features try-runtime`."
-			.to_owned()
-			.into()),
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			Ok(runner.sync_run(|config| cmd.run::<service::Block>(&config))?)

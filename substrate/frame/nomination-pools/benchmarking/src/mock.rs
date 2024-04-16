@@ -28,7 +28,7 @@ type Nonce = u32;
 type BlockNumber = u64;
 type Balance = u128;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -79,7 +79,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -173,6 +172,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 impl crate::Config for Runtime {}

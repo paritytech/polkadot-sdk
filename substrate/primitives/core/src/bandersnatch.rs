@@ -20,209 +20,67 @@
 //!
 //! The primitive can operate both as a regular VRF or as an anonymized Ring VRF.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
+#[cfg(feature = "full_crypto")]
+use crate::crypto::VrfSecret;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom, VrfPublic,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, VrfSecret};
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
-use bandersnatch_vrfs::CanonicalSerialize;
-#[cfg(feature = "full_crypto")]
-use bandersnatch_vrfs::SecretKey;
+use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use sp_runtime_interface::pass_by::PassByInner;
 use sp_std::{vec, vec::Vec};
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
 
 /// Context used to produce a plain signature without any VRF input/output.
-#[cfg(feature = "full_crypto")]
 pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 
-#[cfg(feature = "full_crypto")]
-const SEED_SERIALIZED_SIZE: usize = 32;
+/// The byte length of secret key seed.
+pub const SEED_SERIALIZED_SIZE: usize = 32;
 
-const PUBLIC_SERIALIZED_SIZE: usize = 33;
-const SIGNATURE_SERIALIZED_SIZE: usize = 65;
-const PREOUT_SERIALIZED_SIZE: usize = 33;
+/// The byte length of serialized public key.
+pub const PUBLIC_SERIALIZED_SIZE: usize = 33;
+
+/// The byte length of serialized signature.
+pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
+
+/// The byte length of serialized pre-output.
+pub const PREOUT_SERIALIZED_SIZE: usize = 33;
+
+#[doc(hidden)]
+pub struct BandersnatchTag;
 
 /// Bandersnatch public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-)]
-pub struct Public(pub [u8; PUBLIC_SERIALIZED_SIZE]);
-
-impl UncheckedFrom<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
-	fn unchecked_from(raw: [u8; PUBLIC_SERIALIZED_SIZE]) -> Self {
-		Public(raw)
-	}
-}
-
-impl AsRef<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
-	fn as_ref(&self) -> &[u8; PUBLIC_SERIALIZED_SIZE] {
-		&self.0
-	}
-}
-
-impl AsRef<[u8]> for Public {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl AsMut<[u8]> for Public {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
-impl TryFrom<&[u8]> for Public {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != PUBLIC_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; PUBLIC_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl ByteArray for Public {
-	const LEN: usize = PUBLIC_SERIALIZED_SIZE;
-}
-
-impl TraitPublic for Public {}
+pub type Public = PublicBytes<PUBLIC_SERIALIZED_SIZE, BandersnatchTag>;
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
-}
-
-impl Derive for Public {}
-
-impl sp_std::fmt::Debug for Public {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.as_ref()), &s[0..8])
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Public {
-	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Public {
-	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
 }
 
 /// Bandersnatch signature.
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo)]
-pub struct Signature([u8; SIGNATURE_SERIALIZED_SIZE]);
-
-impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
-	fn unchecked_from(raw: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
-		Signature(raw)
-	}
-}
-
-impl AsRef<[u8]> for Signature {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl AsMut<[u8]> for Signature {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
-impl TryFrom<&[u8]> for Signature {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl ByteArray for Signature {
-	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
-impl sp_std::fmt::Debug for Signature {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
 /// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SEED_SERIALIZED_SIZE];
 
 /// Bandersnatch secret key.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the key seed.
 	pub fn seed(&self) -> Seed {
@@ -230,7 +88,6 @@ impl Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Seed = Seed;
 	type Public = Public;
@@ -287,6 +144,7 @@ impl TraitPair for Pair {
 	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
 	/// See [`vrf::VrfSignData`] for additional details.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data], None);
 		self.vrf_sign(&data).signature
@@ -305,7 +163,6 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }
@@ -392,7 +249,7 @@ pub mod vrf {
 	///
 	/// The `transcript` summarizes a set of messages which are defining a particular
 	/// protocol by automating the Fiat-Shamir transform for challenge generation.
-	/// A good explaination of the topic can be found in Merlin [docs](https://merlin.cool/)
+	/// A good explanation of the topic can be found in Merlin [docs](https://merlin.cool/)
 	///
 	/// The `inputs` is a sequence of [`VrfInput`]s which, during the signing procedure, are
 	/// first transformed to [`VrfPreOutput`]s. Both inputs and pre-outputs are then appended to
@@ -550,8 +407,7 @@ pub mod vrf {
 				thin_signature.preouts.into_iter().map(VrfPreOutput).collect();
 			let pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
-			let mut signature =
-				VrfSignature { signature: Signature([0; SIGNATURE_SERIALIZED_SIZE]), pre_outputs };
+			let mut signature = VrfSignature { signature: Signature::default(), pre_outputs };
 
 			thin_signature
 				.proof
@@ -590,7 +446,7 @@ pub mod vrf {
 			// This is another hack used because backend signature type is generic over
 			// the number of ios.
 			let Ok(proof) = ThinVrfSignature::<0>::deserialize_compressed_unchecked(
-				signature.signature.as_ref(),
+				signature.signature.as_slice(),
 			)
 			.map(|s| s.proof) else {
 				return false
@@ -983,6 +839,19 @@ mod tests {
 		// Soft derivation not supported
 		let res = Pair::from_string(&format!("{}//Alice/Soft", DEV_PHRASE), None);
 		assert!(res.is_err());
+	}
+
+	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
 	}
 
 	#[test]

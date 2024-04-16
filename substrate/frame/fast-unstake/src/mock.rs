@@ -43,7 +43,7 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -77,7 +77,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 pallet_staking_reward_curve::build! {

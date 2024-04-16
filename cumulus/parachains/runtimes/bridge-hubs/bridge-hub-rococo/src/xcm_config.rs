@@ -33,13 +33,13 @@ use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParam
 use bp_runtime::ChainId;
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
+	StoragePrefixedMap,
 };
 use frame_system::EnsureRoot;
+use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
-	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -52,17 +52,16 @@ use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
-	FrameTransactionalProcessor, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
+	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
@@ -95,8 +94,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
-#[allow(deprecated)]
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -161,9 +159,12 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
-					k.eq(&DeliveryRewardInBalance::key()) |
-						k.eq(&RequiredStakeForStakeAndSlash::key()) |
-						k.eq(&EthereumGatewayAddress::key())
+					k.eq(&DeliveryRewardInBalance::key()) ||
+						k.eq(&RequiredStakeForStakeAndSlash::key()) ||
+						k.eq(&EthereumGatewayAddress::key()) ||
+						// Allow resetting of Ethereum nonces in Rococo only.
+						k.starts_with(&snowbridge_pallet_inbound_queue::Nonce::<Runtime>::final_prefix()) ||
+						k.starts_with(&snowbridge_pallet_outbound_queue::Nonce::<Runtime>::final_prefix())
 				}) =>
 				return true,
 			_ => (),
@@ -223,7 +224,14 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				snowbridge_pallet_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
 				snowbridge_pallet_outbound_queue::Call::set_operating_mode { .. },
-			) | RuntimeCall::EthereumSystem(..)
+			) | RuntimeCall::EthereumSystem(
+				snowbridge_pallet_system::Call::upgrade { .. } |
+					snowbridge_pallet_system::Call::set_operating_mode { .. } |
+					snowbridge_pallet_system::Call::set_pricing_parameters { .. } |
+					snowbridge_pallet_system::Call::force_update_channel { .. } |
+					snowbridge_pallet_system::Call::force_transfer_native_from_agent { .. } |
+					snowbridge_pallet_system::Call::set_token_transfer_fees { .. },
+			)
 		)
 	}
 }
@@ -274,7 +282,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
-	type AssetTransactor = CurrencyTransactor;
+	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// BridgeHub does not recognize a reserve location for any asset. Users must teleport Native
 	// token where allowed (e.g. with the Relay Chain).
@@ -287,8 +295,13 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	type Trader =
-		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+	type Trader = UsingComponents<
+		WeightToFee,
+		TokenLocation,
+		AccountId,
+		Balances,
+		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
+	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = ();
@@ -328,6 +341,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 pub type PriceForParentDelivery =
@@ -351,9 +367,9 @@ impl pallet_xcm::Config for Runtime {
 	type XcmRouter = XcmRouter;
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
-	// We support local origins dispatching XCM executions in principle...
+	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmExecuteFilter = Nothing;
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Nothing; // This parachain is not meant as a reserve location.

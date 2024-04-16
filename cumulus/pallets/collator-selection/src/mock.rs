@@ -50,7 +50,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -95,7 +95,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -126,7 +125,6 @@ impl pallet_aura::Config for Test {
 	type MaxAuthorities = ConstU32<100_000>;
 	type DisabledValidators = ();
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	#[cfg(feature = "experimental")]
 	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
 }
 

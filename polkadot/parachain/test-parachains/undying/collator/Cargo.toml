@@ -16,15 +16,15 @@ path = "src/main.rs"
 
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-clap = { version = "4.4.18", features = ["derive"] }
-futures = "0.3.21"
+clap = { version = "4.5.3", features = ["derive"] }
+futures = "0.3.30"
 futures-timer = "3.0.2"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 test-parachain-undying = { path = ".." }
 polkadot-primitives = { path = "../../../../primitives" }
 polkadot-cli = { path = "../../../../cli" }
-polkadot-service = { path = "../../../../node/service", features = ["rococo-native"] }
+polkadot-service = { path = "../../../../node/service", features = ["elastic-scaling-experimental", "rococo-native"] }
 polkadot-node-primitives = { path = "../../../../node/primitives" }
 polkadot-node-subsystem = { path = "../../../../node/subsystem" }
 

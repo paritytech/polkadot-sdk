@@ -1,0 +1,23 @@
+title: Enable async backing on all testnet system chains
+
+doc:
+  - audience: Runtime User
+    description: |
+      Async backing has been enabled on all testnet system chains: asset-hub-westend,
+      bridge-hub-westend, bridge-hub-rococo, collectives-westend, contracts-rococo,
+      coretime-westend, coretime-rococo, people-westend, and people-rococo. These now target 6s
+      block times.
+      For the running coretime chains, that requires updating the configuration after the runtime
+      upgrade but before the end of the current region.
+
+crates:
+  - name: asset-hub-westend-runtime
+  - name: bridge-hub-westend-runtime
+  - name: bridge-hub-rococo-runtime
+  - name: collectives-westend-runtime
+  - name: contracts-rococo-runtime
+  - name: coretime-westend-runtime
+  - name: coretime-rococo-runtime
+  - name: people-westend-runtime
+  - name: people-rococo-runtime
+  - name: polkadot-parachain-bin

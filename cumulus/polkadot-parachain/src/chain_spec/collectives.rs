@@ -24,7 +24,7 @@ use sc_service::ChainType;
 use sp_core::sr25519;
 
 const COLLECTIVES_WESTEND_ED: CollectivesBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+	collectives_westend_runtime::ExistentialDeposit::get();
 
 /// Generate the session keys from individual elements.
 ///

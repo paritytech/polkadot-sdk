@@ -24,9 +24,9 @@
 use super::*;
 
 parameter_types! {
-	// 100 to use the bridge (export) and 80 for the remote execution weight (4 instructions x (10 +
+	// 100 to use the bridge (export) and 80 for the remote execution weight (5 instructions x (10 +
 	// 10) weight each).
-	pub SendOverBridgePrice: u128 = 180u128 + if UsingTopic::get() { 20 } else { 0 };
+	pub SendOverBridgePrice: u128 = 200u128 + if UsingTopic::get() { 20 } else { 0 };
 	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(100)].into();
 	pub RelayUniversalLocation: Junctions = [GlobalConsensus(Local::get())].into();
 	pub RemoteUniversalLocation: Junctions = [GlobalConsensus(Remote::get())].into();
@@ -101,15 +101,18 @@ fn sending_to_bridged_chain_works() {
 				vec![
 					WithdrawAsset(Asset::from((Here, price)).into()),
 					BuyExecution { fees: (Here, price).into(), weight_limit: Unlimited },
+					SetAppendix(Xcm(vec![DepositAsset {
+						assets: Wild(AllCounted(1)),
+						beneficiary: Parachain(100).into(),
+					}])),
 					ExportMessage {
 						network: ByGenesis([1; 32]),
 						destination: Here,
 						xcm: xcm_with_topic([0; 32], vec![Trap(1)]),
 					},
-					DepositAsset { assets: Wild(All), beneficiary: Parachain(100).into() },
 				],
 			),
-			outcome: Outcome::Complete { used: test_weight(4) },
+			outcome: Outcome::Complete { used: test_weight(5) },
 			paid: true,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);
@@ -175,15 +178,18 @@ fn sending_to_parachain_of_bridged_chain_works() {
 				vec![
 					WithdrawAsset(Asset::from((Here, price)).into()),
 					BuyExecution { fees: (Here, price).into(), weight_limit: Unlimited },
+					SetAppendix(Xcm(vec![DepositAsset {
+						assets: Wild(AllCounted(1)),
+						beneficiary: Parachain(100).into(),
+					}])),
 					ExportMessage {
 						network: ByGenesis([1; 32]),
 						destination: Parachain(100).into(),
 						xcm: xcm_with_topic([0; 32], vec![Trap(1)]),
 					},
-					DepositAsset { assets: Wild(All), beneficiary: Parachain(100).into() },
 				],
 			),
-			outcome: Outcome::Complete { used: test_weight(4) },
+			outcome: Outcome::Complete { used: test_weight(5) },
 			paid: true,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);

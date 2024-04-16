@@ -38,16 +38,14 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::{
-	impls::ToParentTreasury,
-	westend::{account, currency::GRAND},
-};
+use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
 	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
+use testnet_parachains_constants::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -55,7 +53,7 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
 #[cfg(feature = "runtime-benchmarks")]
-use parachains_common::westend::currency::DOLLARS;
+use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -115,12 +113,17 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type WeightInfo = weights::pallet_ranked_collective_fellowship_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
-	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type AddOrigin = frame_system::EnsureNever<()>;
 	#[cfg(feature = "runtime-benchmarks")]
+	type AddOrigin = frame_system::EnsureRoot<Self::AccountId>;
+
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type PromoteOrigin = frame_system::EnsureNever<pallet_ranked_collective::Rank>;
+	#[cfg(feature = "runtime-benchmarks")]
 	type PromoteOrigin = EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>;
 
 	// Demotion is by any of:
@@ -129,6 +132,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	//
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
+	type RemoveOrigin = Self::DemoteOrigin;
 	type DemoteOrigin = EitherOf<
 		EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		MapSuccess<
@@ -136,9 +140,17 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 			Replace<ConstU16<{ ranks::DAN_9 }>>,
 		>,
 	>;
+	// Exchange is by any of:
+	// - Root can exchange arbitrarily.
+	// - the Fellows origin
+	type ExchangeOrigin =
+		EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
 	type Polls = FellowshipReferenda;
 	type MinRankOfClass = tracks::MinRankOfClass;
+	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
 
 pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
