@@ -511,6 +511,66 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 }
 
 #[test]
+fn instapool_io_updated_correctly_by_force_unpool() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// We'll be calling get() on this a lot.
+		type Io = InstaPoolIo<Test>;
+
+		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
+		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
+		assert_ok!(Broker::do_start_sales(100, 3));
+		advance_to(2);
+
+		// Buy core to add to pool.
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		// Ensure InstaPoolIo corresponds to one full region provided by the system for this period.
+		let region = Regions::<Test>::get(&region_id).unwrap();
+		assert_eq!(Io::get(region_id.begin), PoolIoRecord { private: 0, system: 80 });
+		assert_eq!(Io::get(region.end), PoolIoRecord { private: 0, system: -80 });
+
+		// Add region to pool with Provisional finality.
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		// Pool IO registers this region entering and exiting at the correct points.
+		assert_eq!(Io::get(region_id.begin), PoolIoRecord { private: 80, system: 80 });
+		assert_eq!(Io::get(region.end), PoolIoRecord { private: -80, system: -80 });
+
+		// Force unpool before the region begins.
+		Broker::force_unpool_region(region_id, &region);
+		System::assert_last_event(
+			Event::<Test>::RegionUnpooled { region_id, when: region_id.begin }.into(),
+		);
+		// Pool IO does not change now.
+		assert_eq!(Io::get(Broker::current_timeslice()), PoolIoRecord { private: 0, system: 0 });
+		// But changes at the point of the region beginning.
+		assert_eq!(Io::get(region_id.begin), PoolIoRecord { private: 0, system: 80 });
+
+		// Pool it again.
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_eq!(Io::get(region_id.begin), PoolIoRecord { private: 80, system: 80 });
+
+		// Advance to the timeslice after the region starts.
+		advance_sale_period();
+		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		advance_to(System::block_number() + 1 * timeslice_period);
+		let current_timeslice = Broker::current_timeslice();
+
+		// Check the Io right now at key timeslices and then force unpool.
+		assert_eq!(Io::get(region.end), PoolIoRecord { private: -80, system: -80 });
+		assert_eq!(Io::get(current_timeslice), PoolIoRecord { private: 0, system: 0 });
+		Broker::force_unpool_region(region_id, &region);
+		System::assert_last_event(
+			Event::<Test>::RegionUnpooled { region_id, when: current_timeslice }.into(),
+		);
+
+		// Then ensure only system removed at the end of the region.
+		assert_eq!(Io::get(region.end), PoolIoRecord { private: 0, system: -80 });
+		// And private removed right now.
+		assert_eq!(Io::get(current_timeslice), PoolIoRecord { private: -80, system: 0 });
+	});
+}
+
+#[test]
 fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
