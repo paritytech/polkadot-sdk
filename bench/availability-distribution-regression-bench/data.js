@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713256228383,
+  "lastUpdate": 1713266326148,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4575,6 +4575,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024063455399999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "61d45ed72b2f8afade997e1a973327f2ada02aa0",
+          "message": "Update review-trigger.yml (#4137)\n\nFollowup after https://github.com/paritytech/polkadot-sdk/pull/3431\nPer\nhttps://stackoverflow.com/questions/63188674/github-actions-detect-author-association\nand https://michaelheap.com/github-actions-check-permission/\nlooks like just checking NOT a MEMBER is not correct, Not a CONTRIBUTORs\ncheck should be included",
+          "timestamp": "2024-04-16T10:11:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/61d45ed72b2f8afade997e1a973327f2ada02aa0"
+        },
+        "date": 1713266300631,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01433293893333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16336106453333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006589278933333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02415798086666667,
             "unit": "seconds"
           }
         ]
