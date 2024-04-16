@@ -25,7 +25,9 @@
 //! ## Overview
 //!
 //! This suite allows you to perform the following operations:
-//! - Perform migration to update account ID derivation methods for existing pools.
+//! - Perform migration to update account ID derivation methods for existing pools. The migration
+//!   operation ensures that the required accounts are created, existing account deposits are
+//!   transferred, and liquidity is moved to the new accounts.
 
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]

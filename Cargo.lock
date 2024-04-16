@@ -9518,7 +9518,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion-ops"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",

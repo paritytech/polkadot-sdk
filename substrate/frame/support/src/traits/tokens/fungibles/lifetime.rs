@@ -53,7 +53,11 @@ pub trait ResetTeam<AccountId>: Inspect<AccountId> {
 	) -> DispatchResult;
 }
 
-/// Trait for refunding the deposit of a target asset account.
+/// Trait for refunding the existence deposit of a target asset account.
+///
+/// The existence deposit might by necessary and present in cases where the asset held by the
+/// account is insufficient for the required storage, or when the system cannot provide a consumer
+/// reference for any reason.
 pub trait Refund<AccountId> {
 	/// Means of identifying one asset class from another.
 	type AssetId: AssetId;
