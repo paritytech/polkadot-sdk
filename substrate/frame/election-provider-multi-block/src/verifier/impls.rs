@@ -571,7 +571,6 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let snapshot_voters =
 			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
 
-		// ----- Start building. First, we need some closures.
 		let voter_cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
 		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
 		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
@@ -602,7 +601,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				debug_assert!(*_voter == assignment.who);
 
 				// Check that all of the targets are valid based on the snapshot.
-				if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
+				if assignment.distribution.iter().any(|(t, _)| {
+					!targets.contains(t)
+				}) {
 					return Err(FeasibilityError::InvalidVote)
 				}
 				Ok(())

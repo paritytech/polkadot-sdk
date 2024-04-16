@@ -90,7 +90,7 @@ use scale_info::TypeInfo;
 
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	NposSolution, PageIndex, VoterOf,
+	NposSolution, PageIndex, VoterOf, Weight, LockableElectionDataProvider,
 };
 use frame_support::{
 	defensive, ensure,
@@ -123,7 +123,6 @@ pub mod pallet {
 
 	use super::*;
 	use codec::EncodeLike;
-	use frame_election_provider_support::LockableElectionDataProvider;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::Saturating,
@@ -277,65 +276,22 @@ pub mod pallet {
 
 			log!(
 				trace,
-				"current phase {:?}, next election {:?}, remaining: {:?}, deadlines: [unsigned {:?} signed_validation {:?}, signed {:?}, snapshot {:?}]",
+				"[POVLOG] now {:?} - current phase {:?}, next election {:?}, remaining: {:?}",
+				now,
 				current_phase,
 				next_election,
 				remaining_blocks,
-				unsigned_deadline,
-				signed_validation_deadline,
-				signed_deadline,
-				snapshot_deadline,
 			);
-
-			// closure that tries to progress paged snapshot creation.
-			let try_snapshot_next = |remaining_pages: PageIndex| {
-				let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
-
-				let target_snapshot_weight = if !Snapshot::<T>::targets_snapshot_exists() {
-					match Self::create_targets_snapshot() {
-						Ok(target_count) => {
-							log!(info, "target snapshot created with {} targets", target_count);
-							Weight::default()
-						},
-						Err(err) => {
-							log!(error, "error preparing targets snapshot: {:?}", err);
-							Weight::default()
-						},
-					}
-				} else {
-					Weight::default()
-				};
-
-				let voter_snapshot_weight = match Self::create_voters_snapshot(remaining_pages) {
-					Ok(voter_count) => {
-						log!(
-							info,
-							"voter snapshot progressed: page {} with {} voters",
-							remaining_pages,
-							voter_count,
-						);
-
-						Self::phase_transition(Phase::Snapshot(remaining_pages));
-						Weight::default() // weights
-					},
-					Err(err) => {
-						log!(error, "error preparing voter snapshot: {:?}", err);
-						Weight::default() // weights
-					},
-				};
-
-				target_snapshot_weight.saturating_add(voter_snapshot_weight)
-			};
 
 			match current_phase {
 				// start snapshot.
 				Phase::Off
 					if remaining_blocks <= snapshot_deadline &&
 						remaining_blocks > signed_deadline =>
-					try_snapshot_next(Self::msp()),
+					Self::try_progress_snapshot(Self::msp()),
 
 				// continue snapshot.
-				Phase::Snapshot(x) if x > 0 => try_snapshot_next(x.saturating_sub(1)),
+				Phase::Snapshot(x) if x > 0 => Self::try_progress_snapshot(x.saturating_sub(1)),
 
 				// start signed phase. The `signed` pallet will take further actions now.
 				Phase::Snapshot(0)
@@ -433,8 +389,8 @@ impl<T: Config> Snapshot<T> {
 	}
 
 	/// Sets a page of targets in the snapshot's storage.
-	fn set_targets(page: PageIndex, targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
-		PagedTargetSnapshot::<T>::insert(page, targets);
+	fn set_targets(targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
+		PagedTargetSnapshot::<T>::insert(Pallet::<T>::lsp(), targets);
 	}
 
 	fn targets_snapshot_exists() -> bool {
@@ -499,7 +455,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Phase transition helper.
 	pub(crate) fn phase_transition(to: Phase<BlockNumberFor<T>>) {
-		log!(info, "starting phase {:?}, round {}", to, <Round<T>>::get());
+		log!(info, "[POVLOG] starting phase {:?}, round {}", to, <Round<T>>::get());
 		Self::deposit_event(Event::PhaseTransitioned {
 			from: <CurrentPhase<T>>::get(),
 			to,
@@ -524,7 +480,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Creates the target snapshot.
 	fn create_targets_snapshot() -> Result<u32, ElectionError<T>> {
-		// set target count bound as the max number of targets per page.
+		// set target count bound as the max number of targets per block.
 		let bounds = ElectionBoundsBuilder::default()
 			.targets_count(T::TargetSnapshotPerBlock::get().into())
 			.build()
@@ -543,7 +499,7 @@ impl<T: Config> Pallet<T> {
 		let count = targets.len() as u32;
 		log!(info, "created target snapshot with {} targets.", count);
 
-		Snapshot::<T>::set_targets(Zero::zero(), targets);
+		Snapshot::<T>::set_targets(targets);
 
 		Ok(count)
 	}
@@ -551,7 +507,7 @@ impl<T: Config> Pallet<T> {
 	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
 		ensure!(remaining_pages < T::Pages::get(), ElectionError::<T>::RequestedPageExceeded);
 
-		// set voter count bound as the max number of voterss per page.
+		// set voter count bound as the max number of voters per page.
 		let bounds = ElectionBoundsBuilder::default()
 			.voters_count(T::VoterSnapshotPerBlock::get().into())
 			.build()
@@ -570,6 +526,45 @@ impl<T: Config> Pallet<T> {
 		Snapshot::<T>::set_voters(remaining_pages, voters);
 
 		Ok(count)
+	}
+
+	fn try_progress_snapshot(remaining_pages: PageIndex) -> Weight {
+		let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
+
+		let target_snapshot_weight = if !Snapshot::<T>::targets_snapshot_exists() {
+			match Self::create_targets_snapshot() {
+				Ok(target_count) => {
+					log!(info, "[POVLOG] target snapshot created with {} targets", target_count);
+					Weight::default()
+				},
+				Err(err) => {
+					log!(error, "[POVLOG] error preparing targets snapshot: {:?}", err);
+					Weight::default()
+				},
+			}
+		} else {
+			Weight::default()
+		};
+
+		let voter_snapshot_weight = match Self::create_voters_snapshot(remaining_pages) {
+			Ok(voter_count) => {
+				log!(
+					info,
+					"[POVLOG] voter snapshot progressed: page {} with {} voters",
+					remaining_pages,
+					voter_count,
+				);
+
+				Self::phase_transition(Phase::Snapshot(remaining_pages));
+				Weight::default() // weights
+			},
+			Err(err) => {
+				log!(error, "[POVLOG] error preparing voter snapshot: {:?}", err);
+				Weight::default() // weights
+			},
+		};
+
+		target_snapshot_weight.saturating_add(voter_snapshot_weight)
 	}
 
 	/// Performs all tasks required after a successful election:
@@ -712,7 +707,7 @@ mod snapshot {
 			assert!(Snapshot::<T>::voters(0).is_none());
 			assert!(Snapshot::<T>::voters(1).is_none());
 
-			Snapshot::<T>::set_targets(0, v.clone());
+			Snapshot::<T>::set_targets(v.clone());
 			assert!(Snapshot::<T>::targets().is_some());
 
 			Snapshot::<T>::kill();
@@ -820,4 +815,9 @@ mod snapshot {
 			assert_eq!(voters_page(MultiPhase::lsp()), vec![70, 80]);
 		})
 	}
+
+    #[test]
+    fn try_progress_snapshot_works() {
+        // TODO
+    }
 }

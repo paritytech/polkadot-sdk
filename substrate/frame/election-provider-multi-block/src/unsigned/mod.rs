@@ -229,6 +229,16 @@ impl<T: Config> Pallet<T> {
 				let (full_score, partial_score, partial_solution) =
 					OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
 
+				sublog!(
+					trace,
+					"unsigned",
+					"[POVLOG] Submitting unsigned page {:?}: (full score: {:?}, partial_score: {:?}) \n [POVLOG] partial solution: {:?}",
+					page,
+					full_score,
+					partial_score,
+					partial_solution,
+				);
+
 				// submit page only if full score improves the current queued score.
 				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
 					OffchainWorkerMiner::<T>::submit_paged_call(

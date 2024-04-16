@@ -38,7 +38,7 @@ use sp_npos_elections::{
 use sp_runtime::{offchain::storage::StorageValueRef, SaturatedConversion};
 use sp_std::{vec, vec::Vec};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum MinerError {
 	/// An internal error in the NPoS elections crate.
 	NposElections(sp_npos_elections::Error),
@@ -73,7 +73,7 @@ impl From<SnapshotType> for MinerError {
 /// The type of the snapshot.
 ///
 /// Used to express errors.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum SnapshotType {
 	/// Voters at the given page missing.
 	Voters(PageIndex),
@@ -84,7 +84,7 @@ pub enum SnapshotType {
 }
 
 /// Reports the trimming result of a mined solution
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TrimmingStatus {
 	weight: usize,
 	length: usize,
@@ -108,6 +108,7 @@ where
 	///
 	/// 1. [`crate::verifier::Config::MaxBackersPerWinner`]
 	/// 2. [`crate::unsigned::Config::MinerMaxLength`]
+	///
 	/// 3. [`crate::unsigned::Config::MinerMaxWeight`]
 	///
 	/// //TODO(doc)
@@ -728,11 +729,13 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, Phase, Snapshot};
+	use crate::{mock::*, Phase, Snapshot, Verifier};
 	use frame_election_provider_support::SequentialPhragmen;
-	use frame_support::BoundedVec;
+	use frame_support::{assert_noop, assert_ok, BoundedVec};
 	use sp_npos_elections::ElectionResult;
 	use sp_runtime::Perbill;
+
+	type OffchainSolver = <T as UnsignedConfig>::OffchainSolver;
 
 	mod indice_encode_decode_solution {
 		use super::*;
@@ -755,5 +758,71 @@ mod tests {
 
 		#[test]
 		fn snapshot_stake_sorted_works() {}
+	}
+
+	mod miner {
+		use super::*;
+
+		#[test]
+		fn mine_works() {
+			ExtBuilder::default().build_and_execute(|| {
+				let msp = crate::Pallet::<T>::msp();
+				assert_eq!(msp, 2);
+
+				// no snapshot available, calling mine_paged_solution should fail.
+				assert!(<VerifierPallet as Verifier>::queued_score().is_none());
+				assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
+
+				assert_noop!(
+					Miner::<T, OffchainSolver>::mine_paged_solution(0, true),
+					MinerError::SnapshotUnAvailable(SnapshotType::Targets),
+				);
+
+				// create and store snapshot so that the miner can mine solutions.
+				compute_snapshot_checked();
+
+				assert_ok!(Miner::<T, OffchainSolver>::mine_paged_solution(
+					<T as Config>::Pages::get(),
+					true
+				));
+			});
+		}
+	}
+
+	mod offchain_miner {
+		use super::*;
+
+		#[test]
+		fn fetch_or_mine() {
+			let (mut ext, _) = ExtBuilder::default().build_offchainify(1);
+
+			ext.execute_with(|| {
+				let msp = crate::Pallet::<T>::msp();
+				assert_eq!(msp, 2);
+
+				// no snapshot available, calling mine_paged_solution should fail.
+				assert!(<VerifierPallet as Verifier>::queued_score().is_none());
+				assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
+
+				assert!(OffchainWorkerMiner::<T>::fetch_or_mine(0).is_err());
+				compute_snapshot_checked();
+
+				let (full_score_2, partial_score_2, _) =
+					OffchainWorkerMiner::<T>::fetch_or_mine(msp).unwrap();
+				let (full_score_1, partial_score_1, _) =
+					OffchainWorkerMiner::<T>::fetch_or_mine(msp - 1).unwrap();
+				let (full_score_0, partial_score_0, _) =
+					OffchainWorkerMiner::<T>::fetch_or_mine(0).unwrap();
+
+				assert!(full_score_2 == full_score_1 && full_score_2 == full_score_0);
+				assert!(
+					full_score_2.sum_stake == full_score_1.sum_stake &&
+						full_score_2.sum_stake == full_score_0.sum_stake
+				);
+			})
+		}
+
+		#[test]
+		fn submit_paged_call_works() {}
 	}
 }

@@ -331,6 +331,17 @@ impl ExtBuilder {
 	}
 }
 
+pub(crate) fn compute_snapshot_checked() {
+    let msp = crate::Pallet::<T>::msp();
+
+    for page in (0..=msp).rev() {
+        crate::Pallet::<T>::try_progress_snapshot(page);
+
+		assert!(Snapshot::<T>::targets_snapshot_exists());
+        assert!(Snapshot::<T>::voters(page).is_some());
+    }
+}
+
 pub(crate) fn roll_to(n: BlockNumber) {
 	for bn in (System::block_number()) + 1..=n {
 		System::set_block_number(bn);

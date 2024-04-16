@@ -227,7 +227,7 @@ where
 		) {
 			tracing::info!(
 				target: crate::LOG_TARGET,
-				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
+				"[POVLOG] PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
 				block_data.header().encode().len() as f64 / 1024f64,
 				block_data.extrinsics().encode().len() as f64 / 1024f64,
 				block_data.storage_proof().encode().len() as f64 / 1024f64,
@@ -236,7 +236,7 @@ where
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 				tracing::info!(
 					target: crate::LOG_TARGET,
-					"Compressed PoV size: {}kb",
+					"[POVLOG] Compressed PoV size: {}kb",
 					pov.block_data.0.len() as f64 / 1024f64,
 				);
 			}
