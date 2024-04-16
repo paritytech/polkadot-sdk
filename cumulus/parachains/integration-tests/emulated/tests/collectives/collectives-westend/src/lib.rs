@@ -13,10 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod foreign_assets_transfers;
-mod reserve_transfer;
-mod send;
-mod set_xcm_versions;
-mod swap;
-mod teleport;
-mod treasury;
+pub use xcm::{prelude::*, v3};
+
+pub use emulated_integration_tests_common::xcm_emulator::{
+	assert_expected_events, bx, Chain, RelayChain as Relay, TestExt,
+};
+pub use westend_system_emulated_network::{
+	asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+	collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+	westend_emulated_chain::WestendRelayPallet as WestendPallet,
+	AssetHubWestendPara as AssetHubWestend, CollectivesWestendPara as CollectivesWestend,
+	WestendRelay as Westend,
+};
+
+#[cfg(test)]
+mod tests;

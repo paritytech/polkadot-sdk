@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Unity Balance Conversion for Different IDs of Native Asset 
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduce types to define 1:1 balance conversion for different relative asset ids/locations 
+      of native asset for `ConversionToAssetBalance` trait bounds.
+
+crates: [ ]
