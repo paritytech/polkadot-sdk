@@ -1,0 +1,36 @@
+title: "pallet assets: Add the new status live and no privileges."
+topic: pallet assets
+
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The new status live and no privileges is created. Under this status, owner, issuer, admin and
+      freezer has no privileges.
+      The new call `revoke_all_privileges` is created. This call allows `ForceOrigin` or the
+      `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
+      `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
+
+      Storage is backward compatible so the migration consist of updating storage version
+      from V1 to V2.
+
+      `Config` trait has a new associated type `DepositDestinationOnRevocation`
+      This type is used for the destination of the deposit when privileges are revoked.
+      Set it to `()` to burn them.
+
+  - audience: Runtime User
+    description: |
+      The new status live and no privileges is created. Under this status, owner, issuer, admin and
+      freezer has no privileges.
+      The new call `revoke_all_privileges` is created. This call allows `ForceOrigin` or the
+      `Owner` to revoke all the privileges on the asset. This operation is irrevesible for the
+      `Owner`, `ForceOrigin` can always reverse by using `force_asset_status`.
+
+crates:
+  - name: pallet-assets
+    bump: major
+
+migrations:
+  runtime:
+    - reference: "pallet-assets: storage version 2"
+      description: "V2: update is backward compatible with V1, so only storage version 2 needs to be stored"
