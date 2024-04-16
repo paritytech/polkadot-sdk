@@ -970,7 +970,6 @@ pub(crate) mod tests {
 	};
 
 	parameter_types! {
-		pub TestParachain: u32 = 1000;
 		pub TestLaneId: LaneId = TEST_LANE_ID;
 		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
 			TEST_LANE_ID,
@@ -1005,7 +1004,7 @@ pub(crate) mod tests {
 	type TestGrandpaExtension = RefundSignedExtensionAdapter<TestGrandpaExtensionProvider>;
 	type TestExtensionProvider = RefundBridgedParachainMessages<
 		TestRuntime,
-		DefaultRefundableParachainId<(), TestParachain>,
+		RefundableParachain<(), BridgedUnderlyingParachain>,
 		RefundableMessagesLane<(), TestLaneId>,
 		ActualFeeRefund<TestRuntime>,
 		ConstU64<1>,
@@ -1053,7 +1052,7 @@ pub(crate) mod tests {
 			bp_test_utils::test_header::<BridgedChainHeader>(0).build(),
 		);
 
-		let para_id = ParaId(TestParachain::get());
+		let para_id = ParaId(BridgedUnderlyingParachain::PARACHAIN_ID);
 		let para_info = ParaInfo {
 			best_head_hash: BestParaHeadHash {
 				at_relay_block_number: parachain_head_at_relay_header_number,
@@ -1121,7 +1120,7 @@ pub(crate) mod tests {
 		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
 			at_relay_block: (parachain_head_at_relay_header_number, RelayBlockHash::default()),
 			parachains: vec![(
-				ParaId(TestParachain::get()),
+				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
 			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
@@ -1134,7 +1133,7 @@ pub(crate) mod tests {
 		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads_ex {
 			at_relay_block: (parachain_head_at_relay_header_number, RelayBlockHash::default()),
 			parachains: vec![(
-				ParaId(TestParachain::get()),
+				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
 			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
@@ -1317,7 +1316,7 @@ pub(crate) mod tests {
 				},
 				SubmitParachainHeadsInfo {
 					at_relay_block: HeaderId(200, [0u8; 32].into()),
-					para_id: ParaId(TestParachain::get()),
+					para_id: ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
 				},
@@ -1357,7 +1356,7 @@ pub(crate) mod tests {
 				},
 				SubmitParachainHeadsInfo {
 					at_relay_block: HeaderId(200, [0u8; 32].into()),
-					para_id: ParaId(TestParachain::get()),
+					para_id: ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
 				},
@@ -1449,7 +1448,7 @@ pub(crate) mod tests {
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
 					at_relay_block: HeaderId(200, [0u8; 32].into()),
-					para_id: ParaId(TestParachain::get()),
+					para_id: ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
 				},
@@ -1474,7 +1473,7 @@ pub(crate) mod tests {
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
 					at_relay_block: HeaderId(200, [0u8; 32].into()),
-					para_id: ParaId(TestParachain::get()),
+					para_id: ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
 				},
@@ -2098,8 +2097,11 @@ pub(crate) mod tests {
 					RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
 						at_relay_block: (100, RelayBlockHash::default()),
 						parachains: vec![
-							(ParaId(TestParachain::get()), [1u8; 32].into()),
-							(ParaId(TestParachain::get() + 1), [1u8; 32].into()),
+							(ParaId(BridgedUnderlyingParachain::PARACHAIN_ID), [1u8; 32].into()),
+							(
+								ParaId(BridgedUnderlyingParachain::PARACHAIN_ID + 1),
+								[1u8; 32].into(),
+							),
 						],
 						parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
 					}),

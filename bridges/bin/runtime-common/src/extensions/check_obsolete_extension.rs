@@ -361,9 +361,9 @@ mod tests {
 		extensions::refund_relayer_extension::{
 			tests::{
 				initialize_environment, relayer_account_at_this_chain,
-				submit_parachain_head_call_ex, submit_relay_header_call_ex, TestParachain,
+				submit_parachain_head_call_ex, submit_relay_header_call_ex,
 			},
-			DefaultRefundableParachainId,
+			RefundableParachain,
 		},
 		mock::*,
 	};
@@ -595,7 +595,7 @@ mod tests {
 
 	type BridgeParachainsWrapper = CheckAndBoostBridgeParachainsTransactions<
 		TestRuntime,
-		DefaultRefundableParachainId<(), TestParachain>,
+		RefundableParachain<(), BridgedUnderlyingParachain>,
 		ConstU64<1_000>,
 		SlashDestination,
 	>;
@@ -647,7 +647,7 @@ mod tests {
 				true,
 				Some(SubmitParachainHeadsInfo {
 					at_relay_block: HeaderId(150, Default::default()),
-					para_id: ParaId(TestParachain::get()),
+					para_id: ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 					para_head_hash: [150u8; 32].into(),
 					is_free_execution_expected: false,
 				}),
@@ -669,7 +669,7 @@ mod tests {
 				false,
 				Some(SubmitParachainHeadsInfo {
 					at_relay_block: HeaderId(100, Default::default()),
-					para_id: ParaId(TestParachain::get()),
+					para_id: ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
 					para_head_hash: [100u8; 32].into(),
 					is_free_execution_expected: false,
 				}),
