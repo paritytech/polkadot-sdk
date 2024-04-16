@@ -156,7 +156,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
-	type XcmRecorder = super::Xcm;
+	type XcmRecorder = ();
 }
 
 impl pallet_xcm::Config for crate::Runtime {
