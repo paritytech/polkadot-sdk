@@ -144,7 +144,7 @@ parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const TokenLocation: Location = Here.into_location();
 	pub const RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 pub type XcmOriginToCallOrigin = (

@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Setup `HrmpChannelAccepted` handler with `pallet_xcm` for initiating XCM version discovery when openning HRMP channel"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Allow setting up type HrmpChannelAcceptedHandler = (PolkadotXcm,) for xcm_executor::Config,
+      which will initiate XCM version discovery when an HRMP channel is accepted between parachains,
+      to avoid performing XCM version discovery on the first (user) request to the sibling parachain.
+
+crates:
+- name: pallet-xcm
+  bump: patch
