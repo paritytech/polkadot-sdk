@@ -44,7 +44,7 @@ pub use weights::WeightInfo;
 
 use frame_support::traits::{
 	fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
-	fungibles::{Inspect, Mutate, Refund, ResetTeam},
+	fungibles::{roles::ResetTeam, Inspect, Mutate, Refund},
 	tokens::{Fortitude, Precision, Preservation},
 	AccountTouch,
 };
