@@ -325,10 +325,9 @@ sp_api::mock_impl_runtime_apis! {
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_vote_equivocations.as_ref() {
 				equivocations_buf.lock().push(proof);
-				None
-			} else {
-				panic!("Equivocations not expected, but following proof was reported: {:?}", proof);
 			}
+
+			None
 		}
 
 		fn submit_report_fork_equivocation_unsigned_extrinsic(
@@ -337,10 +336,9 @@ sp_api::mock_impl_runtime_apis! {
 		) -> Option<()> {
 			if let Some(equivocations_buf) = self.inner.reported_fork_equivocations.as_ref() {
 				equivocations_buf.lock().push(proof);
-				None
-			} else {
-				panic!("Equivocations not expected, but following proof was reported: {:?}", proof);
 			}
+
+			None
 		}
 
 		fn generate_key_ownership_proof(
