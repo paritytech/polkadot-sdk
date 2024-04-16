@@ -231,7 +231,7 @@ where
 		connection_details: ConnectionDetails,
 		operation_id: String,
 	) -> Result<(), ErrorBroadcast> {
-		// The operation ID must correlate to the same connectio ID.
+		// The operation ID must correlate to the same connection ID.
 		if !self.rpc_connections.contains_identifier(connection_details.id(), &operation_id) {
 			return Err(ErrorBroadcast::InvalidOperationID)
 		}
