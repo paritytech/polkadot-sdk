@@ -143,13 +143,17 @@ pub use weights::WeightInfo;
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
-	/// Return `true` if the session should be ended.
+	// Return `true` if the session should be ended.
 	fn should_end_session(now: BlockNumber) -> bool;
 }
 
 /// Hook to be applied when an account deregisters keys
 pub trait OnKeysDeregistered<AccountId> {
 	fn on_keys_deregisterd(account: AccountId);
+}
+
+impl<AccountId> OnKeysDeregistered<AccountId> for () {
+	fn on_keys_deregisterd(_account: AccountId) {}
 }
 
 /// Ends the session after a fixed period of blocks.
