@@ -627,6 +627,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#478" id="478">478</a>
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1048,7 +1051,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_drop_history(when: Timeslice) -&gt; DispatchResult {
 		<span class="kw">let </span>config = Configuration::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
 		<span class="kw">let </span>status = Status::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(status.last_timeslice &gt; when + config.contribution_timeout, Error::&lt;T&gt;::StillValid);
+		<span class="macro">ensure!</span>(
+			status.last_timeslice &gt; when.saturating_add(config.contribution_timeout),
+			Error::&lt;T&gt;::StillValid
+		);
 		<span class="kw">let </span>record = InstaPoolHistory::&lt;T&gt;::take(when).ok_or(Error::&lt;T&gt;::NoHistory)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(payout) = record.maybe_payout {
 			<span class="kw">let _ </span>= <span class="self">Self</span>::charge(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), payout);
