@@ -23,7 +23,6 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::traits::{fungibles::Mutate, Currency};
-use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts::{test_utils::builder::*, Code};
 use pallet_contracts_fixtures::compile_module;
 use pallet_contracts_uapi::ReturnErrorCode;
@@ -166,18 +165,21 @@ fn test_xcm_execute_reentrant_call() {
 fn test_xcm_send() {
 	MockNet::reset();
 	let contract_addr = instantiate_test_contract("xcm_send");
+	let amount = 1_000 * CENTS;
 	let fee = parachain::estimate_message_fee(4); // Accounts for the `DescendOrigin` instruction added by `send_xcm`
 
-	// Send XCM instructions through the contract, to lock some funds on the relay chain.
+	// Send XCM instructions through the contract, to transfer some funds from the contract
+	// derivative account to Alice on the relay chain.
 	ParaA::execute_with(|| {
 		let dest = Location::from(Parent);
 		let dest = VersionedLocation::V4(dest);
-		let asset: Asset = (Here, fee).into();
+		let assets: Asset = (Here, amount).into();
+		let beneficiary = AccountId32 { network: None, id: ALICE.clone().into() };
 
 		let message: Xcm<()> = Xcm::builder()
-			.withdraw_asset(asset.clone())
-			.buy_execution(asset, Unlimited)
-			.lock_asset((Here, 5 * CENTS), Parachain(1))
+			.withdraw_asset(assets.clone())
+			.buy_execution((Here, fee), Unlimited)
+			.deposit_asset(assets, beneficiary)
 			.build();
 
 		let result = bare_call(contract_addr.clone())
@@ -189,10 +191,11 @@ fn test_xcm_send() {
 	});
 
 	Relay::execute_with(|| {
-		// Check if the funds are locked on the relay chain.
+		let derived_contract_addr = &parachain_account_sovereign_account_id(1, contract_addr);
 		assert_eq!(
-			relay_chain::Balances::locks(&parachain_account_sovereign_account_id(1, contract_addr)),
-			vec![BalanceLock { id: *b"py/xcmlk", amount: 5 * CENTS, reasons: Reasons::All }]
+			INITIAL_BALANCE - amount,
+			relay_chain::Balances::free_balance(derived_contract_addr)
 		);
+		assert_eq!(INITIAL_BALANCE + amount - fee, relay_chain::Balances::free_balance(ALICE));
 	});
 }
