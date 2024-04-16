@@ -253,7 +253,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, ChildChangeset<B::Hash>)>,
 		state_version: StateVersion,
 	) -> BackendTransaction<B::Hash> {
 		self.state.storage_root(delta, state_version)
@@ -1224,10 +1224,10 @@ pub fn apply_tree_commit<H: Hash>(
 	state_capabilities: StateCapabilities,
 	tx: &mut Transaction<DbHash>,
 ) {
-	fn convert<H: Hash>(node: sp_trie::Changeset<H::Out, DBLocation>) -> sp_database::NodeRef {
+	fn convert<H: Hash>(node: sp_trie::Changenode<H::Out, DBLocation>) -> sp_database::NodeRef {
 		match node {
-			sp_trie::Changeset::Existing(node) => sp_database::NodeRef::Existing(node.location),
-			sp_trie::Changeset::New(node) => sp_database::NodeRef::New(sp_database::NewNode {
+			sp_trie::Changenode::Existing(location) => sp_database::NodeRef::Existing(location),
+			sp_trie::Changenode::New(node) => sp_database::NodeRef::New(sp_database::NewNode {
 				data: node.data,
 				children: node.children.into_iter().map(|c| convert::<H>(c)).collect(),
 			}),
@@ -1237,11 +1237,11 @@ pub fn apply_tree_commit<H: Hash>(
 	match state_capabilities {
 		StateCapabilities::TreeColumn => {
 			let hash = commit.root_hash();
-			match commit {
-				sp_trie::Changeset::Existing(node) => {
-					tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
+			match commit.change {
+				sp_trie::Changenode::Existing(_) => {
+					tx.reference_tree(columns::STATE, DbHash::from_slice(hash.as_ref()));
 				},
-				new_node @ sp_trie::Changeset::New(_) => {
+				new_node @ sp_trie::Changenode::New(_) => {
 					if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
 						tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
 					}
@@ -2355,7 +2355,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(BlockImportOperation {
 			pending_block: None,
 			old_state: self.empty_state(),
-			db_updates: BackendTransaction::unchanged(Default::default()),
+			db_updates: BackendTransaction::unchanged(Default::default(), Default::default()),
 			storage_updates: Default::default(),
 			child_storage_updates: Default::default(),
 			offchain_storage_updates: Default::default(),
@@ -3100,13 +3100,16 @@ pub(crate) mod tests {
 			)
 			.unwrap();
 
-			op.db_updates = sp_trie::Changeset::New(sp_trie::NewChangesetNode {
-				hash: key.into(),
-				prefix: Default::default(),
-				data: data.to_vec(),
-				children: Default::default(),
-				removed_keys: None,
-			});
+			op.db_updates = sp_trie::Changeset {
+				old_root: Default::default(),
+				change: sp_trie::Changenode::New(Box::new(sp_trie::NewChangesetNode {
+					hash: key.into(),
+					prefix: Default::default(),
+					data: data.to_vec(),
+					children: Default::default(),
+					removed_keys: None,
+				})),
+			};
 			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
 				.unwrap();
 
@@ -3148,13 +3151,16 @@ pub(crate) mod tests {
 				.into();
 			let hash = header.hash();
 
-			op.db_updates = sp_trie::Changeset::New(sp_trie::NewChangesetNode {
-				hash: key.into(),
-				prefix: Default::default(),
-				data: data.to_vec(),
-				children: Default::default(),
-				removed_keys: Some((None, vec![(key.into(), Default::default())])),
-			});
+			op.db_updates = sp_trie::Changeset {
+				old_root: Default::default(),
+				change: sp_trie::Changenode::New(Box::new(sp_trie::NewChangesetNode {
+					hash: key.into(),
+					prefix: Default::default(),
+					data: data.to_vec(),
+					children: Default::default(),
+					removed_keys: Some((None, vec![(key.into(), Default::default())])),
+				})),
+			};
 			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
 				.unwrap();
 
@@ -3196,13 +3202,16 @@ pub(crate) mod tests {
 				.into();
 			let hash = header.hash();
 
-			op.db_updates = sp_trie::Changeset::New(sp_trie::NewChangesetNode {
-				hash: Default::default(),
-				prefix: Default::default(),
-				data: Default::default(),
-				children: Default::default(),
-				removed_keys: Some((None, vec![(key.into(), Default::default())])),
-			});
+			op.db_updates = sp_trie::Changeset {
+				old_root: Default::default(),
+				change: sp_trie::Changenode::New(Box::new(sp_trie::NewChangesetNode {
+					hash: Default::default(),
+					prefix: Default::default(),
+					data: Default::default(),
+					children: Default::default(),
+					removed_keys: Some((None, vec![(key.into(), Default::default())])),
+				})),
+			};
 
 			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
 				.unwrap();

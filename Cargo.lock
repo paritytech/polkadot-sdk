@@ -6289,7 +6289,7 @@ dependencies = [
 [[package]]
 name = "hash256-std-hasher"
 version = "0.15.2"
-source = "git+https://github.com/paritytech/subtrie.git?branch=master#61c6261ab9a0dc1314a22e012fbc8f5c61f88c97"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#f240f4a74cbad1751f66206ab86e06561a1f4209"
 dependencies = [
  "crunchy",
 ]
@@ -20042,10 +20042,10 @@ checksum = "734676eb262c623cec13c3155096e08d1f8f29adce39ba17948b18dad1e54142"
 [[package]]
 name = "subtrie"
 version = "0.0.1"
-source = "git+https://github.com/paritytech/subtrie.git?branch=master#61c6261ab9a0dc1314a22e012fbc8f5c61f88c97"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#f240f4a74cbad1751f66206ab86e06561a1f4209"
 dependencies = [
  "criterion 0.5.1",
- "hash256-std-hasher 0.15.2 (git+https://github.com/paritytech/subtrie.git?branch=master)",
+ "hash256-std-hasher 0.15.2 (git+https://github.com/cheme/trie.git?branch=cheme/new-trie)",
  "log",
  "parity-scale-codec",
  "rustc-hex",

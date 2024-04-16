@@ -20,7 +20,7 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{ChildStorageCollection, StorageCollection, StorageKey, StorageValue, UsageInfo};
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use codec::Encode;
 use core::marker::PhantomData;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
@@ -248,7 +248,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Does not include child storage updates.
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, ChildChangeset<H::Out>)>,
 		state_version: StateVersion,
 	) -> BackendTransaction<H::Out>
 	where
@@ -314,7 +314,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 				child_roots.push((
 					prefixed_storage_key.into_inner(),
 					Some(root.encode()),
-					Some(Box::new(child_commit)),
+					Some(child_commit.change),
 				));
 			}
 		}

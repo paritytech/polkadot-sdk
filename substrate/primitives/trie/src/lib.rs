@@ -54,9 +54,9 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
-	CError, Changeset, DBValue, ExistingChangesetNode, Location, NewChangesetNode, Query, Recorder,
-	Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator, TrieDBRawIterator,
-	TrieLayout, TrieRecorder,
+	CError, Changenode, Changeset, DBValue, ExistingChangesetNode, Location, NewChangesetNode,
+	Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
+	TrieDBRawIterator, TrieLayout, TrieRecorder,
 };
 pub use trie_db::{
 	node_db::{Hasher, Prefix},
@@ -227,7 +227,7 @@ pub type Lookup<'a, 'cache, L, Q> = trie_db::Lookup<'a, 'cache, L, Q>;
 /// Hash type for a trie layout.
 pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 /// Change set for child trie.
-pub type ChildChangeset<H> = Box<trie_db::triedbmut::Changeset<H, DBLocation>>;
+pub type ChildChangeset<H> = Option<trie_db::triedbmut::Changenode<H, DBLocation>>;
 
 /// This module is for non generic definition of trie type.
 /// Only the `Hasher` trait is generic in this case.
@@ -316,7 +316,7 @@ pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
 	keyspace: Option<&[u8]>,
 ) -> Result<trie_db::Changeset<TrieHash<L>, L::Location>, Box<TrieError<L>>>
 where
-	I: IntoIterator<Item = (A, B, Option<trie_db::triedbmut::TreeRefChangeset<L>>)>,
+	I: IntoIterator<Item = (A, B, trie_db::TreeRefChangeset<L>)>,
 	A: Borrow<[u8]>,
 	B: Borrow<Option<V>>,
 	V: Borrow<[u8]>,
