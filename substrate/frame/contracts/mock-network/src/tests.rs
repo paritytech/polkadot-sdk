@@ -171,8 +171,7 @@ fn test_xcm_send() {
 	// Send XCM instructions through the contract, to transfer some funds from the contract
 	// derivative account to Alice on the relay chain.
 	ParaA::execute_with(|| {
-		let dest = Location::from(Parent);
-		let dest = VersionedLocation::V4(dest);
+		let dest = VersionedLocation::V4(Parent.into());
 		let assets: Asset = (Here, amount).into();
 		let beneficiary = AccountId32 { network: None, id: ALICE.clone().into() };
 
