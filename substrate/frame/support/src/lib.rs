@@ -971,6 +971,10 @@ pub mod pallet_prelude {
 /// ```
 /// #[frame_support::pallet(dev_mode)]
 /// mod pallet {
+/// # 	 #[pallet::pallet]
+/// # 	 pub struct Pallet<T>(_);
+/// # 	 #[pallet::config]
+/// # 	 pub trait Config: frame_system::Config {}
 /// 	/* ... */
 /// }
 /// ```
@@ -1494,6 +1498,8 @@ pub mod pallet_macros {
 	/// # 	use frame_system::pallet_prelude::*;
 	/// # 	use core::fmt::Debug;
 	/// # 	use frame_support::traits::Contains;
+	/// #
+	/// # 	pub trait SomeMoreComplexBound {}
 	/// #
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
