@@ -147,6 +147,11 @@ pub trait ShouldEndSession<BlockNumber> {
 	fn should_end_session(now: BlockNumber) -> bool;
 }
 
+/// Hook to be applied when an account deregisters keys
+pub trait OnKeysDeregistered<AccountId> {
+	fn on_keys_deregisterd(account: AccountId);
+}
+
 /// Ends the session after a fixed period of blocks.
 ///
 /// The first session will have length of `Offset`, and
@@ -414,6 +419,9 @@ pub mod pallet {
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
 
+		/// Hook to perform actions when keys are deregistered
+		type OnKeysDeregisteredHook: OnKeysDeregistered<Self::AccountId>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -658,7 +666,7 @@ impl<T: Config> Pallet<T> {
 			let mut now_session_keys = session_keys.iter();
 			let mut check_next_changed = |keys: &T::Keys| {
 				if changed {
-					return
+					return;
 				}
 				// since a new validator set always leads to `changed` starting
 				// as true, we can ensure that `now_session_keys` and `next_validators`
@@ -694,14 +702,14 @@ impl<T: Config> Pallet<T> {
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
 	pub fn disable_index(i: u32) -> bool {
 		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
-			return false
+			return false;
 		}
 
 		<DisabledValidators<T>>::mutate(|disabled| {
 			if let Err(index) = disabled.binary_search(&i) {
 				disabled.insert(index, i);
 				T::SessionHandler::on_disabled(i);
-				return true
+				return true;
 			}
 
 			false
@@ -816,7 +824,7 @@ impl<T: Config> Pallet<T> {
 
 			if let Some(old) = old_keys.as_ref().map(|k| k.get_raw(*id)) {
 				if key == old {
-					continue
+					continue;
 				}
 
 				Self::clear_key_owner(*id, old);
@@ -843,6 +851,7 @@ impl<T: Config> Pallet<T> {
 			Self::clear_key_owner(*id, key_data);
 		}
 		frame_system::Pallet::<T>::dec_consumers(account);
+		T::OnKeysDeregisteredHook::on_keys_deregisterd(account.clone());
 
 		Ok(())
 	}
