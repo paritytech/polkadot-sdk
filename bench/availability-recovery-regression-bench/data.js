@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713256529701,
+  "lastUpdate": 1713266627982,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3695,6 +3695,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.79222751306667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Maksym H",
+            "username": "mordamax",
+            "email": "1177472+mordamax@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "61d45ed72b2f8afade997e1a973327f2ada02aa0",
+          "message": "Update review-trigger.yml (#4137)\n\nFollowup after https://github.com/paritytech/polkadot-sdk/pull/3431\nPer\nhttps://stackoverflow.com/questions/63188674/github-actions-detect-author-association\nand https://michaelheap.com/github-actions-check-permission/\nlooks like just checking NOT a MEMBER is not correct, Not a CONTRIBUTORs\ncheck should be included",
+          "timestamp": "2024-04-16T10:11:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/61d45ed72b2f8afade997e1a973327f2ada02aa0"
+        },
+        "date": 1713266602503,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.7398984588,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19437880333333338,
             "unit": "seconds"
           }
         ]
