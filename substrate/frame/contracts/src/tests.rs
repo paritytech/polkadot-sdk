@@ -172,17 +172,14 @@ mod builder {
 		AccountIdLookupOf, Code, CodeHash,
 	};
 
-	/// Create a [`BareInstantiateBuilder`] with default values.
 	pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
 		BareInstantiateBuilder::<Test>::bare_instantiate(ALICE, code)
 	}
 
-	/// Create a [`BareCallBuilder`] with default values.
 	pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
 		BareCallBuilder::<Test>::bare_call(ALICE, dest)
 	}
 
-	/// Create an [`InstantiateWithCodeBuilder`] with default values.
 	pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder<Test> {
 		InstantiateWithCodeBuilder::<Test>::instantiate_with_code(
 			RuntimeOrigin::signed(ALICE),
@@ -190,12 +187,10 @@ mod builder {
 		)
 	}
 
-	/// Create an [`InstantiateBuilder`] with default values.
 	pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder<Test> {
 		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
 	}
 
-	/// Create a [`CallBuilder`] with default values.
 	pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder<Test> {
 		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
