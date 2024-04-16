@@ -19,7 +19,7 @@ use super::GAS_LIMIT;
 use crate::{
 	AccountIdLookupOf, AccountIdOf, BalanceOf, Code, CodeHash, CollectEvents, Config,
 	ContractExecResult, ContractInstantiateResult, DebugInfo, Determinism, EventRecordOf,
-	ExecReturnValue, OriginFor, Pallet, Weight,
+	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
@@ -31,9 +31,7 @@ use scale_info::TypeInfo;
 macro_rules! builder {
 	// Entry point to generate a builder for the given method.
 	(
-		$method:ident(
-			$($field:ident: $type:ty,)*
-		) -> $result:ty;
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
 	) => {
 		paste!{
@@ -43,9 +41,7 @@ macro_rules! builder {
 	// Generate the builder struct and its methods.
 	(
 		$name:ident,
-		$method:ident(
-			$($field:ident: $type:ty,)*
-		) -> $result:ty;
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
 	) => {
 		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
@@ -66,14 +62,14 @@ macro_rules! builder {
 				}
 			)*
 
-            $($extra)*
-
 			#[doc = concat!("Build the ", stringify!($method), " call")]
 			pub fn build(self) -> $result {
 				Pallet::<T>::$method(
 					$(self.$field,)*
 				)
 			}
+
+            $($extra)*
 		}
 	}
 }
@@ -142,7 +138,7 @@ builder!(
 	) -> ContractInstantiateResult<AccountIdOf<T>, BalanceOf<T>, EventRecordOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
-	pub fn build_and_unwrap_result(self) -> crate::InstantiateReturnValue<AccountIdOf<T>> {
+	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue<AccountIdOf<T>> {
 		self.build().result.unwrap()
 	}
 
