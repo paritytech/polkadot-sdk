@@ -1,0 +1,11 @@
+Description: Finality and parachain relays should have the constant balance, because their transactions are free
+Network: {{ENV_PATH}}/bridge_hub_westend_local_network.toml
+Creds: config
+
+# local chain spec gives `1u64 << 60` tokens to every endowed account: if it'll ever
+# change, it'd need to be fixed here as well
+
+# //Charlie only submits free and mandatory relay chain headers, so the balance should stay the same
+bridge-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/native-asset-balance.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y" return is 1152921504606846976 within 30 seconds
+# //Dave only submits free parachain headers, so the balance should stay the same
+bridge-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/native-asset-balance.js with "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy" return is 1152921504606846976 within 30 seconds
