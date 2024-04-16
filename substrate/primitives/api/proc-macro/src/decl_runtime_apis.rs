@@ -193,10 +193,7 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			get_api_version(&found_attributes).map(|v| generate_runtime_api_version(v as u32))?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
 
-		#[cfg(feature = "frame-metadata")]
 		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
-		#[cfg(not(feature = "frame-metadata"))]
-		let metadata = quote!();
 
 		let trait_api_version = get_api_version(&found_attributes)?;
 
