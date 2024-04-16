@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713266326148,
+  "lastUpdate": 1713284709178,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4627,6 +4627,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02415798086666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "753bf2d860e083b5da25fe4171c0e540ddad4888",
+          "message": "[prdoc] Update docs (#3998)\n\nUpdating the prdoc doc file to be a bit more useful for new contributors\nand adding a SemVer section.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-16T15:17:09Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/753bf2d860e083b5da25fe4171c0e540ddad4888"
+        },
+        "date": 1713284682875,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15924878893333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0239467228,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007070786133333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013513785733333339,
             "unit": "seconds"
           }
         ]
