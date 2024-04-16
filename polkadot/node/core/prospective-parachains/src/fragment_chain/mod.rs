@@ -781,7 +781,7 @@ impl FragmentChain {
 		output_head_hash: Option<Hash>,
 	) -> bool {
 		// If we've got enough candidates for the configured depth, no point in adding more.
-		if self.chain.len() >= self.scope.max_depth {
+		if self.chain.len() > self.scope.max_depth {
 			return false
 		}
 
@@ -789,9 +789,11 @@ impl FragmentChain {
 			return false
 		}
 
+		// Todo: if max depth is 0, a potential candidate is only a connected candidate.
+
 		let unconnected = self.find_unconnected_potential_candidates(storage).len();
 
-		if (self.chain.len() + unconnected) < self.scope.max_depth {
+		if (self.chain.len() + unconnected) <= self.scope.max_depth {
 			true
 		} else {
 			gum::debug!(
@@ -811,8 +813,8 @@ impl FragmentChain {
 	) -> Vec<CandidateHash> {
 		let mut candidates = vec![];
 		for candidate in storage.candidates() {
-			// We stop at max_depth with the search. There's no point in looping further.
-			if (self.chain.len() + candidates.len()) >= self.scope.max_depth {
+			// We stop at max_depth + 1 with the search. There's no point in looping further.
+			if (self.chain.len() + candidates.len()) > self.scope.max_depth {
 				break
 			}
 			if !self.candidates.contains(&candidate.candidate_hash) {

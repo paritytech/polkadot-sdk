@@ -409,11 +409,17 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 		relay_parent_a_info.clone(),
 	];
 
-	storage.add_candidate(candidate_a, pvd_a, CandidateState::Seconded).unwrap();
-	storage.add_candidate(candidate_b, pvd_b, CandidateState::Backed).unwrap();
-	storage.add_candidate(candidate_c, pvd_c, CandidateState::Backed).unwrap();
+	storage
+		.add_candidate(candidate_a.clone(), pvd_a.clone(), CandidateState::Seconded)
+		.unwrap();
+	storage
+		.add_candidate(candidate_b.clone(), pvd_b.clone(), CandidateState::Backed)
+		.unwrap();
+	storage
+		.add_candidate(candidate_c.clone(), pvd_c.clone(), CandidateState::Backed)
+		.unwrap();
 
-	// No candidate adheres to the base constraints.
+	// Candidate A doesn't adhere to the base constraints.
 	{
 		for wrong_constraints in [
 			// Different required parent
@@ -424,7 +430,7 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			let scope = Scope::with_ancestors(
 				para_id,
 				relay_parent_c_info.clone(),
-				wrong_constraints,
+				wrong_constraints.clone(),
 				pending_availability.clone(),
 				4,
 				ancestors.clone(),
@@ -437,6 +443,37 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			chain.repopulate(&storage);
 			assert!(chain.chain().is_empty());
 			assert!(chain.candidates().next().is_none());
+
+			// If the min relay parent number is wrong, candidate A can never become valid.
+			// Otherwise, if only the required parent doesn't match, candidate A is still a
+			// potential candidate.
+			if wrong_constraints.min_relay_parent_number == 1 {
+				assert!(!chain.can_add_candidate_as_potential(
+					&storage,
+					&candidate_a.descriptor.relay_parent,
+					pvd_a.parent_head.hash(),
+					Some(candidate_a.commitments.head_data.hash()),
+				));
+			} else {
+				assert!(chain.can_add_candidate_as_potential(
+					&storage,
+					&candidate_a.descriptor.relay_parent,
+					pvd_a.parent_head.hash(),
+					Some(candidate_a.commitments.head_data.hash()),
+				));
+			}
+
+			// All other candidates can always be potential candidates.
+			for (candidate, pvd) in
+				[(candidate_b.clone(), pvd_b.clone()), (candidate_c.clone(), pvd_c.clone())]
+			{
+				assert!(chain.can_add_candidate_as_potential(
+					&storage,
+					&candidate.descriptor.relay_parent,
+					pvd.parent_head.hash(),
+					Some(candidate.commitments.head_data.hash()),
+				));
+			}
 		}
 	}
 
@@ -452,10 +489,38 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			ancestors.clone(),
 		)
 		.unwrap();
+		// Before populating the chain, they're all potential candidates.
+		let chain = FragmentChain::populate(scope.clone(), &CandidateStorage::new());
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
+			assert!(chain.can_add_candidate_as_potential(
+				&CandidateStorage::new(),
+				&candidate.descriptor.relay_parent,
+				pvd.parent_head.hash(),
+				Some(candidate.commitments.head_data.hash()),
+			));
+		}
 		let mut chain = FragmentChain::populate(scope, &storage);
 		assert_eq!(chain.chain(), vec![candidate_a_hash]);
 		chain.repopulate(&storage);
 		assert_eq!(chain.chain(), vec![candidate_a_hash]);
+		// since depth is maxed out, we can't add more potential candidates
+		// candidate A is no longer a potential candidate because it's already present.
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
+			assert!(!chain.can_add_candidate_as_potential(
+				&storage,
+				&candidate.descriptor.relay_parent,
+				pvd.parent_head.hash(),
+				Some(candidate.commitments.head_data.hash()),
+			));
+		}
 
 		// depth is 1, allows two candidates
 		let scope = Scope::with_ancestors(
@@ -471,6 +536,20 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.repopulate(&storage);
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		// since depth is maxed out, we can't add more potential candidates
+		// candidate A and B are no longer a potential candidate because they're already present.
+		for (candidate, pvd) in [
+			(candidate_a.clone(), pvd_a.clone()),
+			(candidate_b.clone(), pvd_b.clone()),
+			(candidate_c.clone(), pvd_c.clone()),
+		] {
+			assert!(!chain.can_add_candidate_as_potential(
+				&storage,
+				&candidate.descriptor.relay_parent,
+				pvd.parent_head.hash(),
+				Some(candidate.commitments.head_data.hash()),
+			));
+		}
 
 		// depths larger than 2, allows all candidates
 		for depth in 2..6 {
@@ -487,6 +566,20 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
 			chain.repopulate(&storage);
 			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash, candidate_c_hash]);
+			// Candidates are no longer potential candidates because they're already part of the
+			// chain.
+			for (candidate, pvd) in [
+				(candidate_a.clone(), pvd_a.clone()),
+				(candidate_b.clone(), pvd_b.clone()),
+				(candidate_c.clone(), pvd_c.clone()),
+			] {
+				assert!(!chain.can_add_candidate_as_potential(
+					&storage,
+					&candidate.descriptor.relay_parent,
+					pvd.parent_head.hash(),
+					Some(candidate.commitments.head_data.hash()),
+				));
+			}
 		}
 	}
 
@@ -503,12 +596,31 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			ancestors_without_a,
 		)
 		.unwrap();
+
 		let mut chain = FragmentChain::populate(scope, &storage);
 		assert!(chain.chain().is_empty());
 		assert!(chain.candidates().next().is_none());
 		chain.repopulate(&storage);
 		assert!(chain.chain().is_empty());
 		assert!(chain.candidates().next().is_none());
+
+		// Candidate A is not a potential candidate, but candidates B and C still are.
+		assert!(!chain.can_add_candidate_as_potential(
+			&storage,
+			&candidate_a.descriptor.relay_parent,
+			pvd_a.parent_head.hash(),
+			Some(candidate_a.commitments.head_data.hash()),
+		));
+		for (candidate, pvd) in
+			[(candidate_b.clone(), pvd_b.clone()), (candidate_c.clone(), pvd_c.clone())]
+		{
+			assert!(chain.can_add_candidate_as_potential(
+				&storage,
+				&candidate.descriptor.relay_parent,
+				pvd.parent_head.hash(),
+				Some(candidate.commitments.head_data.hash()),
+			));
+		}
 
 		// Candidate C has the same relay parent as candidate A's parent. Relay parent not allowed
 		// to move backwards
@@ -523,7 +635,7 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			2,
 		);
 		modified_storage
-			.add_candidate(wrong_candidate_c, wrong_pvd_c, CandidateState::Seconded)
+			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c.clone(), CandidateState::Seconded)
 			.unwrap();
 		let scope = Scope::with_ancestors(
 			para_id,
@@ -538,6 +650,14 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.repopulate(&modified_storage);
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+
+		// Candidate C is not even a potential candidate.
+		assert!(!chain.can_add_candidate_as_potential(
+			&modified_storage,
+			&wrong_candidate_c.descriptor.relay_parent,
+			wrong_pvd_c.parent_head.hash(),
+			Some(wrong_candidate_c.commitments.head_data.hash()),
+		));
 	}
 
 	// Parachain fork and cycles are not allowed.
@@ -554,7 +674,7 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			2,
 		);
 		modified_storage
-			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c, CandidateState::Seconded)
+			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c.clone(), CandidateState::Seconded)
 			.unwrap();
 		let scope = Scope::with_ancestors(
 			para_id,
@@ -571,9 +691,23 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 		if chain.chain() == vec![candidate_a_hash, candidate_b_hash] {
 			chain.repopulate(&modified_storage);
 			assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+			// Candidate C is not even a potential candidate.
+			assert!(!chain.can_add_candidate_as_potential(
+				&modified_storage,
+				&wrong_candidate_c.descriptor.relay_parent,
+				wrong_pvd_c.parent_head.hash(),
+				Some(wrong_candidate_c.commitments.head_data.hash()),
+			));
 		} else if chain.chain() == vec![candidate_a_hash, wrong_candidate_c.hash()] {
 			chain.repopulate(&modified_storage);
 			assert_eq!(chain.chain(), vec![candidate_a_hash, wrong_candidate_c.hash()]);
+			// Candidate B is not even a potential candidate.
+			assert!(!chain.can_add_candidate_as_potential(
+				&modified_storage,
+				&candidate_b.descriptor.relay_parent,
+				pvd_b.parent_head.hash(),
+				Some(candidate_b.commitments.head_data.hash()),
+			));
 		} else {
 			panic!("Unexpected chain: {:?}", chain.chain());
 		}
@@ -591,7 +725,7 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			2,
 		);
 		modified_storage
-			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c, CandidateState::Seconded)
+			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c.clone(), CandidateState::Seconded)
 			.unwrap();
 		let scope = Scope::with_ancestors(
 			para_id,
@@ -606,6 +740,13 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.repopulate(&modified_storage);
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		// Candidate C is not even a potential candidate.
+		assert!(!chain.can_add_candidate_as_potential(
+			&modified_storage,
+			&wrong_candidate_c.descriptor.relay_parent,
+			wrong_pvd_c.parent_head.hash(),
+			Some(wrong_candidate_c.commitments.head_data.hash()),
+		));
 
 		// Candidate C points back to the pre-state of candidate C.
 		let mut modified_storage = storage.clone();
@@ -619,7 +760,7 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 			2,
 		);
 		modified_storage
-			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c, CandidateState::Seconded)
+			.add_candidate(wrong_candidate_c.clone(), wrong_pvd_c.clone(), CandidateState::Seconded)
 			.unwrap();
 		let scope = Scope::with_ancestors(
 			para_id,
@@ -634,6 +775,13 @@ fn populate_and_repopulate_with_existing_empty_chain() {
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
 		chain.repopulate(&modified_storage);
 		assert_eq!(chain.chain(), vec![candidate_a_hash, candidate_b_hash]);
+		// Candidate C is not even a potential candidate.
+		assert!(!chain.can_add_candidate_as_potential(
+			&modified_storage,
+			&wrong_candidate_c.descriptor.relay_parent,
+			wrong_pvd_c.parent_head.hash(),
+			Some(wrong_candidate_c.commitments.head_data.hash()),
+		));
 	}
 
 	// Test with candidates pending availability
@@ -1156,6 +1304,9 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 		);
 	}
 }
+
+#[test]
+fn test_multiple_unconnected_potential_candidates() {}
 
 // #[test]
 // fn hypothetical_depths_known_and_unknown() {
