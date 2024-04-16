@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713211178468,
+  "lastUpdate": 1713256529701,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3653,6 +3653,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20274400873333326,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4b5c3fd0cbb47f3484671ffce284b7586311126a",
+          "message": "move fragment_tree module to its own folder (#4148)\n\nWill make https://github.com/paritytech/polkadot-sdk/pull/4035 easier to\nreview (the mentioned PR already does this move so the diff will be\nclearer).\n\nAlso called out as part of:\nhttps://github.com/paritytech/polkadot-sdk/pull/3233#discussion_r1490867383",
+          "timestamp": "2024-04-16T07:25:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b5c3fd0cbb47f3484671ffce284b7586311126a"
+        },
+        "date": 1713256504223,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.22178554079999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.79222751306667,
             "unit": "seconds"
           }
         ]
