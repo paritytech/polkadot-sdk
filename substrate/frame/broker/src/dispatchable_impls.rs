@@ -498,33 +498,4 @@ impl<T: Config> Pallet<T> {
 		let now = frame_system::Pallet::<T>::block_number();
 		Ok(Self::sale_price(&sale, now))
 	}
-
-	// Remove a region from on-demand pool contributions. Useful in cases where it was pooled
-	// provisionally and it is being redispatched (partition/interlace/assign).
-	//
-	// Takes both the region_id and (a reference to) the region as arguments to avoid another DB
-	// read. No-op for regions which have not been pooled.
-	pub(crate) fn force_unpool_region(region_id: RegionId, region: &RegionRecordOf<T>) {
-		// We don't care if this fails or not, just that it is removed if present. This is to
-		// account for the case where a region is pooled provisionally and redispatched.
-		if let Some(_) = InstaPoolContribution::<T>::take(region_id) {
-			let current_timeslice = Self::current_timeslice();
-			// Do no more for regions that have ended.
-			if region.end < current_timeslice {
-				return
-			};
-
-			// Account for this in `InstaPoolIo` from either the region begin or current timeslice
-			// if we are already part-way through the region.
-			let size = region_id.mask.count_ones() as i32;
-			let timeslice_removed_at = current_timeslice.max(region_id.begin);
-			InstaPoolIo::<T>::mutate(timeslice_removed_at, |a| a.private.saturating_reduce(size));
-			InstaPoolIo::<T>::mutate(region.end, |a| a.private.saturating_accrue(size));
-
-			Self::deposit_event(Event::<T>::RegionUnpooled {
-				region_id,
-				when: timeslice_removed_at,
-			});
-		};
-	}
 }
