@@ -145,6 +145,7 @@ fn drop_history_works() {
 			advance_to(16);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
 			advance_to(17);
+			assert_noop!(Broker::do_drop_history(u32::MAX), Error::<Test>::StillValid);
 			assert_noop!(Broker::do_drop_history(region.begin), Error::<Test>::StillValid);
 			advance_to(18);
 			assert_eq!(InstaPoolHistory::<Test>::iter().count(), 6);
