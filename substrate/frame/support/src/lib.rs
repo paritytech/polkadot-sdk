@@ -1558,8 +1558,8 @@ pub mod pallet_macros {
 	///
 	/// For more information, see:
 	/// * [`frame_support::derive_impl`].
-	/// * [`#[pallet::no_default]`]
-	/// * [`#[pallet::no_default_bounds]`]
+	/// * [`#[pallet::no_default]`](`no_default`)
+	/// * [`#[pallet::no_default_bounds]`](`no_default_bounds`)
 	pub use frame_support_procedural::config;
 
 	/// Allows defining an enum that gets composed as an aggregate enum by `construct_runtime`.
