@@ -20,6 +20,7 @@ frame-support = { path = "../../../../../../../substrate/frame/support", default
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-asset-rewards = { path = "../../../../../../../substrate/frame/asset-rewards", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot

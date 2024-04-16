@@ -57,6 +57,7 @@ pub const RESERVABLE_ASSET_ID: u32 = 1;
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 
 pub const PENPAL_ID: u32 = 2000;
+pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {

@@ -823,6 +823,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
+ "pallet-asset-rewards",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
