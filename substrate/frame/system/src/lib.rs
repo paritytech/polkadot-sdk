@@ -1126,7 +1126,7 @@ pub struct AccountInfo<
 	pub data: AccountData,
 	/// Type providing the default nonce.
 	#[codec(skip)]
-	_phantom: core::marker::PhantomData<DefaultNonce>,
+	pub _phantom: core::marker::PhantomData<DefaultNonce>,
 }
 
 impl<Nonce, AccountData, DefaultNonce> Default for AccountInfo<Nonce, AccountData, DefaultNonce>
