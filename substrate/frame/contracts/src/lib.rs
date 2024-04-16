@@ -101,6 +101,7 @@ mod wasm;
 pub mod chain_extension;
 pub mod debug;
 pub mod migration;
+#[cfg(feature = "std")]
 pub mod test_utils;
 pub mod weights;
 
