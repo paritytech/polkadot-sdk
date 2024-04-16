@@ -29,18 +29,14 @@ use frame_support::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
 		},
-		AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64,
+		AsEnsureOriginWithArg, ConstU32, ConstU64,
 	},
 	PalletId,
 };
 use frame_system::{EnsureSigned, EnsureSignedBy};
 use pallet_asset_conversion::{self, AccountIdConverter, AccountIdConverterNoSeed, Ascending};
 use sp_arithmetic::Permill;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -58,94 +54,31 @@ construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u128;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU128<100>;
-	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type AccountStore = System;
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config<Instance1> for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = u128;
-	type RemoveItemsLimit = ConstU32<1000>;
-	type AssetId = u32;
-	type AssetIdParameter = u32;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type AssetDeposit = ConstU128<1>;
-	type AssetAccountDeposit = ConstU128<10>;
-	type MetadataDepositBase = ConstU128<1>;
-	type MetadataDepositPerByte = ConstU128<1>;
-	type ApprovalDeposit = ConstU128<1>;
-	type StringLimit = ConstU32<50>;
 	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type CallbackHandle = ();
-	pallet_assets::runtime_benchmarks_enabled! {
-	  type BenchmarkHelper = ();
-	}
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config<Instance2> for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = u128;
-	type RemoveItemsLimit = ConstU32<1000>;
-	type AssetId = u32;
-	type AssetIdParameter = u32;
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type AssetDeposit = ConstU128<0>;
-	type AssetAccountDeposit = ConstU128<0>;
-	type MetadataDepositBase = ConstU128<0>;
-	type MetadataDepositPerByte = ConstU128<0>;
-	type ApprovalDeposit = ConstU128<0>;
-	type StringLimit = ConstU32<50>;
 	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type CallbackHandle = ();
-	pallet_assets::runtime_benchmarks_enabled! {
-	  type BenchmarkHelper = ();
-	}
 }
 
 parameter_types! {
@@ -155,13 +88,13 @@ parameter_types! {
 }
 
 ord_parameter_types! {
-  pub const AssetConversionOrigin: u128 = AccountIdConversion::<u128>::into_account_truncating(&AssetConversionPalletId::get());
+  pub const AssetConversionOrigin: u64 = AccountIdConversion::<u64>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
-pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
+pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u64>;
 pub type PoolIdToAccountId =
 	AccountIdConverter<AssetConversionPalletId, (NativeOrWithId<u32>, NativeOrWithId<u32>)>;
-pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>, PoolIdToAccountId>;
+pub type AscendingLocator = Ascending<u64, NativeOrWithId<u32>, PoolIdToAccountId>;
 
 impl pallet_asset_conversion::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -173,7 +106,7 @@ impl pallet_asset_conversion::Config for Test {
 	type PoolLocator = AscendingLocator;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
-	type PoolSetupFee = ConstU128<100>;
+	type PoolSetupFee = ConstU64<100>;
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
@@ -181,7 +114,7 @@ impl pallet_asset_conversion::Config for Test {
 	type LPFee = ConstU32<3>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MintMinLiquidity = ConstU128<100>;
+	type MintMinLiquidity = ConstU64<100>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
