@@ -4,8 +4,10 @@
   "chainType": "Live",
   "bootNodes": [
     "/dns/westend-people-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWDcLjDLTu9fNhmas9DTWtqdv8eUbFMWQzVwvXRK7QcjHD",
-    "/dns/westend-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDcLjDLTu9fNhmas9DTWtqdv8eUbFMWQzVwvXRK7QcjHD",
     "/dns/westend-people-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWM56JbKWAXsDyWh313z73aKYVMp1Hj2nSnAKY3q6MnoC9",
+    "/dns/westend-people-collator-node-0.parity-testnet.parity.io/tcp/30335/ws/p2p/12D3KooWDcLjDLTu9fNhmas9DTWtqdv8eUbFMWQzVwvXRK7QcjHD",
+    "/dns/westend-people-collator-node-1.parity-testnet.parity.io/tcp/30335/ws/p2p/12D3KooWM56JbKWAXsDyWh313z73aKYVMp1Hj2nSnAKY3q6MnoC9",
+    "/dns/westend-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDcLjDLTu9fNhmas9DTWtqdv8eUbFMWQzVwvXRK7QcjHD",
     "/dns/westend-people-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWM56JbKWAXsDyWh313z73aKYVMp1Hj2nSnAKY3q6MnoC9",
     "/dns/identity-westend.bootnodes.polkadotters.com/tcp/30532/p2p/12D3KooWKr9San6KTM7REJ95cBaDoiciGcWnW8TTftEJgxGF5Ehb",
     "/dns/identity-westend.bootnodes.polkadotters.com/tcp/30534/wss/p2p/12D3KooWKr9San6KTM7REJ95cBaDoiciGcWnW8TTftEJgxGF5Ehb",

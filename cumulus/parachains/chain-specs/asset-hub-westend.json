@@ -5,6 +5,10 @@
   "bootNodes": [
     "/dns/westend-asset-hub-bootnode-0.polkadot.io/tcp/30333/p2p/12D3KooWJaAfPyiye7ZQBuHengTJJoMrcaz7Jj1UzHiKdNxA1Nkd",
     "/dns/westend-asset-hub-bootnode-1.polkadot.io/tcp/30333/p2p/12D3KooWGL3hpWycWyeqyL9gHNnmmsL474WkPZdqraBHu4L6fQrW",
+    "/dns/westend-asset-hub-bootnode-0.polkadot.io/tcp/30335/ws/p2p/12D3KooWJaAfPyiye7ZQBuHengTJJoMrcaz7Jj1UzHiKdNxA1Nkd",
+    "/dns/westend-asset-hub-bootnode-1.polkadot.io/tcp/30335/ws/p2p/12D3KooWGL3hpWycWyeqyL9gHNnmmsL474WkPZdqraBHu4L6fQrW",
+    "/dns/westend-asset-hub-connect-0.polkadot.io/tcp/443/wss/p2p/12D3KooWJaAfPyiye7ZQBuHengTJJoMrcaz7Jj1UzHiKdNxA1Nkd",
+    "/dns/westend-asset-hub-connect-1.polkadot.io/tcp/443/wss/p2p/12D3KooWGL3hpWycWyeqyL9gHNnmmsL474WkPZdqraBHu4L6fQrW",
     "/dns/boot.stake.plus/tcp/33333/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo",
     "/dns/boot.stake.plus/tcp/33334/wss/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo",
     "/dns/boot.metaspan.io/tcp/36052/p2p/12D3KooWBCqfNb6Y39DXTr4UBWXyjuS3hcZM1qTbHhDXxF6HkAJJ",
