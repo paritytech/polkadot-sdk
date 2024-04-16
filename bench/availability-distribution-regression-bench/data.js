@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713284709178,
+  "lastUpdate": 1713288146352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4679,6 +4679,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.013513785733333339,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6f3d890ed35bfdee3e3f7d59018345635a62d1cd",
+          "message": "FRAME: Unity Balance Conversion for Different IDs of Native Asset (#3659)\n\nIntroduce types to define 1:1 balance conversion for different relative\nasset ids/locations of native asset.\n\nExamples:\nnative asset on Asset Hub presented as `VersionedLocatableAsset` type in\nthe context of Relay Chain is\n```\n{\n  `location`: (0, Parachain(1000)),\n  `asset_id`: (1, Here),\n}\n```\nand it's balance should be converted 1:1 by implementations of\n`ConversionToAssetBalance` trait.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2024-04-16T16:11:14Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f3d890ed35bfdee3e3f7d59018345635a62d1cd"
+        },
+        "date": 1713288120046,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007973351933333348,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024517849466666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1706664593333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015842117399999987,
             "unit": "seconds"
           }
         ]
