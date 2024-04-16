@@ -131,7 +131,7 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type Version = Version;
-	/// Use the account data from the balances pallet
+	// Use the account data from the balances pallet
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
 }
 
