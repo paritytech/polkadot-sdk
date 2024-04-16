@@ -2785,6 +2785,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2636" id="2636">2636</a>
 <a href="#2637" id="2637">2637</a>
 <a href="#2638" id="2638">2638</a>
+<a href="#2639" id="2639">2639</a>
+<a href="#2640" id="2640">2640</a>
+<a href="#2641" id="2641">2641</a>
+<a href="#2642" id="2642">2642</a>
+<a href="#2643" id="2643">2643</a>
+<a href="#2644" id="2644">2644</a>
+<a href="#2645" id="2645">2645</a>
+<a href="#2646" id="2646">2646</a>
+<a href="#2647" id="2647">2647</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2818,9 +2827,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
-		ProcessMessageError, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee <span class="kw">as _</span>},
 	PalletId,
@@ -2844,7 +2853,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
+		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
+		VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
@@ -2867,7 +2877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	shared <span class="kw">as </span>parachains_shared,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_core::{OpaqueMetadata, RuntimeDebug, H256};
+<span class="kw">use </span>sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -3499,7 +3509,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		LocatableAssetConverter,
 		VersionedLocationConverter,
 	&gt;;
-	<span class="kw">type </span>BalanceConverter = AssetRate;
+	<span class="kw">type </span>BalanceConverter = UnityOrOuterConversion&lt;
+		ContainsParts&lt;
+			FromContains&lt;
+				xcm_builder::IsChildSystemParachain&lt;ParaId&gt;,
+				xcm_builder::IsParentsOnly&lt;ConstU8&lt;<span class="number">1</span>&gt;&gt;,
+			&gt;,
+		&gt;,
+		AssetRate,
+	&gt;;
 	<span class="kw">type </span>PayoutPeriod = PayoutSpendPeriod;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;

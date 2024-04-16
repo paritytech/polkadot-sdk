@@ -2672,6 +2672,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2523" id="2523">2523</a>
 <a href="#2524" id="2524">2524</a>
 <a href="#2525" id="2525">2525</a>
+<a href="#2526" id="2526">2526</a>
+<a href="#2527" id="2527">2527</a>
+<a href="#2528" id="2528">2528</a>
+<a href="#2529" id="2529">2529</a>
+<a href="#2530" id="2530">2530</a>
+<a href="#2531" id="2531">2531</a>
+<a href="#2532" id="2532">2532</a>
+<a href="#2533" id="2533">2533</a>
+<a href="#2534" id="2534">2534</a>
+<a href="#2535" id="2535">2535</a>
+<a href="#2536" id="2536">2536</a>
+<a href="#2537" id="2537">2537</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2699,7 +2711,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-<span class="kw">use </span>frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
+<span class="kw">use </span>frame_support::{
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	traits::FromContains,
+};
 <span class="kw">use </span>pallet_nis::WithMaximumOf;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>primitives::{
@@ -2714,7 +2729,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
+		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
+		VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
@@ -2748,10 +2764,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EnsureOrigin,
-		EnsureOriginWithArg, EverythingBut, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim,
-		WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, Contains, EitherOf,
+		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
+		StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee <span class="kw">as _</span>},
 	PalletId,
@@ -2761,7 +2777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_identity::legacy::IdentityInfo;
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>session_historical;
 <span class="kw">use </span>pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
-<span class="kw">use </span>sp_core::{ConstU128, OpaqueMetadata, H256};
+<span class="kw">use </span>sp_core::{ConstU128, ConstU8, OpaqueMetadata, H256};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -3197,7 +3213,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		LocatableAssetConverter,
 		VersionedLocationConverter,
 	&gt;;
-	<span class="kw">type </span>BalanceConverter = AssetRate;
+	<span class="kw">type </span>BalanceConverter = UnityOrOuterConversion&lt;
+		ContainsParts&lt;
+			FromContains&lt;
+				xcm_builder::IsChildSystemParachain&lt;ParaId&gt;,
+				xcm_builder::IsParentsOnly&lt;ConstU8&lt;<span class="number">1</span>&gt;&gt;,
+			&gt;,
+		&gt;,
+		AssetRate,
+	&gt;;
 	<span class="kw">type </span>PayoutPeriod = PayoutSpendPeriod;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;

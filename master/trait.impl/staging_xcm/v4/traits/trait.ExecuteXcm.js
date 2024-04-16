@@ -1,4 +1,5 @@
 (function() {var implementors = {
+"collectives_westend_integration_tests":[],
 "cumulus_primitives_core":[],
 "staging_xcm":[],
 "staging_xcm_builder":[],
