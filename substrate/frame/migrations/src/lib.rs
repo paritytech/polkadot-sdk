@@ -200,6 +200,10 @@ pub struct ActiveCursor<Cursor, BlockNumber> {
 	///
 	/// This is used to calculate how many blocks it took.
 	pub started_at: BlockNumber,
+	/// The number of steps that the migration already took.
+	///
+	/// Can be used to check whether the migration exceeded its max steps.
+	pub took_steps: u32,
 }
 
 impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
@@ -409,14 +413,18 @@ pub mod pallet {
 			/// The index of the migration within the [`Config::Migrations`] list.
 			index: u32,
 			/// The number of blocks that this migration took so far.
-			took: BlockNumberFor<T>,
+			took_blocks: BlockNumberFor<T>,
+			/// The number of steps that this migration took so far.
+			took_steps: u32,
 		},
 		/// A Migration completed.
 		MigrationCompleted {
 			/// The index of the migration within the [`Config::Migrations`] list.
 			index: u32,
-			/// The number of blocks that this migration took so far.
-			took: BlockNumberFor<T>,
+			/// The number of blocks that this migration took in total.
+			took_blocks: BlockNumberFor<T>,
+			/// The number of steps that this migration took in total.
+			took_steps: u32,
 		},
 		/// A Migration failed.
 		///
@@ -424,8 +432,10 @@ pub mod pallet {
 		MigrationFailed {
 			/// The index of the migration within the [`Config::Migrations`] list.
 			index: u32,
-			/// The number of blocks that this migration took so far.
-			took: BlockNumberFor<T>,
+			/// The number of blocks that this migration took in total.
+			took_blocks: BlockNumberFor<T>,
+			/// The number of steps that this migration took in total.
+			took_steps: u32,
 		},
 		/// The set of historical migrations has been cleared.
 		HistoricCleared {
@@ -523,16 +533,19 @@ pub mod pallet {
 			index: u32,
 			inner_cursor: Option<RawCursorOf<T>>,
 			started_at: Option<BlockNumberFor<T>>,
+			took_steps: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			let started_at = started_at.unwrap_or(
 				System::<T>::block_number().saturating_add(sp_runtime::traits::One::one()),
 			);
+
 			Cursor::<T>::put(MigrationCursor::Active(ActiveCursor {
 				index,
 				inner_cursor,
 				started_at,
+				took_steps,
 			}));
 
 			Ok(())
@@ -606,6 +619,7 @@ impl<T: Config> Pallet<T> {
 					index: 0,
 					inner_cursor: None,
 					started_at: System::<T>::block_number(),
+					took_steps: 0,
 				}
 				.into(),
 			));
@@ -697,61 +711,97 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Continue(cursor))
 		}
 
+		let max_blocks = T::Migrations::nth_max_blocks(cursor.index);
 		let max_steps = T::Migrations::nth_max_steps(cursor.index);
-		let next_cursor = T::Migrations::nth_transactional_step(
-			cursor.index,
-			cursor.inner_cursor.clone().map(|c| c.into_inner()),
-			meter,
-		);
-		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
+		let Some((max_steps, max_blocks)) = max_steps.zip(max_blocks) else {
 			defensive!("integrity_test ensures that the tuple is valid; qed");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};
 
-		let took = System::<T>::block_number().saturating_sub(cursor.started_at);
-		match next_cursor {
-			Ok(Some(next_cursor)) => {
-				let Ok(bound_next_cursor) = next_cursor.try_into() else {
-					defensive!("The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed");
+		loop {
+			// Magic happens here. Do one step of the migration:
+			let next_cursor = T::Migrations::nth_transactional_step(
+				cursor.index,
+				cursor.inner_cursor.clone().map(|c| c.into_inner()),
+				meter,
+			);
+			let Some(next_cursor) = next_cursor else {
+				defensive!("integrity_test ensures that the tuple is valid; qed");
+				Self::upgrade_failed(Some(cursor.index));
+				return None
+			};
+
+			let took_blocks = System::<T>::block_number().saturating_sub(cursor.started_at); // FAIL-CI add 1
+			let took_steps = cursor.took_steps.saturating_add(1);
+
+			match next_cursor {
+				Ok(Some(next_cursor)) => {
+					let Ok(bound_next_cursor) = next_cursor.try_into() else {
+						defensive!("The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed");
+						Self::upgrade_failed(Some(cursor.index));
+						return None
+					};
+
+					Self::deposit_event(Event::MigrationAdvanced {
+						index: cursor.index,
+						took_blocks,
+						took_steps,
+					});
+					cursor.inner_cursor = Some(bound_next_cursor);
+					cursor.took_steps = took_steps;
+
+					if max_blocks.map_or(false, |max| took_blocks > max.into()) ||
+						max_steps.map_or(false, |max| took_steps > max.into())
+					{
+						Self::deposit_event(Event::MigrationFailed {
+							index: cursor.index,
+							took_blocks,
+							took_steps,
+						});
+						Self::upgrade_failed(Some(cursor.index));
+						return None
+					} else {
+						// A migration cannot progress more than one step per block, we therefore
+						// break.
+						return Some(ControlFlow::Break(cursor))
+					}
+				},
+				Ok(None) => {
+					// A migration is done when it returns cursor `None`.
+					Self::deposit_event(Event::MigrationCompleted {
+						index: cursor.index,
+						took_blocks,
+						took_steps,
+					});
+					Historic::<T>::insert(&bounded_id, ());
+					cursor.goto_next_migration(System::<T>::block_number());
+					return Some(ControlFlow::Continue(cursor))
+				},
+				Err(SteppedMigrationError::InsufficientWeight { required }) => {
+					if is_first || required.any_gt(meter.limit()) {
+						Self::deposit_event(Event::MigrationFailed {
+							index: cursor.index,
+							took_blocks,
+							took_steps,
+						});
+						Self::upgrade_failed(Some(cursor.index));
+						return None
+					} else {
+						// Retry and hope that there is more weight in the next block.
+						return Some(ControlFlow::Break(cursor))
+					}
+				},
+				Err(SteppedMigrationError::InvalidCursor | SteppedMigrationError::Failed) => {
+					Self::deposit_event(Event::MigrationFailed {
+						index: cursor.index,
+						took_blocks,
+						took_steps,
+					});
 					Self::upgrade_failed(Some(cursor.index));
 					return None
-				};
-
-				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
-				cursor.inner_cursor = Some(bound_next_cursor);
-
-				if max_steps.map_or(false, |max| took > max.into()) {
-					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
-					Self::upgrade_failed(Some(cursor.index));
-					None
-				} else {
-					// A migration cannot progress more than one step per block, we therefore break.
-					Some(ControlFlow::Break(cursor))
-				}
-			},
-			Ok(None) => {
-				// A migration is done when it returns cursor `None`.
-				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
-				Historic::<T>::insert(&bounded_id, ());
-				cursor.goto_next_migration(System::<T>::block_number());
-				Some(ControlFlow::Continue(cursor))
-			},
-			Err(SteppedMigrationError::InsufficientWeight { required }) => {
-				if is_first || required.any_gt(meter.limit()) {
-					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
-					Self::upgrade_failed(Some(cursor.index));
-					None
-				} else {
-					// Retry and hope that there is more weight in the next block.
-					Some(ControlFlow::Break(cursor))
-				}
-			},
-			Err(SteppedMigrationError::InvalidCursor | SteppedMigrationError::Failed) => {
-				Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
-				Self::upgrade_failed(Some(cursor.index));
-				None
-			},
+				},
+			}
 		}
 	}
 

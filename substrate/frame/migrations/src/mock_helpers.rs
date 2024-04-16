@@ -111,7 +111,11 @@ impl SteppedMigrations for MockedMigrations {
 		Self::nth_step(n, cursor, meter)
 	}
 
-	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+	fn nth_max_steps(_n: u32) -> Option<Option<u32>> {
+		Some(None) // FAIL-CI
+	}
+
+	fn nth_max_blocks(n: u32) -> Option<Option<u32>> {
 		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
 	}
 
