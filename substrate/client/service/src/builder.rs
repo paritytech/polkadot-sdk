@@ -655,7 +655,7 @@ where
 		(chain, state, child_state)
 	};
 
-	const MAX_TRANSACTION_PER_CONNECTION: usize = 4;
+	const MAX_TRANSACTION_PER_CONNECTION: usize = 16;
 
 	let transaction_broadcast_rpc_v2 = sc_rpc_spec_v2::transaction::TransactionBroadcast::new(
 		client.clone(),
