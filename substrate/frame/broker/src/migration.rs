@@ -19,7 +19,7 @@ use super::*;
 use crate::types::RegionRecord;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::traits::{Get, OnRuntimeUpgrade};
+use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 use sp_runtime::Saturating;
 
 #[cfg(feature = "try-runtime")]
@@ -43,7 +43,7 @@ mod v1 {
 
 	pub struct MigrateToV1Impl<T>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV1Impl<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV1Impl<T> {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut count: u64 = 0;
 
