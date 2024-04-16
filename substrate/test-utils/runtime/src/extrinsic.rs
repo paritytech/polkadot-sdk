@@ -65,7 +65,7 @@ impl TryFrom<&Extrinsic> for TransferData {
 		match uxt {
 			Extrinsic {
 				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
-				signature: Some((from, _, (CheckNonce { nonce, .. }, ..))),
+				signature: Some((from, _, (CheckNonce(nonce), ..))),
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),

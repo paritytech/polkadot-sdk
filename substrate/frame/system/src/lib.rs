@@ -138,10 +138,10 @@ use frame_support::{
 		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
 		StoredMap, TypedGet,
 	},
-	Parameter,
+	CloneNoBound, EqNoBound, Parameter, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
-use sp_core::storage::well_known_keys;
+use sp_core::{storage::well_known_keys, GetDefault};
 use sp_weights::{RuntimeDbWeight, Weight};
 
 #[cfg(any(feature = "std", test))]
@@ -275,6 +275,7 @@ pub mod pallet {
 		#[frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			type Nonce = u32;
+			type DefaultNonce = sp_core::GetDefault;
 			type Hash = sp_core::hash::H256;
 			type Hashing = sp_runtime::traits::BlakeTwo256;
 			type AccountId = u64;
@@ -329,6 +330,8 @@ pub mod pallet {
 			/// The default type for storing how many extrinsics an account has signed.
 			type Nonce = u32;
 
+			type DefaultNonce = sp_core::GetDefault;
+
 			/// The default type for hashing blocks and tries.
 			type Hash = sp_core::hash::H256;
 
@@ -345,7 +348,7 @@ pub mod pallet {
 			type MaxConsumers = frame_support::traits::ConstU32<128>;
 
 			/// The default data to be stored in an account.
-			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type AccountData = crate::AccountInfo<Self::Nonce, (), Self::DefaultNonce>;
 
 			/// What to do if a new account is created.
 			type OnNewAccount = ();
@@ -487,6 +490,9 @@ pub mod pallet {
 			+ AtLeast32Bit
 			+ Copy
 			+ MaxEncodedLen;
+
+		/// The nonce assigned to new accounts.
+		type DefaultNonce: Get<Self::Nonce>;
 
 		/// The output of the `Hashing` function.
 		type Hash: Parameter
@@ -884,7 +890,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		AccountInfo<T::Nonce, T::AccountData>,
+		AccountInfo<T::Nonce, T::AccountData, T::DefaultNonce>,
 		ValueQuery,
 	>;
 
@@ -1088,8 +1094,22 @@ type EventIndex = u32;
 pub type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct AccountInfo<Nonce, AccountData> {
+#[derive(
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(DefaultNonce))]
+pub struct AccountInfo<
+	Nonce: Clone + Eq + PartialEq + Debug,
+	AccountData: Clone + Eq + PartialEq + Debug,
+	DefaultNonce = GetDefault,
+> {
 	/// The number of transactions this account has sent.
 	pub nonce: Nonce,
 	/// The number of other modules that currently depend on this account's existence. The account
@@ -1104,7 +1124,64 @@ pub struct AccountInfo<Nonce, AccountData> {
 	/// The additional data that belongs to this account. Used to store the balance(s) in a lot of
 	/// chains.
 	pub data: AccountData,
+	/// Type providing the default nonce.
+	#[codec(skip)]
+	_phantom: core::marker::PhantomData<DefaultNonce>,
 }
+
+impl<Nonce, AccountData, DefaultNonce> Default for AccountInfo<Nonce, AccountData, DefaultNonce>
+where
+	Nonce: Clone + Eq + PartialEq + Debug,
+	AccountData: Clone + Eq + PartialEq + Debug + Default,
+	DefaultNonce: Get<Nonce>,
+{
+	fn default() -> Self {
+		Self {
+			nonce: DefaultNonce::get(),
+			consumers: Default::default(),
+			providers: Default::default(),
+			sufficients: Default::default(),
+			data: Default::default(),
+			_phantom: Default::default(),
+		}
+	}
+}
+
+// impl<Nonce, AccountData, DefaultNonce> Clone for AccountInfo<Nonce, AccountData, DefaultNonce>
+// where
+// 	Nonce: Clone,
+// 	AccountData: Clone,
+// {
+// 	fn clone(&self) -> Self {
+// 		Self {
+// 			nonce: self.nonce.clone(),
+// 			consumers: self.consumers,
+// 			providers: self.providers,
+// 			sufficients: self.sufficients,
+// 			data: self.data.clone(),
+// 			_phantom: Default::default(),
+// 		}
+// 	}
+// }
+
+// impl<Nonce, AccountData, DefaultNonce> PartialEq for AccountInfo<Nonce, AccountData,
+// DefaultNonce> where
+// 	Nonce: PartialEq,
+// 	AccountData: PartialEq,
+// {
+// 	fn eq(&self, other: &Self) -> bool {
+// 		self.nonce.eq(&other.nonce) &&
+// 			self.consumers.eq(&other.consumers) &&
+// 			self.providers.eq(&other.providers) &&
+// 			self.sufficients.eq(&other.sufficients) &&
+// 			self.data.eq(&other.data)
+// 	}
+// }
+
+// impl<Nonce, AccountData, DefaultNonce> Eq for AccountInfo<Nonce, AccountData, DefaultNonce> where
+// 	AccountInfo<Nonce, AccountData, DefaultNonce>: PartialEq
+// {
+// }
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
@@ -2034,7 +2111,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// An account is being created.
-	pub fn on_created_account(who: T::AccountId, _a: &mut AccountInfo<T::Nonce, T::AccountData>) {
+	pub fn on_created_account(
+		who: T::AccountId,
+		_a: &mut AccountInfo<T::Nonce, T::AccountData, T::DefaultNonce>,
+	) {
 		T::OnNewAccount::on_new_account(&who);
 		Self::deposit_event(Event::NewAccount { account: who });
 	}
