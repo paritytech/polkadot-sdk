@@ -43,7 +43,7 @@ use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
-	ContainsLatest, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
+	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32, ConstU8};
@@ -350,7 +350,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
 	type BalanceConverter = UnityOrOuterConversion<
-		ContainsLatest<
+		ContainsParts<
 			xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
 			xcm_builder::IsParentsOnly<ConstU8<1>>,
 		>,

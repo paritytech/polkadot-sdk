@@ -19,7 +19,7 @@
 use frame_support::traits::{
 	fungible::{Balanced, Credit},
 	tokens::imbalance::ResolveTo,
-	Contains, Imbalance, OnUnbalanced,
+	Contains, ContainsPair, Imbalance, OnUnbalanced,
 };
 use pallet_treasury::TreasuryAccountId;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -158,11 +158,10 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 
 /// Adapter for [`Contains`] trait to match [`VersionedLocatableAsset`] type converted to the latest
 /// version of itself where it's location matched by `L` and it's asset id by `A` parameter types.
-pub struct ContainsLatest<L, A>(core::marker::PhantomData<(L, A)>);
-impl<L, A> Contains<VersionedLocatableAsset> for ContainsLatest<L, A>
+pub struct ContainsParts<C>(core::marker::PhantomData<C>);
+impl<C> Contains<VersionedLocatableAsset> for ContainsParts<C>
 where
-	L: Contains<xcm::latest::prelude::Location>,
-	A: Contains<xcm::latest::prelude::Location>,
+	C: ContainsPair<xcm::latest::Location, xcm::latest::Location>,
 {
 	fn contains(asset: &VersionedLocatableAsset) -> bool {
 		use VersionedLocatableAsset::*;
@@ -173,7 +172,7 @@ where
 			},
 			V4 { location, asset_id } => (location, asset_id),
 		};
-		L::contains(&location) && A::contains(&asset_id.0)
+		C::contains(&location, &asset_id.0)
 	}
 }
 

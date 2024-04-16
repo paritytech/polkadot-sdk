@@ -32,8 +32,8 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EverythingBut, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		ProcessMessage, ProcessMessageError, WithdrawReasons,
+		EitherOfDiverse, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -57,7 +57,7 @@ use runtime_common::{
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
-		ContainsLatest, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
+		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
 		VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
@@ -714,9 +714,11 @@ impl pallet_treasury::Config for Runtime {
 		VersionedLocationConverter,
 	>;
 	type BalanceConverter = UnityOrOuterConversion<
-		ContainsLatest<
-			xcm_builder::IsChildSystemParachain<ParaId>,
-			xcm_builder::IsParentsOnly<ConstU8<1>>,
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsChildSystemParachain<ParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
 		>,
 		AssetRate,
 	>;

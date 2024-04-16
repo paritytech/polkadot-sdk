@@ -25,7 +25,10 @@ use beefy_primitives::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
+use frame_support::{
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	traits::FromContains,
+};
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
@@ -40,7 +43,7 @@ use rococo_runtime_constants::system_parachain::BROKER_ID;
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
-		ContainsLatest, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
+		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
 		VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
@@ -525,9 +528,11 @@ impl pallet_treasury::Config for Runtime {
 		VersionedLocationConverter,
 	>;
 	type BalanceConverter = UnityOrOuterConversion<
-		ContainsLatest<
-			xcm_builder::IsChildSystemParachain<ParaId>,
-			xcm_builder::IsParentsOnly<ConstU8<1>>,
+		ContainsParts<
+			FromContains<
+				xcm_builder::IsChildSystemParachain<ParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
 		>,
 		AssetRate,
 	>;
