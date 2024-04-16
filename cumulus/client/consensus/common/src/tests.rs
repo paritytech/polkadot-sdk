@@ -1240,6 +1240,83 @@ fn find_potential_parents_unknown_pending() {
 	assert!(parent.aligned_with_pending);
 }
 
+#[test]
+fn find_potential_parents_unknown_pending_include_alternative_branches() {
+	sp_tracing::try_init_simple();
+
+	const NON_INCLUDED_CHAIN_LEN: usize = 5;
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+
+	// Choose different relay parent for alternative chain to get new hashes.
+	let search_relay_parent = relay_hash_from_block_num(11);
+
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::NetworkInitialSync,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let alt_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::NetworkInitialSync,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(search_relay_parent),
+	);
+
+	tracing::info!(hash = %alt_block.header().hash(), "Alt block.");
+	let sproof = sproof_with_parent_by_hash(&client, included_block.header().hash());
+	let pending_but_unknown = build_block(
+		&*client,
+		sproof,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_parent),
+	);
+
+	let relay_chain = Relaychain::new();
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.relay_chain_hash_to_header
+			.insert(search_relay_parent, included_block.header().clone());
+		relay_inner
+			.relay_chain_hash_to_header_pending
+			.insert(search_relay_parent, pending_but_unknown.header().clone());
+	}
+
+	// Ignore alternative branch:
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			max_depth: NON_INCLUDED_CHAIN_LEN,
+			ignore_alternative_branches: false,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+
+	let expected_parents: Vec<_> = vec![&included_block, &alt_block];
+	assert_eq!(potential_parents.len(), 2);
+	assert_eq!(expected_parents[0].hash(), potential_parents[0].hash);
+	assert_eq!(expected_parents[1].hash(), potential_parents[1].hash);
+}
+
 /// Test where there is an additional block between included and pending block.
 #[test]
 fn find_potential_parents_aligned_with_late_pending() {

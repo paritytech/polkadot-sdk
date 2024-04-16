@@ -27,8 +27,9 @@ use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
 use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus::{shared_data::SharedData, BlockImport, ImportResult};
-use sp_blockchain::Backend as BlockchainBackend;
+use sp_blockchain::{Backend as BlockchainBackend, TreeRoute};
 use sp_consensus_slots::Slot;
+use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use sp_timestamp::Timestamp;
 
@@ -294,109 +295,90 @@ pub async fn find_potential_parents<B: BlockT>(
 	backend: &impl Backend<B>,
 	relay_client: &impl RelayChainInterface,
 ) -> Result<Vec<PotentialParent<B>>, RelayChainError> {
-	// 1. Build up the ancestry record of the relay chain to compare against.
 	tracing::trace!("Parent search parameters: {params:?}");
-	let rp_ancestry = {
-		let mut ancestry = Vec::with_capacity(params.ancestry_lookback + 1);
-		let mut current_rp = params.relay_parent;
-		let mut required_session = None;
+	// Get the included block.
+	let (included_header, included_hash, pending_pvd) = {
+		let included_header = relay_client
+			.persisted_validation_data(
+				params.relay_parent,
+				params.para_id,
+				OccupiedCoreAssumption::TimedOut,
+			)
+			.await?;
+		let included_header = match included_header {
+			Some(pvd) => pvd.parent_head,
+			None => return Ok(Vec::new()), // this implies the para doesn't exist.
+		};
 
-		while ancestry.len() <= params.ancestry_lookback {
-			let header = match relay_client.header(RBlockId::hash(current_rp)).await? {
-				None => break,
-				Some(h) => h,
-			};
-
-			let session = relay_client.session_index_for_child(current_rp).await?;
-			if let Some(required_session) = required_session {
-				// Respect the relay-chain rule not to cross session boundaries.
-				if session != required_session {
-					break
-				}
-			} else {
-				required_session = Some(session);
-			}
-
-			ancestry.push((current_rp, *header.state_root()));
-			current_rp = *header.parent_hash();
-
-			// don't iterate back into the genesis block.
-			if header.number == 1 {
-				break
-			}
-		}
-
-		ancestry
-	};
-
-	let is_hash_in_ancestry = |hash| rp_ancestry.iter().any(|x| x.0 == hash);
-	let is_root_in_ancestry = |root| rp_ancestry.iter().any(|x| x.1 == root);
-
-	// 2. Get the included and pending availability blocks.
-	let included_header = relay_client
-		.persisted_validation_data(
-			params.relay_parent,
-			params.para_id,
-			OccupiedCoreAssumption::TimedOut,
-		)
-		.await?;
-
-	let included_header = match included_header {
-		Some(pvd) => pvd.parent_head,
-		None => return Ok(Vec::new()), // this implies the para doesn't exist.
-	};
-
-	let pending_header = relay_client
-		.persisted_validation_data(
-			params.relay_parent,
-			params.para_id,
-			OccupiedCoreAssumption::Included,
-		)
-		.await?
-		.and_then(|x| if x.parent_head != included_header { Some(x.parent_head) } else { None });
-
-	let included_header = match B::Header::decode(&mut &included_header.0[..]).ok() {
-		None => return Ok(Vec::new()),
-		Some(x) => x,
-	};
-	// Silently swallow if pending block can't decode.
-	let pending_header = pending_header.and_then(|p| B::Header::decode(&mut &p.0[..]).ok());
-	let included_hash = included_header.hash();
-	let pending_hash = pending_header.as_ref().map(|hdr| hdr.hash());
-
-	match backend.blockchain().header(included_hash) {
-		Ok(None) | Err(_) => {
-			tracing::warn!(
-				target: PARENT_SEARCH_LOG_TARGET,
-				%included_hash,
-				"Failed to get header for included block.",
+		// Fetch the pending header from the relay chain.
+		let pending_pvd = relay_client
+			.persisted_validation_data(
+				params.relay_parent,
+				params.para_id,
+				OccupiedCoreAssumption::Included,
+			)
+			.await?
+			.and_then(
+				|x| if x.parent_head != included_header { Some(x.parent_head) } else { None },
 			);
-			return Ok(Default::default())
-		},
-		_ => {},
-	};
 
-	if let Some(pending_hash) = pending_hash {
-		match backend.blockchain().header(pending_hash) {
+		let included_header = match B::Header::decode(&mut &included_header.0[..]).ok() {
+			None => return Ok(Vec::new()),
+			Some(x) => x,
+		};
+
+		let included_hash = included_header.hash();
+		// If the included block is not locally known, we can't do anything.
+		match backend.blockchain().header(included_hash) {
 			Ok(None) | Err(_) => {
 				tracing::warn!(
 					target: PARENT_SEARCH_LOG_TARGET,
-					%pending_hash,
-					"Failed to get header for pending block.",
+					%included_hash,
+					"Failed to get header for included block.",
 				);
-				return Ok(vec![PotentialParent::<B> {
-					hash: included_hash,
-					header: included_header.clone(),
-					depth: 0,
-					aligned_with_pending: true,
-				}])
+				return Ok(Default::default())
 			},
 			_ => {},
 		};
-	}
+
+		(included_header, included_hash, pending_pvd)
+	};
+
+	// Get the pending block.
+	let (pending_header, pending_hash) = {
+		// Fetch the pending header from the relay chain.
+		let pending_header = pending_pvd.and_then(|p| B::Header::decode(&mut &p.0[..]).ok());
+
+		let pending_hash = pending_header.as_ref().map(|hdr| hdr.hash());
+
+		// If the pending block is not locally known, we can't do anything.
+		if let Some(hash) = pending_hash {
+			match backend.blockchain().header(hash) {
+				// We are supposed to ignore branches that don't contain the pending block, but we
+				// do not know the pending block locally.
+				Ok(None) | Err(_) if params.ignore_alternative_branches => {
+					tracing::warn!(
+						target: PARENT_SEARCH_LOG_TARGET,
+						%hash,
+						"Failed to get header for pending block.",
+					);
+					return Ok(vec![PotentialParent {
+						hash: included_hash,
+						header: included_header,
+						depth: 0,
+						aligned_with_pending: true,
+					}])
+				},
+				Ok(Some(_)) => (pending_header, pending_hash),
+				_ => (None, None),
+			}
+		} else {
+			(None, None)
+		}
+	};
 
 	if params.max_depth == 0 {
-		return Ok(vec![PotentialParent::<B> {
+		return Ok(vec![PotentialParent {
 			hash: included_hash,
 			header: included_header,
 			depth: 0,
@@ -408,73 +390,160 @@ pub async fn find_potential_parents<B: BlockT>(
 		.map(|pending| sp_blockchain::tree_route(backend.blockchain(), included_hash, pending))
 		.transpose()?;
 
-	// The distance between pending and included block. Is later used to check if a child
-	// is aligned with pending when it is between pending and included block.
-	let pending_distance = maybe_route.as_ref().map(|route| route.enacted().len());
-
 	// If we want to ignore alternative branches there is no reason to start
 	// the parent search at the included block. We can add the included block and
 	// the path to the pending block to the potential parents directly (limited by max_depth).
-	let (mut frontier, mut potential_parents) = if let (Some(pending), true, Some(ref route)) =
-		(pending_header, params.ignore_alternative_branches, &maybe_route)
-	{
-		let mut potential_parents = Vec::new();
-		// Included block is always a potential parent
-		potential_parents.push(PotentialParent::<B> {
-			hash: included_hash,
-			header: included_header.clone(),
-			depth: 0,
-			aligned_with_pending: true,
-		});
-
-		// Add all items on the path included -> pending - 1 to the potential parents, but not
-		// more than `max_depth`.
-		let num_parents_on_path = route.enacted().len().saturating_sub(1).min(params.max_depth);
-		for (num, block) in route.enacted().iter().take(num_parents_on_path).enumerate() {
-			let header = match backend.blockchain().header(block.hash) {
-				Ok(Some(h)) => h,
-				Ok(None) => continue,
-				Err(_) => continue,
-			};
-
-			potential_parents.push(PotentialParent::<B> {
-				hash: block.hash,
-				header,
-				depth: 1 + num,
+	let (frontier, potential_parents) = match (
+		pending_header,
+		params.ignore_alternative_branches,
+		&maybe_route,
+	) {
+		(Some(pending), true, Some(ref route_to_pending)) => {
+			let mut potential_parents = Vec::new();
+			// Included block is always a potential parent
+			potential_parents.push(PotentialParent {
+				hash: included_hash,
+				header: included_header.clone(),
+				depth: 0,
 				aligned_with_pending: true,
 			});
-		}
 
-		// The search for additional potential parents should now start at the
-		// pending block.
-		(
-			vec![PotentialParent::<B> {
-				hash: pending.hash(),
-				header: pending.clone(),
-				depth: route.enacted().len(),
-				aligned_with_pending: true,
-			}],
-			potential_parents,
-		)
-	} else {
-		(
-			vec![PotentialParent::<B> {
+			// This is a defensive check, should never happen.
+			if !route_to_pending.retracted().is_empty() {
+				tracing::warn!(target: PARENT_SEARCH_LOG_TARGET, "Pending block not an ancestor of included block. This should not happen.");
+				return Ok(Default::default())
+			}
+
+			// Add all items on the path included -> pending - 1 to the potential parents, but
+			// not more than `max_depth`.
+			let num_parents_on_path =
+				route_to_pending.enacted().len().saturating_sub(1).min(params.max_depth);
+			for (num, block) in
+				route_to_pending.enacted().iter().take(num_parents_on_path).enumerate()
+			{
+				let header = match backend.blockchain().header(block.hash) {
+					Ok(Some(h)) => h,
+					Ok(None) => continue,
+					Err(_) => continue,
+				};
+
+				potential_parents.push(PotentialParent {
+					hash: block.hash,
+					header,
+					depth: 1 + num,
+					aligned_with_pending: true,
+				});
+			}
+
+			// The search for additional potential parents should now start at the children of
+			// the pending block.
+			(
+				vec![PotentialParent {
+					hash: pending.hash(),
+					header: pending.clone(),
+					depth: route_to_pending.enacted().len(),
+					aligned_with_pending: true,
+				}],
+				potential_parents,
+			)
+		},
+		_ => (
+			vec![PotentialParent {
 				hash: included_hash,
 				header: included_header.clone(),
 				depth: 0,
 				aligned_with_pending: true,
 			}],
 			Default::default(),
-		)
+		),
 	};
 
 	if potential_parents.len() > params.max_depth {
 		return Ok(potential_parents);
 	}
 
+	// Build up the ancestry record of the relay chain to compare against.
+	let rp_ancestry =
+		build_relay_parent_ancestry(params.ancestry_lookback, params.relay_parent, relay_client)
+			.await?;
+
+	Ok(search_child_branches_for_parents(
+		frontier,
+		maybe_route,
+		included_header,
+		pending_hash,
+		backend,
+		params.max_depth,
+		params.ignore_alternative_branches,
+		rp_ancestry,
+		potential_parents,
+	))
+}
+
+/// Build an ancestry of relay parents that are acceptable.
+///
+/// An acceptable relay parent is one that is no more than `ancestry_lookback` + 1 blocks above the
+/// relay parent we want to build on. Parachain blocks anchored on relay parents older than that can
+/// not be considered potential parents for block building. They have no chance of still getting
+/// included, so our newly build parachain block would also not get included.
+async fn build_relay_parent_ancestry(
+	ancestry_lookback: usize,
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
+) -> Result<Vec<(H256, H256)>, RelayChainError> {
+	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
+	let mut current_rp = relay_parent;
+	let mut required_session = None;
+	while ancestry.len() <= ancestry_lookback {
+		let header = match relay_client.header(RBlockId::hash(current_rp)).await? {
+			None => break,
+			Some(h) => h,
+		};
+
+		let session = relay_client.session_index_for_child(current_rp).await?;
+		if let Some(required_session) = required_session {
+			// Respect the relay-chain rule not to cross session boundaries.
+			if session != required_session {
+				break
+			}
+		} else {
+			required_session = Some(session);
+		}
+
+		ancestry.push((current_rp, *header.state_root()));
+		current_rp = *header.parent_hash();
+
+		// don't iterate back into the genesis block.
+		if header.number == 1 {
+			break
+		}
+	}
+	Ok(ancestry)
+}
+
+/// Start search for child blocks that can be used as parents.
+pub fn search_child_branches_for_parents<Block: BlockT>(
+	mut frontier: Vec<PotentialParent<Block>>,
+	maybe_route_to_pending: Option<TreeRoute<Block>>,
+	included_header: Block::Header,
+	pending_hash: Option<Block::Hash>,
+	backend: &impl Backend<Block>,
+	max_depth: usize,
+	ignore_alternative_branches: bool,
+	rp_ancestry: Vec<(H256, H256)>,
+	mut potential_parents: Vec<PotentialParent<Block>>,
+) -> Vec<PotentialParent<Block>> {
+	let included_hash = included_header.hash();
+	let is_hash_in_ancestry = |hash| rp_ancestry.iter().any(|x| x.0 == hash);
+	let is_root_in_ancestry = |root| rp_ancestry.iter().any(|x| x.1 == root);
+
+	// The distance between pending and included block. Is later used to check if a child
+	// is aligned with pending when it is between pending and included block.
+	let pending_distance = maybe_route_to_pending.as_ref().map(|route| route.enacted().len());
+
 	// If a block is on the path included -> pending, we consider it `aligned_with_pending`.
 	let is_child_in_path_to_pending = |hash| {
-		maybe_route
+		maybe_route_to_pending
 			.as_ref()
 			.map_or(true, |route| route.enacted().iter().any(|x| x.hash == hash))
 	};
@@ -510,19 +579,20 @@ pub async fn find_potential_parents<B: BlockT>(
 			potential_parents.push(entry);
 		}
 
-		if !is_potential || child_depth > params.max_depth {
+		if !is_potential || child_depth > max_depth {
 			continue
 		}
 
 		// push children onto search frontier.
 		for child in backend.blockchain().children(hash).ok().into_iter().flatten() {
 			tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, child_depth, ?pending_distance, "Looking at child.");
+
 			let aligned_with_pending = parent_aligned_with_pending &&
 				(pending_distance.map_or(true, |dist| child_depth > dist) ||
 					pending_hash.as_ref().map_or(true, |h| &child == h) ||
 					is_child_in_path_to_pending(child));
 
-			if params.ignore_alternative_branches && !aligned_with_pending {
+			if ignore_alternative_branches && !aligned_with_pending {
 				tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, "Child is not aligned with pending block.");
 				continue
 			}
@@ -542,7 +612,7 @@ pub async fn find_potential_parents<B: BlockT>(
 		}
 	}
 
-	Ok(potential_parents)
+	potential_parents
 }
 
 /// Get the relay-parent slot and timestamp from a header.

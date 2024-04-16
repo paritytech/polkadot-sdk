@@ -387,7 +387,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 			parent_header,
 			parachain_candidate: candidate,
 			validation_code_hash,
-			core_index: core_index.clone(),
+			core_index: *core_index,
 		}) {
 			tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 		}
