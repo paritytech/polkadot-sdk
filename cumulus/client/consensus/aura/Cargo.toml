@@ -53,3 +53,4 @@ polkadot-primitives = { path = "../../../../polkadot/primitives" }
 polkadot-node-primitives = { path = "../../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { path = "../../../../polkadot/node/subsystem" }
 polkadot-overseer = { path = "../../../../polkadot/node/overseer" }
+sc-utils = { version = "14.0.0", path = "../../../../substrate/client/utils" }

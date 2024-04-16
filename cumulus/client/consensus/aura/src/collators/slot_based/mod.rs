@@ -44,10 +44,13 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::CollectCollationInfo;
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_primitives::{CollatorPair, Hash as RelayHash, Id as ParaId, ValidationCodeHash};
+use polkadot_primitives::{
+	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
+};
 
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
+use sc_utils::mpsc::tracing_unbounded;
 
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
@@ -128,11 +131,10 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	let (tx, rx) = tokio::sync::mpsc::channel(100);
-
+	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: params.relay_client.clone(),
-		collator_key: params.collator_key.clone(),
+		collator_key: params.collator_key,
 		para_id: params.para_id,
 		reinitialize: params.reinitialize,
 		collator_service: params.collator_service.clone(),
@@ -154,6 +156,7 @@ where
 		collator_service: params.collator_service,
 		authoring_duration: params.authoring_duration,
 		collator_sender: tx,
+		relay_chain_slot_duration: params.relay_chain_slot_duration,
 	};
 
 	let block_builder_fut =
@@ -176,4 +179,5 @@ struct CollatorMessage<Block: BlockT> {
 	pub hash: Block::Hash,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
+	pub core_index: CoreIndex,
 }

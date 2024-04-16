@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::VecDeque;
-
 use codec::Encode;
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
@@ -24,14 +22,14 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::{MaybeCompressedPoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, CoreIndex, Id as ParaId};
+use polkadot_primitives::{CollatorPair, Id as ParaId};
 
 use futures::prelude::*;
 
+use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::{Block as BlockT, Header};
 
 use super::CollatorMessage;
-use crate::collators::cores_scheduled_for_para;
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
@@ -48,7 +46,7 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	/// Collator service interface
 	pub collator_service: CS,
 	/// Receiver channel for communication with the block builder task.
-	pub collator_receiver: tokio::sync::mpsc::Receiver<CollatorMessage<Block>>,
+	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 }
 
 /// Asynchronously executes the collation task for a parachain.
@@ -77,63 +75,13 @@ where
 	.await;
 
 	let collator_service = params.collator_service;
-	let mut best_notifications = match params.relay_client.new_best_notification_stream().await {
-		Ok(s) => s,
-		Err(err) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?err,
-				"Failed to initialize consensus: no relay chain import notification stream"
-			);
-
-			return
-		},
-	};
-
-	let mut core_queue = Default::default();
-	let mut messages = VecDeque::new();
-	loop {
-		tokio::select! {
-			// Check for scheduled cores.
-			Some(notification) = best_notifications.next() => {
-				core_queue =
-					cores_scheduled_for_para(notification.hash(), params.para_id, &params.relay_client).await;
-				tracing::debug!(
-					target: LOG_TARGET,
-					relay_parent = ?notification.hash(),
-					?params.para_id,
-					cores = ?core_queue,
-					"New best relay block.",
-				);
-			},
-			// Add new message from the block builder to the queue.
-			collator_message = params.collator_receiver.recv() => {
-				if let Some(message) = collator_message {
-				tracing::debug!(
-					target: LOG_TARGET,
-					hash = ?message.hash,
-					num_messages = ?messages.len() + 1,
-					"Pushing new message.",
-				);
-					messages.push_back(message);
-				}
-			}
-		}
-
-		while !core_queue.is_empty() {
-			// If there are no more messages to process, we wait for new messages.
-			let Some(message) = messages.pop_front() else {
-				break;
-			};
-
-			handle_collation_message(
-				message,
-				&collator_service,
-				&mut overseer_handle,
-				&mut core_queue,
-			)
-			.await;
-		}
+	while let Some(collator_message) = params.collator_receiver.next().await {
+		tracing::debug!(
+			target: LOG_TARGET,
+			hash = ?collator_message.hash,
+			"Handling new message from builder task.",
+		);
+		handle_collation_message(collator_message, &collator_service, &mut overseer_handle).await;
 	}
 }
 
@@ -141,7 +89,6 @@ async fn handle_collation_message<Block: BlockT>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
-	core_queue: &mut VecDeque<CoreIndex>,
 ) {
 	let CollatorMessage {
 		parent_header,
@@ -149,12 +96,8 @@ async fn handle_collation_message<Block: BlockT>(
 		parachain_candidate,
 		validation_code_hash,
 		relay_parent,
+		core_index: core_idx,
 	} = message;
-
-	if core_queue.is_empty() {
-		tracing::warn!(target: crate::LOG_TARGET, cores_for_para = core_queue.len(), "Not submitting since we have no cores left!.");
-		return;
-	}
 
 	let number = *parachain_candidate.block.header().number();
 	let (collation, block_data) =
@@ -182,20 +125,18 @@ async fn handle_collation_message<Block: BlockT>(
 		);
 	}
 
-	if let Some(core) = core_queue.pop_front() {
-		tracing::debug!(target: LOG_TARGET, ?core, ?hash, ?number, "Submitting collation for core.");
-		overseer_handle
-			.send_msg(
-				CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent,
-					collation,
-					parent_head: parent_header.encode().into(),
-					validation_code_hash,
-					core_index: core,
-					result_sender: None,
-				}),
-				"SubmitCollation",
-			)
-			.await;
-	}
+	tracing::debug!(target: LOG_TARGET, ?core_idx, ?hash, ?number, "Submitting collation for core.");
+	overseer_handle
+		.send_msg(
+			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+				relay_parent,
+				collation,
+				parent_head: parent_header.encode().into(),
+				validation_code_hash,
+				core_index: core_idx,
+				result_sender: None,
+			}),
+			"SubmitCollation",
+		)
+		.await;
 }

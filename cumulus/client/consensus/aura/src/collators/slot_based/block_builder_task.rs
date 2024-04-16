@@ -40,8 +40,7 @@ use codec::{Codec, Encode};
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
-	ParentSearchParams,
+	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -103,7 +102,9 @@ pub struct BuilderTaskParams<Block: BlockT, BI, CIDP, Client, Backend, RClient, 
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
 	/// Channel to send built blocks to the collation task.
-	pub collator_sender: tokio::sync::mpsc::Sender<CollatorMessage<Block>>,
+	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
+	/// Slot duration of the relay chain
+	pub relay_chain_slot_duration: Duration,
 }
 
 #[derive(Debug)]
@@ -212,6 +213,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		code_hash_provider,
 		authoring_duration,
 		para_backend,
+		relay_chain_slot_duration,
 	} = params;
 
 	let slot_duration = match crate::slot_duration(&*para_client) {
@@ -238,6 +240,13 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 	};
 
+	let Ok(velocity) = u64::try_from(
+		relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis(),
+	) else {
+		tracing::error!(target: LOG_TARGET, ?relay_chain_slot_duration, ?slot_duration, "Unable to calculate expected parachain velocity.");
+		return;
+	};
+
 	loop {
 		// We wait here until the next slot arrives.
 		let para_slot = slot_timer.wait_until_next_slot().await;
@@ -252,6 +261,12 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 			tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
 			continue;
 		}
+
+		let core_index_in_scheduled: u64 = *para_slot.slot % velocity;
+		let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
+			tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
+			continue;
+		};
 
 		let Ok(Some(relay_parent_header)) = relay_client.header(BlockId::Hash(relay_parent)).await
 		else {
@@ -300,11 +315,12 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 
 		tracing::debug!(
 			target: crate::LOG_TARGET,
+			?core_index,
 			slot = ?para_slot.slot,
 			unincluded_segment_len = parent.depth,
-			relay_parent = tracing::field::display(relay_parent),
-			included = tracing::field::display(included_block),
-			parent = tracing::field::display(parent_hash),
+			relay_parent = %relay_parent,
+			included = %included_block,
+			parent = %parent_hash,
 			"Building block."
 		);
 
@@ -368,16 +384,14 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(new_block_hash, None);
 
-		if let Err(err) = collator_sender
-			.send(CollatorMessage {
-				relay_parent: relay_parent_header.hash(),
-				parent_header,
-				parachain_candidate: candidate,
-				hash: new_block_hash,
-				validation_code_hash,
-			})
-			.await
-		{
+		if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
+			relay_parent: relay_parent_header.hash(),
+			parent_header,
+			parachain_candidate: candidate,
+			hash: new_block_hash,
+			validation_code_hash,
+			core_index: core_index.clone(),
+		}) {
 			tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 		}
 	}

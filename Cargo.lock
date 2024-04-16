@@ -3724,6 +3724,7 @@ dependencies = [
  "sc-consensus-slots",
  "sc-service",
  "sc-telemetry",
+ "sc-utils",
  "schnellru",
  "sp-api",
  "sp-application-crypto",
