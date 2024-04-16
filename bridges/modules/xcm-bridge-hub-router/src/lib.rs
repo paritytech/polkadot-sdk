@@ -342,17 +342,11 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 			return Err(SendError::ExceedsMaxMessageSize)
 		}
 
-		// We need to ensure that the known `dest`'s XCM version can comprehend the current `xcm`
-		// program. This may seem like an additional, unnecessary check, but it is not. A similar
-		// check is probably performed by the `ViaBridgeHubExporter`, which attempts to send a
-		// versioned message to the sibling bridge hub. However, the local bridge hub may have a
-		// higher XCM version than the remote `dest`. Once again, it is better to discard such
-		// messages here than at the bridge hub (e.g., to avoid losing funds).
-		let destination_version = T::DestinationVersion::get_version_for(dest_ref)
-			.ok_or(SendError::DestinationUnsupported)?;
-		let _ = VersionedXcm::from(xcm_ref.clone())
-			.into_version(destination_version)
-			.map_err(|()| SendError::DestinationUnsupported)?;
+		// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions, so we retain
+		// the clone of original message for the destination for later `DestinationVersion`
+		// validation.
+		let xcm_to_dest_clone = xcm_ref.clone();
+		let dest_clone = dest_ref.clone();
 
 		// just use exporter to validate destination and insert instructions to pay message fee
 		// at the sibling/child bridge hub
@@ -360,8 +354,25 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// the cost will include both cost of: (1) to-sibling bridge hub delivery (returned by
 		// the `Config::ToBridgeHubSender`) and (2) to-bridged bridge hub delivery (returned by
 		// `Self::exporter_for`)
-		ViaBridgeHubExporter::<T, I>::validate(dest, xcm)
-			.map(|(ticket, cost)| ((message_size, ticket), cost))
+		let ticket = ViaBridgeHubExporter::<T, I>::validate(dest, xcm)
+			.map(|(ticket, cost)| ((message_size, ticket), cost));
+
+		// If ticket is ok, it means we are routing here.
+		if ticket.is_ok() {
+			// We need to ensure that the known `dest`'s XCM version can comprehend the current
+			// `xcm` program. This may seem like an additional, unnecessary check, but it is not. A
+			// similar check is probably performed by the `ViaBridgeHubExporter`, which attempts to
+			// send a versioned message to the sibling bridge hub. However, the local bridge hub may
+			// have a higher XCM version than the remote `dest`. Once again, it is better to discard
+			// such messages here than at the bridge hub (e.g., to avoid losing funds).
+			let destination_version = T::DestinationVersion::get_version_for(&dest_clone)
+				.ok_or(SendError::DestinationUnsupported)?;
+			let _ = VersionedXcm::from(xcm_to_dest_clone)
+				.into_version(destination_version)
+				.map_err(|()| SendError::DestinationUnsupported)?;
+		}
+
+		ticket
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
