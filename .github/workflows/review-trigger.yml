@@ -37,6 +37,7 @@ jobs:
           github.event.sender.login == github.event.pull_request.user.login && 
           github.event.pull_request.author_association != 'MEMBER'
         run: |
+          echo "User's association is ${{ github.event.pull_request.author_association }}"
           # We get the list of reviewers who approved the PR
           REVIEWERS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.number }}/reviews \
           --jq '{reviewers: [.[] | select(.state == "APPROVED") | .user.login]}')
