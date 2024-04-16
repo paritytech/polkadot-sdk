@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713210881800,
+  "lastUpdate": 1713256228383,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4523,6 +4523,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.015201894666666656,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alin Dima",
+            "username": "alindima",
+            "email": "alin@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4b5c3fd0cbb47f3484671ffce284b7586311126a",
+          "message": "move fragment_tree module to its own folder (#4148)\n\nWill make https://github.com/paritytech/polkadot-sdk/pull/4035 easier to\nreview (the mentioned PR already does this move so the diff will be\nclearer).\n\nAlso called out as part of:\nhttps://github.com/paritytech/polkadot-sdk/pull/3233#discussion_r1490867383",
+          "timestamp": "2024-04-16T07:25:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b5c3fd0cbb47f3484671ffce284b7586311126a"
+        },
+        "date": 1713256202745,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012964074133333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15599579433333313,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006373802666666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024063455399999996,
             "unit": "seconds"
           }
         ]
