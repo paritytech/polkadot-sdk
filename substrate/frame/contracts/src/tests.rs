@@ -2439,14 +2439,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 				transfer_proxy_call,
 			);
 
-			<Pallet<Test>>::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				data.encode(),
-			)
+			builder::call(addr_caller).data(data.encode()).build()
 		})
 	};
 
