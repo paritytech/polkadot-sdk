@@ -17,9 +17,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_system::Config;
 use codec::{Decode, Encode};
 use frame_support::DebugNoBound;
+use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, SignedExtension},
@@ -45,12 +45,27 @@ impl TypeInfo for EncodeNoneToEmpty {
 	}
 }
 
-/// Genesis hash check to provide replay protection between different networks.
+/// Extension for optionally checking the metadata hash.
 ///
-/// # Transaction Validity
+/// The metadata hash is cryptographical representation of the runtime metadata. This metadata hash
+/// is build as described in [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
+/// This metadata hash should give users the confidence that what they build with an online wallet
+/// is the same they are signing with their offline wallet and then applying on chain. To ensure
+/// that the online wallet is not tricking the offline wallet into decoding and showing an incorrect
+/// extrinsic, the offline wallet will include the metadata hash into the additional signed data and
+/// the runtime will then do the same. If the metadata hash doesn't match, the signature
+/// verification will fail and thus, the transaction will be rejected. The RFC contains more details
+/// on how it works.
 ///
-/// Note that while a transaction with invalid `genesis_hash` will fail to be decoded,
-/// the extension does not affect any other fields of `TransactionValidity` directly.
+/// The extension adds one byte (the `mode`) to the size of the extrinsic. This one byte is
+/// controlling if the metadata hash should be added to the signed data or not. Mode `0` means that
+/// the metadata hash is not added and `1` means that it is added. Further values of `mode` are
+/// reserved for future changes.
+///
+/// The metadata hash is read from the environment variable `RUNTIME_METADATA_HASH`. This
+/// environment variable is for example set by the `substrate-wasm-builder` when the feature for
+/// generating the metadata hash is enabled. If the environment variable is not set and `mode = 1`
+/// is passed, the transaction is rejected with [`UnknownTransaction::CannotLookup`].
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMetadataHash<T> {
@@ -73,13 +88,14 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		if self.mode == 1 {
-			match option_env!("RUNTIME_METADATA_HASH") {
+		match self.mode {
+			0 => Ok(EncodeNoneToEmpty(None)),
+			1 => match option_env!("RUNTIME_METADATA_HASH") {
 				Some(hash) => Ok(EncodeNoneToEmpty(Some(array_bytes::hex2array_unchecked(hash)))),
 				None => Err(UnknownTransaction::CannotLookup.into()),
-			}
-		} else {
-			Ok(EncodeNoneToEmpty(None))
+			},
+			// Unknown `mode`, let's reject it.
+			_ => Err(UnknownTransaction::CannotLookup.into()),
 		}
 	}
 
