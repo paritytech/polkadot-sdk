@@ -999,6 +999,7 @@ pub trait HashOutput:
 	+ EncodeLike
 	+ MaxEncodedLen
 	+ TypeInfo
+	+ Unpin
 {
 }
 
@@ -1019,6 +1020,7 @@ impl<T> HashOutput for T where
 		+ EncodeLike
 		+ MaxEncodedLen
 		+ TypeInfo
+		+ Unpin
 {
 }
 
