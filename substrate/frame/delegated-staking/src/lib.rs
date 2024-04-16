@@ -24,7 +24,7 @@
 //!
 //! Currently, it does not expose any dispatchable calls but is written with a vision to expose them
 //! in the future such that it can be utilised by any external account, off-chain entity or xcm
-//! multi location such as a parachain or a smart contract.
+//! `MultiLocation` such as a parachain or a smart contract.
 //!
 //! ## Key Terminologies
 //! - **Agent**: An account who accepts delegations from other accounts and act as an agent on their
@@ -87,9 +87,9 @@
 //! More details [here](https://hackmd.io/@ak0n/454-np-governance).
 //!
 //! ## Nomination Pool vs Delegation Staking
-//! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
+//! This pallet is not a replacement for Nomination Pool but adds a new primitive in addition to staking
 //! pallet that can be used by Nomination Pool to support delegation based staking. It can be
-//! thought of as layer in between of Nomination Pool and Staking Pallet. Technically, these
+//! thought of as an extension to the Staking Pallet in relation to Nomination Pools. Technically, these
 //! changes could be made in one of those pallets as well but that would have meant significant
 //! refactoring and high chances of introducing a regression. With this approach, we can keep the
 //! existing pallets with minimal changes and introduce a new pallet that can be optionally used by
@@ -146,7 +146,6 @@ use frame_support::{
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
-
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, RuntimeDebug, Saturating,
@@ -254,9 +253,9 @@ pub mod pallet {
 	pub(crate) type Agents<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, AgentLedger<T>, OptionQuery>;
 
-	/// This pallet is not currently written with the intention of exposing any calls. But the
-	/// functions defined in the following impl block should act as a good reference for how the
-	/// exposed calls would look like when exposed.
+	// This pallet is not currently written with the intention of exposing any calls. But the
+	// functions defined in the following impl block should act as a good reference for how the
+	// exposed calls would look like when exposed.
 	impl<T: Config> Pallet<T> {
 		/// Register an account to become a stake `Agent`. Sometimes also called a `Delegatee`.
 		///
