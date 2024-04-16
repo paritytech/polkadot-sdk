@@ -29,8 +29,8 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, MapSuccess, NeverEnsureOrigin,
-		OriginTrait, TryWithMorphedArg,
+		tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains, MapSuccess,
+		NeverEnsureOrigin, OriginTrait, TryWithMorphedArg,
 	},
 	PalletId,
 };
@@ -351,8 +351,10 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Paymaster = PayWithEnsure<FellowshipTreasuryPaymaster, OpenHrmpChannel<ConstU32<1000>>>;
 	type BalanceConverter = UnityOrOuterConversion<
 		ContainsParts<
-			xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
-			xcm_builder::IsParentsOnly<ConstU8<1>>,
+			FromContains<
+				xcm_builder::IsSiblingSystemParachain<ParaId, SelfParaId>,
+				xcm_builder::IsParentsOnly<ConstU8<1>>,
+			>,
 		>,
 		AssetRate,
 	>;
