@@ -63,7 +63,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -711,6 +711,11 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_rococo::Hash, bp_rococo::BlockNumber>> {
 			BridgeRococoGrandpa::best_finalized()
 		}
+		fn free_headers_interval() -> Option<bp_rococo::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<
+				bridge_to_rococo_config::BridgeGrandpaRococoInstance
+			>>::FreeHeadersInterval::get()
+		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_rococo::Header>> {
 			BridgeRococoGrandpa::synced_headers_grandpa_info()
@@ -722,6 +727,10 @@ impl_runtime_apis! {
 			BridgeRococoParachains::best_parachain_head_id::<
 				bp_bridge_hub_rococo::BridgeHubRococo
 			>().unwrap_or(None)
+		}
+		fn free_headers_interval() -> Option<bp_bridge_hub_rococo::BlockNumber> {
+			// "free interval" is not currently used for parachains
+			None
 		}
 	}
 

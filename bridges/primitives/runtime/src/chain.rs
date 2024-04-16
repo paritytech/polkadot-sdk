@@ -314,6 +314,11 @@ macro_rules! decl_bridge_finality_runtime_apis {
 				pub const [<BEST_FINALIZED_ $chain:upper _HEADER_METHOD>]: &str =
 					stringify!([<$chain:camel FinalityApi_best_finalized>]);
 
+				/// Name of the `<ThisChain>FinalityApi::free_headers_interval` runtime method.
+				pub const [<FREE_HEADERS_INTERVAL_FOR_ $chain:upper _METHOD>]: &str =
+					stringify!([<$chain:camel FinalityApi_free_headers_interval>]);
+
+
 				$(
 					/// Name of the `<ThisChain>FinalityApi::accepted_<consensus>_finality_proofs`
 					/// runtime method.
@@ -329,6 +334,13 @@ macro_rules! decl_bridge_finality_runtime_apis {
 					pub trait [<$chain:camel FinalityApi>] {
 						/// Returns number and hash of the best finalized header known to the bridge module.
 						fn best_finalized() -> Option<bp_runtime::HeaderId<Hash, BlockNumber>>;
+
+						/// Returns free headers interval, if it is configured in the runtime.
+						/// The caller expects that if his transaction improves best known header
+						/// at least by the free_headers_interval`, it will be fee-free.
+						///
+						/// See [`pallet_bridge_grandpa::Config::FreeHeadersInterval`] for details.
+						fn free_headers_interval() -> Option<BlockNumber>;
 
 						$(
 							/// Returns the justifications accepted in the current block.

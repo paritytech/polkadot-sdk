@@ -69,7 +69,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -962,6 +962,11 @@ impl_runtime_apis! {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			BridgeWestendGrandpa::best_finalized()
 		}
+		fn free_headers_interval() -> Option<bp_westend::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<
+				bridge_common_config::BridgeGrandpaWestendInstance
+			>>::FreeHeadersInterval::get()
+		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_westend::Header>> {
 			BridgeWestendGrandpa::synced_headers_grandpa_info()
@@ -973,6 +978,10 @@ impl_runtime_apis! {
 			BridgeWestendParachains::best_parachain_head_id::<
 				bp_bridge_hub_westend::BridgeHubWestend
 			>().unwrap_or(None)
+		}
+		fn free_headers_interval() -> Option<bp_bridge_hub_westend::BlockNumber> {
+			// "free interval" is not currently used for parachains
+			None
 		}
 	}
 
@@ -1006,6 +1015,12 @@ impl_runtime_apis! {
 	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
 		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
 			BridgePolkadotBulletinGrandpa::best_finalized()
+		}
+
+		fn free_headers_interval() -> Option<bp_polkadot_bulletin::BlockNumber> {
+			<Runtime as pallet_bridge_grandpa::Config<
+				bridge_common_config::BridgeGrandpaRococoBulletinInstance
+			>>::FreeHeadersInterval::get()
 		}
 
 		fn synced_headers_grandpa_info(
