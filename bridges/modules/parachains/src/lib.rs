@@ -801,14 +801,28 @@ impl<T: Config<I>, I: 'static, C: Parachain<Hash = ParaHash>> HeaderChain<C>
 pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = ParaHash>>(
 	header: HeaderOf<PC>,
 ) {
+	use bp_runtime::HeaderIdProvider;
+	use sp_runtime::traits::Header;
+
+	let relay_head =
+		pallet_bridge_grandpa::BridgedHeader::<T, T::BridgesGrandpaPalletInstance>::new(
+			0,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
 	let parachain = ParaId(PC::PARACHAIN_ID);
 	let parachain_head = ParaHead(header.encode());
 	let updated_head_data = T::ParaStoredHeaderDataBuilder::try_build(parachain, &parachain_head)
 		.expect("failed to build stored parachain head in benchmarks");
+	pallet_bridge_grandpa::initialize_for_benchmarks::<T, T::BridgesGrandpaPalletInstance>(
+		relay_head.clone(),
+	);
 	Pallet::<T, I>::update_parachain_head(
 		parachain,
 		None,
-		HeaderId(0, Default::default()),
+		relay_head.id(),
 		updated_head_data,
 		parachain_head.hash(),
 	)
