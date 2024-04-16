@@ -288,7 +288,7 @@ var srcIndex = JSON.parse('{\
 "polkadot_node_core_chain_selection":["",[["db_backend",[],["mod.rs","v1.rs"]]],["backend.rs","lib.rs","tree.rs"]],\
 "polkadot_node_core_dispute_coordinator":["",[["db",[],["mod.rs","v1.rs"]],["participation",[["queues",[],["mod.rs"]]],["mod.rs"]],["scraping",[],["candidates.rs","mod.rs"]]],["backend.rs","error.rs","import.rs","initialized.rs","lib.rs","metrics.rs","spam_slots.rs","status.rs"]],\
 "polkadot_node_core_parachains_inherent":["",[],["lib.rs"]],\
-"polkadot_node_core_prospective_parachains":["",[],["error.rs","fragment_tree.rs","lib.rs","metrics.rs"]],\
+"polkadot_node_core_prospective_parachains":["",[["fragment_tree",[],["mod.rs"]]],["error.rs","lib.rs","metrics.rs"]],\
 "polkadot_node_core_provisioner":["",[["disputes",[["prioritized_selection",[],["mod.rs"]]],["mod.rs"]]],["error.rs","lib.rs","metrics.rs"]],\
 "polkadot_node_core_pvf":["",[["execute",[],["mod.rs","queue.rs","worker_interface.rs"]],["prepare",[],["mod.rs","pool.rs","queue.rs","worker_interface.rs"]]],["artifacts.rs","error.rs","host.rs","lib.rs","metrics.rs","priority.rs","security.rs","testing.rs","worker_interface.rs"]],\
 "polkadot_node_core_pvf_checker":["",[],["interest_view.rs","lib.rs","metrics.rs","runtime_api.rs"]],\
