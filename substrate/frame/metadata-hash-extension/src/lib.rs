@@ -15,6 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The [`CheckMetadataHash`] signed extension.
+//!
+//! The extension
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -26,6 +30,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionValidityError, UnknownTransaction},
 };
 
+/// Type that encodes `None` to an empty vec.
 pub struct EncodeNoneToEmpty(Option<[u8; 32]>);
 
 impl Encode for EncodeNoneToEmpty {
