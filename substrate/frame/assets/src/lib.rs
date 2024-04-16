@@ -632,8 +632,8 @@ pub mod pallet {
 		/// Callback action resulted in error
 		CallbackFailed,
 		/// The signing account has no permission to do the operation due to the asset being live
-		/// and locked. Privileges are revoked when an asset is live and locked.
-		NoPermissionAssetLiveAndLocked,
+		/// and with no privileges.
+		NoPermissionAssetLiveAndNoPrivileges,
 		DestroyingAsset,
 	}
 
@@ -741,7 +741,8 @@ pub mod pallet {
 		/// destruction of an asset class.
 		///
 		/// The origin must conform to `ForceOrigin` or must be `Signed` by the asset's `owner`.
-		/// If the origin is `Signed` by `owner` then the asset status must not be `LiveAndLocked`.
+		/// If the origin is `Signed` by `owner` then the asset status must not be
+		/// `LiveAndNoPrivileges`.
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
@@ -825,7 +826,7 @@ pub mod pallet {
 		/// Mint assets of a particular class.
 		///
 		/// The origin must be Signed and the sender must be the Issuer of the asset `id` and the
-		/// asset status must not be `LiveAndLocked`.
+		/// asset status must not be `LiveAndNoPrivileges`.
 		///
 		/// - `id`: The identifier of the asset to have some amount minted.
 		/// - `beneficiary`: The account to be credited with the minted assets.
@@ -852,7 +853,7 @@ pub mod pallet {
 		/// Reduce the balance of `who` by as much as possible up to `amount` assets of `id`.
 		///
 		/// Origin must be Signed and the sender should be the Admin of the asset `id` and the
-		/// asset status must not be `LiveAndLocked`.
+		/// asset status must not be `LiveAndNoPrivileges`.
 		///
 		/// Bails with `NoAccount` if the `who` is already dead.
 		///
@@ -950,7 +951,7 @@ pub mod pallet {
 		/// Move some assets from one account to another.
 		///
 		/// Origin must be Signed and the sender should be the Admin of the asset `id` and the
-		/// asset must not be `LiveAndLocked`.
+		/// asset must not be `LiveAndNoPrivileges`.
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `source`: The account to be debited.
@@ -1715,7 +1716,7 @@ pub mod pallet {
 		///
 		/// Weight: `O(1)`
 		#[pallet::call_index(32)]
-		pub fn revoke_ownership_and_team_and_freeze_metadata(
+		pub fn revoke_all_privileges(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
 		) -> DispatchResult {
@@ -1772,7 +1773,7 @@ pub mod pallet {
 			Metadata::<T, I>::insert(&id, &new_metadata);
 
 			asset.deposit = Zero::zero();
-			asset.status = AssetStatus::LiveAndLocked;
+			asset.status = AssetStatus::LiveAndNoPrivileges;
 
 			Asset::<T, I>::insert(&id, &asset);
 

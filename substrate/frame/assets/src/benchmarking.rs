@@ -553,7 +553,7 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
 	}
 
-	revoke_ownership_and_team_and_freeze_metadata {
+	revoke_all_privileges {
 		let asset_id = default_asset_id::<T, I>();
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
@@ -574,7 +574,7 @@ benchmarks_instance_pallet! {
 		);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone())
 	verify {
-		assert_eq!(Asset::<T, I>::get(asset_id.into()).unwrap().status, AssetStatus::LiveAndLocked);
+		assert_eq!(Asset::<T, I>::get(asset_id.into()).unwrap().status, AssetStatus::LiveAndNoPrivileges);
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)

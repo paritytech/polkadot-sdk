@@ -197,7 +197,7 @@ pub mod v2 {
 			Asset::<T>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {
 				ensure!(
 					asset.status == AssetStatus::Live || asset.status == AssetStatus::Frozen || asset.status == AssetStatus::Destroying,
-					 "assets should only be live or frozen or destroying. None should be in LiveAndLocked status, or undefined state"
+					 "assets should only be live or frozen or destroying. None should be in LiveAndNoPrivileges status, or undefined state"
 				);
 				Ok(())
 			})?;

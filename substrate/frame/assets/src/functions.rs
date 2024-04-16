@@ -320,8 +320,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::ensure_live_asset(&details)?;
 		if check_depositor {
 			ensure!(
-				details.status != AssetStatus::LiveAndLocked,
-				Error::<T, I>::NoPermissionAssetLiveAndLocked
+				details.status != AssetStatus::LiveAndNoPrivileges,
+				Error::<T, I>::NoPermissionAssetLiveAndNoPrivileges
 			);
 			ensure!(
 				&depositor == &details.admin || &depositor == &details.freezer,
@@ -388,7 +388,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 		ensure!(
 			caller == &depositor ||
-				(details.status != AssetStatus::LiveAndLocked && caller == &details.admin),
+				(details.status != AssetStatus::LiveAndNoPrivileges && caller == &details.admin),
 			Error::<T, I>::NoPermission
 		);
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
@@ -1021,64 +1021,68 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.collect::<Vec<_>>()
 	}
 
-	/// Check that owner is same as in asset details and that asset status is not `LiveAndLocked`.
+	/// Check that owner is same as in asset details and that asset status is not
+	/// `LiveAndNoPrivileges`.
 	pub(super) fn check_owner_right(
 		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 		owner: &T::AccountId,
 	) -> DispatchResult {
 		ensure!(
-			d.status != AssetStatus::LiveAndLocked,
-			Error::<T, I>::NoPermissionAssetLiveAndLocked
+			d.status != AssetStatus::LiveAndNoPrivileges,
+			Error::<T, I>::NoPermissionAssetLiveAndNoPrivileges
 		);
 		ensure!(d.owner == *owner, Error::<T, I>::NoPermission);
 		Ok(())
 	}
 
-	/// Check that admin is same as in asset details and that asset status is not `LiveAndLocked`.
+	/// Check that admin is same as in asset details and that asset status is not
+	/// `LiveAndNoPrivileges`.
 	pub(super) fn check_admin_right(
 		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 		admin: &T::AccountId,
 	) -> DispatchResult {
 		ensure!(
-			d.status != AssetStatus::LiveAndLocked,
-			Error::<T, I>::NoPermissionAssetLiveAndLocked
+			d.status != AssetStatus::LiveAndNoPrivileges,
+			Error::<T, I>::NoPermissionAssetLiveAndNoPrivileges
 		);
 		ensure!(d.admin == *admin, Error::<T, I>::NoPermission);
 		Ok(())
 	}
 
-	/// Check that issuer is same as in asset details and that asset status is not `LiveAndLocked`.
+	/// Check that issuer is same as in asset details and that asset status is not
+	/// `LiveAndNoPrivileges`.
 	pub(super) fn check_issuer_right(
 		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 		issuer: &T::AccountId,
 	) -> DispatchResult {
 		ensure!(
-			d.status != AssetStatus::LiveAndLocked,
-			Error::<T, I>::NoPermissionAssetLiveAndLocked
+			d.status != AssetStatus::LiveAndNoPrivileges,
+			Error::<T, I>::NoPermissionAssetLiveAndNoPrivileges
 		);
 		ensure!(d.issuer == *issuer, Error::<T, I>::NoPermission);
 		Ok(())
 	}
 
-	/// Check that freezer is same as in asset details and that asset status is not `LiveAndLocked`.
+	/// Check that freezer is same as in asset details and that asset status is not
+	/// `LiveAndNoPrivileges`.
 	pub(super) fn check_freezer_right(
 		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 		freezer: &T::AccountId,
 	) -> DispatchResult {
 		ensure!(
-			d.status != AssetStatus::LiveAndLocked,
-			Error::<T, I>::NoPermissionAssetLiveAndLocked
+			d.status != AssetStatus::LiveAndNoPrivileges,
+			Error::<T, I>::NoPermissionAssetLiveAndNoPrivileges
 		);
 		ensure!(d.freezer == *freezer, Error::<T, I>::NoPermission);
 		Ok(())
 	}
 
-	/// Ensure the asset is live or live and locked.
+	/// Ensure the asset is live or live and with no privileges.
 	pub(super) fn ensure_live_asset(
 		d: &AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 	) -> DispatchResult {
 		ensure!(
-			d.status == AssetStatus::Live || d.status == AssetStatus::LiveAndLocked,
+			d.status == AssetStatus::Live || d.status == AssetStatus::LiveAndNoPrivileges,
 			Error::<T, I>::AssetNotLive
 		);
 		Ok(())

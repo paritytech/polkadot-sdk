@@ -48,23 +48,22 @@ pub(super) enum AssetStatus {
 	Destroying,
 	/// The asset is active and able to be used, but Owner, Issuer, Admin and Freezer privileges
 	/// are revoked.
-	LiveAndLocked, /* LiveAndSelfSovereign LiveAndAutonomous LiveAndPrivilegesRevoked
-	                * LiveAndTeamRevoked LiveAndNoPrivileges */
+	LiveAndNoPrivileges,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// Can change and revoke `owner`, `issuer`, `freezer` and `admin` accounts.
-	/// If asset status is `LiveAndLocked`, then this account has no privilege.
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
 	pub(super) owner: AccountId,
 	/// Can mint tokens.
-	/// If asset status is `LiveAndLocked`, then this account has no privilege.
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
 	pub(super) issuer: AccountId,
 	/// Can thaw tokens, force transfers and burn tokens from any account.
-	/// If asset status is `LiveAndLocked`, then this account has no privilege.
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
 	pub(super) admin: AccountId,
 	/// Can freeze tokens.
-	/// If asset status is `LiveAndLocked`, then this account has no privilege.
+	/// If asset status is `LiveAndNoPrivileges`, then this account has no privilege.
 	pub(super) freezer: AccountId,
 	/// The total supply across all accounts.
 	pub(super) supply: Balance,
