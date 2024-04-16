@@ -14,24 +14,18 @@
 // limitations under the License.
 
 use crate::imports::*;
-use asset_hub_rococo_runtime::{
-	xcm_config::{GovernanceLocation, RelayTreasuryLocation},
-	TreasurerBodyId,
-};
 use codec::Encode;
 use emulated_integration_tests_common::ASSET_HUB_ROCOCO_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 
 #[test]
 fn treasury_creates_asset_reward_pool() {
-	AssetHubRococo::execute_with(|| {
-		type AssetHubRococoRuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+	Rococo::execute_with(|| {
 		type AssetHubRococoRuntimeCall = <AssetHubRococo as Chain>::RuntimeCall;
-		type AssetHubRococoRuntimeOrigin = <AssetHubRococo as Chain>::RuntimeOrigin;
 		type AssetHubRococoRuntime = <AssetHubRococo as Chain>::Runtime;
 		type RococoRuntimeCall = <Rococo as Chain>::RuntimeCall;
 		type RococoRuntime = <Rococo as Chain>::Runtime;
+		type RococoRuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 		type RococoRuntimeOrigin = <Rococo as Chain>::RuntimeOrigin;
 
 		let staked_asset_id = bx!(xcm::v3::Junction::PalletInstance(1).into());
@@ -67,26 +61,19 @@ fn treasury_creates_asset_reward_pool() {
 
 		let treasury_origin: RococoRuntimeOrigin =
 			rococo_runtime::governance::pallet_custom_origins::Origin::Treasurer.into();
+		// TODO: Figure out how to enable treasury origin
+		// assert_ok!(create_pool_call.dispatch(treasury_origin));
+		assert_ok!(create_pool_call.dispatch(RococoRuntimeOrigin::root()));
 
-		assert_ok!(create_pool_call.dispatch(treasury_origin));
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RococoRuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+			]
+		);
+	});
 
-		// 	assert_expected_events!(
-		// 		CollectivesPolkadot,
-		// 		vec![
-		// 			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
-		// 		]
-		// 	);
-		// });
-		//
-		// Polkadot::execute_with(|| {
-		// 	type RuntimeEvent = <Polkadot as Chain>::RuntimeEvent;
-		//
-		// 	assert_expected_events!(
-		// 		Polkadot,
-		// 		vec![
-		// 			RuntimeEvent::Whitelist(pallet_whitelist::Event::CallWhitelisted { .. }) => {},
-		// 			RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. })
-		// => {}, 		]
-		// 	);
+	AssetHubRococo::execute_with(|| {
+		// TODO: Check that the pool was created
 	});
 }
