@@ -76,15 +76,13 @@ where
 
 	let collator_service = params.collator_service;
 	while let Some(collator_message) = params.collator_receiver.next().await {
-		tracing::debug!(
-			target: LOG_TARGET,
-			hash = ?collator_message.hash,
-			"Handling new message from builder task.",
-		);
 		handle_collation_message(collator_message, &collator_service, &mut overseer_handle).await;
 	}
 }
 
+/// Handle an incoming collation message from the block builder task.
+/// This builds the collation from the [`CollatorMessage`] and submits it to
+/// the collation-generation subsystem of the relay chain.
 async fn handle_collation_message<Block: BlockT>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
@@ -92,19 +90,19 @@ async fn handle_collation_message<Block: BlockT>(
 ) {
 	let CollatorMessage {
 		parent_header,
-		hash,
 		parachain_candidate,
 		validation_code_hash,
 		relay_parent,
-		core_index: core_idx,
+		core_index,
 	} = message;
 
+	let hash = parachain_candidate.block.header().hash();
 	let number = *parachain_candidate.block.header().number();
 	let (collation, block_data) =
 		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
 			Some(collation) => collation,
 			None => {
-				tracing::warn!(target: LOG_TARGET, ?hash, ?number, "Unable to build collation.");
+				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
 				return;
 			},
 		};
@@ -125,7 +123,7 @@ async fn handle_collation_message<Block: BlockT>(
 		);
 	}
 
-	tracing::debug!(target: LOG_TARGET, ?core_idx, ?hash, ?number, "Submitting collation for core.");
+	tracing::debug!(target: LOG_TARGET, ?core_index, %hash, %number, "Submitting collation for core.");
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
@@ -133,7 +131,7 @@ async fn handle_collation_message<Block: BlockT>(
 				collation,
 				parent_head: parent_header.encode().into(),
 				validation_code_hash,
-				core_index: core_idx,
+				core_index,
 				result_sender: None,
 			}),
 			"SubmitCollation",

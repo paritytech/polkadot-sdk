@@ -366,7 +366,11 @@ pub async fn find_potential_parents<B: BlockT>(
 
 	match backend.blockchain().header(included_hash) {
 		Ok(None) | Err(_) => {
-			tracing::warn!("Failed to get header for included block at hash {:?}", included_hash);
+			tracing::warn!(
+				target: PARENT_SEARCH_LOG_TARGET,
+				%included_hash,
+				"Failed to get header for included block.",
+			);
 			return Ok(Default::default())
 		},
 		_ => {},
@@ -376,8 +380,9 @@ pub async fn find_potential_parents<B: BlockT>(
 		match backend.blockchain().header(pending_hash) {
 			Ok(None) | Err(_) => {
 				tracing::warn!(
-					"Failed to get header for included block at hash {:?}",
-					included_hash
+					target: PARENT_SEARCH_LOG_TARGET,
+					%pending_hash,
+					"Failed to get header for pending block.",
 				);
 				return Ok(vec![PotentialParent::<B> {
 					hash: included_hash,

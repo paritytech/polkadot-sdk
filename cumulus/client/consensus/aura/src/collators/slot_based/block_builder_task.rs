@@ -331,8 +331,6 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 			max_pov_size,
 		};
 
-		// Build and announce collations recursively until
-		// `can_build_upon` fails or building a collation fails.
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data(
 				relay_parent,
@@ -385,10 +383,9 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		collator.collator_service().announce_block(new_block_hash, None);
 
 		if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
-			relay_parent: relay_parent_header.hash(),
+			relay_parent,
 			parent_header,
 			parachain_candidate: candidate,
-			hash: new_block_hash,
 			validation_code_hash,
 			core_index: core_index.clone(),
 		}) {
@@ -397,6 +394,9 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 	}
 }
 
+/// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
+/// we can build on. Once a list of potential parents is retrieved, return the last one of the
+/// longest chain.
 async fn find_parent<Block>(
 	relay_parent: PHash,
 	para_id: ParaId,

@@ -175,9 +175,8 @@ struct CollatorMessage<Block: BlockT> {
 	pub parent_header: Block::Header,
 	/// The parachain block candidate.
 	pub parachain_candidate: ParachainCandidate<Block>,
-	/// The hash of the parachain block.
-	pub hash: Block::Hash,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
+	/// Core index that this block should be submitted on
 	pub core_index: CoreIndex,
 }
