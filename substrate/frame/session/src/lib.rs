@@ -143,7 +143,7 @@ pub use weights::WeightInfo;
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
-	// Return `true` if the session should be ended.
+	/// Return `true` if the session should be ended.
 	fn should_end_session(now: BlockNumber) -> bool;
 }
 
