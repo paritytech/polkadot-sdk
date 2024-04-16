@@ -210,7 +210,7 @@ where
 		// `Future<Output = Result<(), Aborted>>`.
 		let fut = fut.map(move |_| {
 			// Connection space is cleaned when this object is dropped.
-			let _reserved_identifier = reserved_identifier;
+			drop(reserved_identifier);
 			// Remove the entry from the broadcast IDs map.
 			broadcast_ids.write().remove(&drop_id);
 		});
