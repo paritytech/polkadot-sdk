@@ -26,7 +26,7 @@ jobs:
         run: |
           echo "github.event.number is ${{ github.event.number }} and github.event.pull_request.number is ${{ github.event.pull_request.number }}"
           echo "bodies=$(gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json comments --jq '[.comments[].body]')" >> "$GITHUB_OUTPUT"
-          echo "reviews=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '[.[].state]')" >> "$GITHUB_OUTPUT""
+          echo "reviews=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '[.[].state]')" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Fail when author pushes new code
