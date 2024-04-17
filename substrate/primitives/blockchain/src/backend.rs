@@ -320,8 +320,8 @@ impl<Block: BlockT> Default for DisplacedLeavesAfterFinalization<Block> {
 
 impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 	/// Returns a collection of hashes for the displaced leaves.
-	pub fn hashes(&self) -> Vec<Block::Hash> {
-		self.displaced_leaves.keys().map(|h| *h).collect()
+	pub fn hashes(&self) -> impl Iterator<Item = Block::Hash> + '_ {
+		self.displaced_leaves.keys().cloned()
 	}
 }
 

@@ -982,7 +982,8 @@ where
 				.backend
 				.blockchain()
 				.displaced_leaves_after_finalizing(hash, block_number)?
-				.hashes();
+				.hashes()
+				.collect();
 
 			let header = self
 				.backend

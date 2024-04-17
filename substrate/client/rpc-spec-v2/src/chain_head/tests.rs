@@ -2429,6 +2429,7 @@ async fn follow_report_multiple_pruned_block() {
 	client.finalize_block(block_3_hash, None).unwrap();
 
 	// Finalizing block 3 directly will also result in block 1 and 2 being finalized.
+	// It will also mark block 2 and block 3 from the fork as pruned.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
@@ -2446,7 +2447,6 @@ async fn follow_report_multiple_pruned_block() {
 	//                                                  ^^^ finalized
 	//           -> block 1 -> block 2_f -> block 3_f
 	//
-	// Mark block 4 as finalized to force block 2_f and 3_f to get pruned.
 
 	let block_4 = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(block_3.hash())
@@ -2477,7 +2477,7 @@ async fn follow_report_multiple_pruned_block() {
 	});
 	assert_eq!(event, expected);
 
-	// Block 4 and 5 be reported as pruned, not just the stale head (block 5).
+	// Blocks from the fork were pruned earlier.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
