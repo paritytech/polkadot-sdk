@@ -124,7 +124,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			.filter(|(_, delegation)| delegation.agent == *agent)
 			.for_each(|(delegator, _)| {
 				let _ = T::Currency::release_all(
-					&HoldReason::Delegating.into(),
+					&HoldReason::StakingDelegation.into(),
 					&delegator,
 					Precision::BestEffort,
 				);
