@@ -1,7 +1,7 @@
 title: "wasm-builder: Make it easier to build a WASM binary"
 
 doc:
-  - audience: Runtime Dev, Node Dev
+  - audience: [Runtime Dev, Node Dev]
     description: |
       Combines all the recommended calls of the `WasmBuilder` into
       `build_using_defaults()` or `init_with_defaults()` if more changes are required.
