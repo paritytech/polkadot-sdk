@@ -64,19 +64,6 @@ impl<T: Config> Delegation<T> {
 			)
 	}
 
-	/// Checked decrease of delegation amount. Consumes self and returns a new copy.
-	pub(crate) fn decrease_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
-		let updated_delegation = self.amount.checked_sub(&amount)?;
-		Some(Delegation::new(&self.agent, updated_delegation))
-	}
-
-	/// Checked increase of delegation amount. Consumes self and returns a new copy.
-	#[allow(unused)]
-	pub(crate) fn increase_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
-		let updated_delegation = self.amount.checked_add(&amount)?;
-		Some(Delegation::new(&self.agent, updated_delegation))
-	}
-
 	/// Save self to storage. If the delegation amount is zero, remove the delegation.
 	pub(crate) fn update_or_kill(self, key: &T::AccountId) {
 		// Clean up if no delegation left.
@@ -283,7 +270,7 @@ impl<T: Config> Agent<T> {
 	}
 
 	/// Reloads self from storage.
-	pub(crate) fn refresh(&self) -> Result<Agent<T>, DispatchError> {
+	pub(crate) fn refresh(self) -> Result<Agent<T>, DispatchError> {
 		Self::get(&self.key)
 	}
 
