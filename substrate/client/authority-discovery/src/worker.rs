@@ -621,107 +621,98 @@ where
 		self.known_lookups.insert(remote_key.clone(), authority_id.clone());
 
 		let local_peer_id = self.network.local_peer_id();
-		let kademlia_key = remote_key;
-		let remote_addresses: Vec<(Multiaddr, u128)> = {
-			let schema::SignedAuthorityRecord {
-				record,
-				auth_signature,
-				peer_signature,
-				creation_time: creation_time_info,
-			} = schema::SignedAuthorityRecord::decode(values.record.value.as_slice())
-				.map_err(Error::DecodingProto)?;
 
-			let auth_signature = AuthoritySignature::decode(&mut &auth_signature[..])
-				.map_err(Error::EncodingDecodingScale)?;
+		let schema::SignedAuthorityRecord {
+			record,
+			auth_signature,
+			peer_signature,
+			creation_time: creation_time_info,
+		} = schema::SignedAuthorityRecord::decode(values.record.value.as_slice())
+			.map_err(Error::DecodingProto)?;
 
-			if !AuthorityPair::verify(&auth_signature, &record, &authority_id) {
-				return Err(Error::VerifyingDhtPayload)
+		let auth_signature = AuthoritySignature::decode(&mut &auth_signature[..])
+			.map_err(Error::EncodingDecodingScale)?;
+
+		if !AuthorityPair::verify(&auth_signature, &record, &authority_id) {
+			return Err(Error::VerifyingDhtPayload)
+		}
+
+		if let Some(creation_time_info) = creation_time_info.as_ref() {
+			let creation_time_signature =
+				AuthoritySignature::decode(&mut &creation_time_info.signature[..])
+					.map_err(Error::EncodingDecodingScale)?;
+			if !AuthorityPair::verify(
+				&creation_time_signature,
+				&creation_time_info.timestamp,
+				&authority_id,
+			) {
+				return Err(Error::VerifyingDhtPayloadCreationTime)
 			}
+		}
 
-			if let Some(creation_time_info) = creation_time_info.as_ref() {
-				let creation_time_signature =
-					AuthoritySignature::decode(&mut &creation_time_info.signature[..])
-						.map_err(Error::EncodingDecodingScale)?;
-				if !AuthorityPair::verify(
-					&creation_time_signature,
-					&creation_time_info.timestamp,
-					&authority_id,
-				) {
-					return Err(Error::VerifyingDhtPayloadCreationTime)
-				}
+		let records_creation_time: u128 = creation_time_info
+			.as_ref()
+			.map(|creation_time| {
+				u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
+			})
+			.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
+
+		let addresses: Vec<Multiaddr> = schema::AuthorityRecord::decode(record.as_slice())
+			.map(|a| a.addresses)
+			.map_err(Error::DecodingProto)?
+			.into_iter()
+			.map(|a| a.try_into())
+			.collect::<std::result::Result<_, _>>()
+			.map_err(Error::ParsingMultiaddress)?;
+
+		let get_peer_id = |a: &Multiaddr| match a.iter().last() {
+			Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key).ok(),
+			_ => None,
+		};
+
+		// Ignore [`Multiaddr`]s without [`PeerId`] or with own addresses.
+		let addresses: Vec<Multiaddr> = addresses
+			.into_iter()
+			.filter(|a| get_peer_id(&a).filter(|p| *p != local_peer_id).is_some())
+			.collect();
+
+		let remote_peer_id = single(addresses.iter().map(|a| get_peer_id(&a)))
+			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentPeerIds)? // different peer_id in records
+			.flatten()
+			.ok_or(Error::ReceivingDhtValueFoundEventWithNoPeerIds)?; // no records with peer_id in them
+
+		// At this point we know all the valid multiaddresses from the record, know that
+		// each of them belong to the same PeerId, we just need to check if the record is
+		// properly signed by the owner of the PeerId
+
+		if let Some(peer_signature) = peer_signature {
+			match self.network.verify(
+				remote_peer_id.into(),
+				&peer_signature.public_key,
+				&peer_signature.signature,
+				&record,
+			) {
+				Ok(true) => {},
+				Ok(false) => return Err(Error::VerifyingDhtPayload),
+				Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
 			}
+		} else if self.strict_record_validation {
+			return Err(Error::MissingPeerIdSignature)
+		} else {
+			debug!(
+				target: LOG_TARGET,
+				"Received unsigned authority discovery record from {}", authority_id
+			);
+		}
 
-			let creation_time: u128 = creation_time_info
-				.as_ref()
-				.map(|creation_time| {
-					u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
-				})
-				.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
-
-			let addresses: Vec<(Multiaddr, u128)> =
-				schema::AuthorityRecord::decode(record.as_slice())
-					.map(|a| a.addresses)
-					.map_err(Error::DecodingProto)?
-					.into_iter()
-					.map(|a| a.try_into().map(|addr| (addr, creation_time)))
-					.collect::<std::result::Result<_, _>>()
-					.map_err(Error::ParsingMultiaddress)?;
-
-			let get_peer_id = |a: &Multiaddr| match a.iter().last() {
-				Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key).ok(),
-				_ => None,
-			};
-
-			// Ignore [`Multiaddr`]s without [`PeerId`] or with own addresses.
-			let addresses: Vec<(Multiaddr, u128)> = addresses
-				.into_iter()
-				.filter(|a| get_peer_id(&a.0).filter(|p| *p != local_peer_id).is_some())
-				.collect();
-
-			let remote_peer_id = single(addresses.iter().map(|a| get_peer_id(&a.0)))
-				.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentPeerIds)? // different peer_id in records
-				.flatten()
-				.ok_or(Error::ReceivingDhtValueFoundEventWithNoPeerIds)?; // no records with peer_id in them
-
-			// At this point we know all the valid multiaddresses from the record, know that
-			// each of them belong to the same PeerId, we just need to check if the record is
-			// properly signed by the owner of the PeerId
-
-			if let Some(peer_signature) = peer_signature {
-				match self.network.verify(
-					remote_peer_id.into(),
-					&peer_signature.public_key,
-					&peer_signature.signature,
-					&record,
-				) {
-					Ok(true) => {},
-					Ok(false) => return Err(Error::VerifyingDhtPayload),
-					Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
-				}
-			} else if self.strict_record_validation {
-				return Err(Error::MissingPeerIdSignature)
-			} else {
-				debug!(
-					target: LOG_TARGET,
-					"Received unsigned authority discovery record from {}", authority_id
-				);
-			}
-			Ok::<Vec<(sc_network::Multiaddr, u128)>, Error>(addresses)
-		}?
-		.into_iter()
-		.take(MAX_ADDRESSES_PER_AUTHORITY)
-		.collect();
+		let remote_addresses: Vec<Multiaddr> =
+			addresses.into_iter().take(MAX_ADDRESSES_PER_AUTHORITY).collect();
 
 		let answering_peer_id = values.peer.map(|peer| peer.into());
 
-		let records_creation_time =
-			single(remote_addresses.iter().map(|(_addr, timestamp)| *timestamp))
-				.map_err(|_| Error::ReceivingDhtValueFoundWithDifferentRecordCreationTime)?
-				.unwrap_or_default();
-
 		let addr_cache_needs_update = self.handle_new_record(
 			&authority_id,
-			kademlia_key.clone(),
+			remote_key.clone(),
 			RecordInfo {
 				creation_time: records_creation_time,
 				peers_with_record: answering_peer_id.into_iter().collect(),
@@ -730,8 +721,7 @@ where
 		);
 
 		if !remote_addresses.is_empty() && addr_cache_needs_update {
-			self.addr_cache
-				.insert(authority_id, remote_addresses.into_iter().map(|(addr, _)| addr).collect());
+			self.addr_cache.insert(authority_id, remote_addresses);
 			if let Some(metrics) = &self.metrics {
 				metrics
 					.known_authorities_count
