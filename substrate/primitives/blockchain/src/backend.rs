@@ -302,7 +302,7 @@ pub trait Backend<Block: BlockT>:
 	}
 }
 
-/// Calculation result of the displaced leaves after the block finalization.
+/// Result of  [`HeaderBackend::displaced_leaves_after_finalizing`].
 #[derive(Clone, Debug)]
 pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
 	/// A collection of hashes and block numbers for displaced leaves.
@@ -310,6 +310,12 @@ pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
 
 	/// A collection of tree routes from the leaves to finalized block.
 	pub tree_routes: BTreeMap<Block::Hash, TreeRoute<Block>>,
+}
+
+impl<Block: BlockT> Default for DisplacedLeavesAfterFinalization<Block> {
+	fn default() -> Self {
+		Self { displaced_leaves: Default::default(), tree_routes: Default::default() }
+	}
 }
 
 impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
