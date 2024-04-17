@@ -18,7 +18,8 @@
 
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Fellows, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasury, WeightToFee, XcmPallet,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasurer, Treasury, WeightToFee,
+	XcmPallet,
 };
 
 use crate::governance::StakingAdmin;
@@ -227,11 +228,14 @@ impl xcm_executor::Config for XcmConfig {
 }
 
 parameter_types! {
+	/// Collective pluralistic body.
 	pub const CollectiveBodyId: BodyId = BodyId::Unit;
-	// StakingAdmin pluralistic body.
+	/// StakingAdmin pluralistic body.
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
-	// Fellows pluralistic body.
+	/// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
+	/// Treasury pluralistic body.
+	pub const TreasuryBodyId: BodyId = BodyId::Treasury;
 }
 
 /// Type to convert an `Origin` type value into a `Location` value which represents an interior
@@ -248,6 +252,9 @@ pub type StakingAdminToPlurality =
 /// Type to convert the Fellows origin to a Plurality `Location` value.
 pub type FellowsToPlurality = OriginToPluralityVoice<RuntimeOrigin, Fellows, FellowsBodyId>;
 
+/// Type to convert the Treasury origin to a Plurality `Location` value.
+pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasuryBodyId>;
+
 /// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
@@ -255,13 +262,15 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// Fellows origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowsToPlurality,
+	// Treasurer origin to be used in XCM as a corresponding Plurality `Location` value.
+	TreasurerToPlurality,
 );
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Note that this configuration of `SendXcmOrigin` is different from the one present in
 	// production.
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalPalletOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;

@@ -296,10 +296,11 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 
 		matches!(
 			call,
-			RuntimeCall::PolkadotXcm(
-				pallet_xcm::Call::force_xcm_version { .. } |
-					pallet_xcm::Call::force_default_xcm_version { .. }
-			) | RuntimeCall::System(
+			RuntimeCall::AssetRewards(pallet_asset_rewards::Call::create_pool { .. }) |
+				RuntimeCall::PolkadotXcm(
+					pallet_xcm::Call::force_xcm_version { .. } |
+						pallet_xcm::Call::force_default_xcm_version { .. }
+				) | RuntimeCall::System(
 				frame_system::Call::set_heap_pages { .. } |
 					frame_system::Call::set_code { .. } |
 					frame_system::Call::set_code_without_checks { .. } |

@@ -14,40 +14,40 @@
 // limitations under the License.
 
 use crate::imports::*;
-use asset_hub_rococo_runtime::xcm_config::TokenLocationV3;
+use asset_hub_westend_runtime::xcm_config::WestendLocationV3;
 use codec::Encode;
-use emulated_integration_tests_common::ASSET_HUB_ROCOCO_ID;
+use emulated_integration_tests_common::ASSET_HUB_WESTEND_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
 
 #[test]
 fn treasury_creates_asset_reward_pool() {
-	Rococo::execute_with(|| {
-		type AssetHubRococoRuntimeCall = <AssetHubRococo as Chain>::RuntimeCall;
-		type AssetHubRococoRuntime = <AssetHubRococo as Chain>::Runtime;
-		type RococoRuntimeCall = <Rococo as Chain>::RuntimeCall;
-		type RococoRuntime = <Rococo as Chain>::Runtime;
-		type RococoRuntimeEvent = <Rococo as Chain>::RuntimeEvent;
-		type RococoRuntimeOrigin = <Rococo as Chain>::RuntimeOrigin;
+	Westend::execute_with(|| {
+		type AssetHubWestendRuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+		type AssetHubWestendRuntime = <AssetHubWestend as Chain>::Runtime;
+		type WestendRuntimeCall = <Westend as Chain>::RuntimeCall;
+		type WestendRuntime = <Westend as Chain>::Runtime;
+		type WestendRuntimeEvent = <Westend as Chain>::RuntimeEvent;
+		type WestendRuntimeOrigin = <Westend as Chain>::RuntimeOrigin;
 
-		let staked_asset_id = bx!(TokenLocationV3::get());
-		let reward_asset_id = bx!(TokenLocationV3::get());
+		let staked_asset_id = bx!(WestendLocationV3::get());
+		let reward_asset_id = bx!(WestendLocationV3::get());
 
 		let reward_rate_per_block = 1_000_000_000;
 		let expiry_block = 1_000_000_000;
 		let admin = None;
 
 		let create_pool_call =
-			RococoRuntimeCall::XcmPallet(pallet_xcm::Call::<RococoRuntime>::send {
+			WestendRuntimeCall::XcmPallet(pallet_xcm::Call::<WestendRuntime>::send {
 				dest: bx!(VersionedLocation::V4(
-					xcm::v4::Junction::Parachain(ASSET_HUB_ROCOCO_ID).into()
+					xcm::v4::Junction::Parachain(ASSET_HUB_WESTEND_ID).into()
 				)),
 				message: bx!(VersionedXcm::V4(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind: OriginKind::Xcm,
 						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
-						call: AssetHubRococoRuntimeCall::AssetRewards(
-							pallet_asset_rewards::Call::<AssetHubRococoRuntime>::create_pool {
+						call: AssetHubWestendRuntimeCall::AssetRewards(
+							pallet_asset_rewards::Call::<AssetHubWestendRuntime>::create_pool {
 								staked_asset_id,
 								reward_asset_id,
 								reward_rate_per_block,
@@ -61,24 +61,24 @@ fn treasury_creates_asset_reward_pool() {
 				]))),
 			});
 
-		let treasury_origin: RococoRuntimeOrigin =
-			rococo_runtime::governance::pallet_custom_origins::Origin::Treasurer.into();
+		let treasury_origin: WestendRuntimeOrigin =
+			westend_runtime::governance::pallet_custom_origins::Origin::Treasurer.into();
 		assert_ok!(create_pool_call.dispatch(treasury_origin));
 
 		assert_expected_events!(
-			Rococo,
+			Westend,
 			vec![
-				RococoRuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+				WestendRuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
 			]
 		);
 	});
 
-	AssetHubRococo::execute_with(|| {
-		type AssetHubRococoRuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+	AssetHubWestend::execute_with(|| {
+		type AssetHubWestendRuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
-			AssetHubRococo,
+			AssetHubWestend,
 			vec![
-				AssetHubRococoRuntimeEvent::AssetRewards(
+				AssetHubWestendRuntimeEvent::AssetRewards(
 					pallet_asset_rewards::Event::PoolCreated {
 						..
 					}
