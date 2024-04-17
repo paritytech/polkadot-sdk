@@ -66,6 +66,7 @@ frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api",
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
 pallet-alliance = { path = "../../../frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "../../../frame/asset-conversion", default-features = false }
+pallet-asset-conversion-ops = { path = "../../../frame/asset-conversion/ops", default-features = false }
 pallet-asset-rate = { path = "../../../frame/asset-rate", default-features = false }
 pallet-assets = { path = "../../../frame/assets", default-features = false }
 pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false }
@@ -166,6 +167,7 @@ std = [
 	"log/std",
 	"node-primitives/std",
 	"pallet-alliance/std",
+	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
 	"pallet-asset-rate/std",
@@ -278,6 +280,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -354,6 +357,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance/try-runtime",
+	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"pallet-asset-rate/try-runtime",

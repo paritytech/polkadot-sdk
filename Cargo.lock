@@ -820,17 +820,22 @@ dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-treasury",
+ "pallet-utility",
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
  "penpal-runtime",
+ "polkadot-runtime-common",
  "rococo-runtime",
+ "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -866,6 +871,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
@@ -990,6 +996,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
@@ -2828,6 +2835,36 @@ dependencies = [
  "parachains-common",
  "sp-core",
  "testnet-parachains-constants",
+]
+
+[[package]]
+name = "collectives-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "asset-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-asset-rate",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-treasury",
+ "pallet-utility",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-runtime-common",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "testnet-parachains-constants",
+ "westend-runtime",
+ "westend-runtime-constants",
+ "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -7348,6 +7385,7 @@ dependencies = [
  "node-primitives",
  "pallet-alliance",
  "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
  "pallet-asset-tx-payment",
@@ -9499,12 +9537,34 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
  "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-asset-conversion-ops"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "primitive-types",
+ "scale-info",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -9571,7 +9631,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "29.0.0"
+version = "29.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9936,7 +9996,9 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
+ "pretty_assertions",
  "scale-info",
  "sp-api",
  "sp-arithmetic",

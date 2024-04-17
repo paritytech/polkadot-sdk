@@ -109,6 +109,7 @@ pub type UncheckedExtrinsic =
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -218,6 +219,7 @@ impl pallet_authorship::Config for Runtime {
 
 parameter_types! {
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	pub const RandomParaId: ParaId = ParaId::new(43211234);
 }
 
 impl pallet_balances::Config for Runtime {
@@ -710,11 +712,20 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					>,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>
+				);
 
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
@@ -732,8 +743,21 @@ impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
-					// Reserve transfers are disabled
-					None
+					// Coretime chain can reserve transfer regions to some random parachain.
+
+					// Properties of a mock region:
+					let core = 0;
+					let begin = 0;
+					let end = 42;
+
+					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, end, None, None);
+					Some((
+						Asset {
+							fun: NonFungible(Index(region_id.into())),
+							id: AssetId(xcm_config::BrokerPalletLocation::get())
+						},
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+					))
 				}
 
 				fn get_asset() -> Asset {
@@ -753,11 +777,22 @@ impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+
+				type DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					>,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					>
+				);
+
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(TokenRelayLocation::get())

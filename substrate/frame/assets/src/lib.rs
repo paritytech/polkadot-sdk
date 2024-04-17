@@ -987,7 +987,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1024,7 +1024,7 @@ pub mod pallet {
 			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				details.status == AssetStatus::Live || details.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == details.admin, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;
@@ -1113,7 +1113,7 @@ pub mod pallet {
 
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
+				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
 					return Ok(())
@@ -1669,7 +1669,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			ensure!(
 				d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-				Error::<T, I>::AssetNotLive
+				Error::<T, I>::IncorrectStatus
 			);
 			ensure!(origin == d.freezer, Error::<T, I>::NoPermission);
 			let who = T::Lookup::lookup(who)?;

@@ -309,6 +309,18 @@ impl<T: Config<I>, I: 'static> fungibles::InspectEnumerable<T::AccountId> for Pa
 	}
 }
 
+impl<T: Config<I>, I: 'static> fungibles::roles::ResetTeam<T::AccountId> for Pallet<T, I> {
+	fn reset_team(
+		id: T::AssetId,
+		owner: T::AccountId,
+		admin: T::AccountId,
+		issuer: T::AccountId,
+		freezer: T::AccountId,
+	) -> DispatchResult {
+		Self::do_reset_team(id, owner, admin, issuer, freezer)
+	}
+}
+
 impl<T: Config<I>, I: 'static> fungibles::Refund<T::AccountId> for Pallet<T, I> {
 	type AssetId = T::AssetId;
 	type Balance = DepositBalanceOf<T, I>;
