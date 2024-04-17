@@ -106,7 +106,10 @@ use xcm::{
 };
 use xcm_builder::PayOverXcm;
 
-use xcm_fee_payment_runtime_api::fees::Error as XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::{
+	dry_run::{Error as XcmDryRunApiError, ExtrinsicDryRunEffects, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -2239,6 +2242,37 @@ sp_api::impl_runtime_apis! {
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
 			XcmPallet::query_delivery_fees(destination, message)
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::dry_run::XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for Runtime {
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			pallet_xcm::ShouldRecordXcm::<Runtime>::put(true);
+			let result = Executive::apply_extrinsic(extrinsic).map_err(|error| {
+				log::error!(
+					target: "xcm::XcmDryRunApi::dry_run_extrinsic",
+					"Applying extrinsic failed with error {:?}",
+					error,
+				);
+				XcmDryRunApiError::InvalidExtrinsic
+			})?;
+			let local_xcm = pallet_xcm::RecordedXcm::<Runtime>::get().unwrap_or(Xcm(Vec::new()));
+			// TODO: Make a trait to inspect messages in queues. `InspectMessages` or the like.
+			let forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)> = runtime_parachains::dmp::DownwardMessageQueues::<Runtime>::iter().map(|(para_id, messages)| (
+				VersionedLocation::V4(Parachain(para_id.into()).into()),
+				VersionedXcm::V4(Xcm::<()>::decode(&mut &messages[0].msg[..]).unwrap()),
+			)).collect();
+			let events: Vec<RuntimeEvent> = System::read_events_no_consensus().map(|record| record.event.clone()).collect();
+			Ok(ExtrinsicDryRunEffects {
+				local_program: VersionedXcm::<()>::V4(local_xcm),
+				forwarded_messages,
+				emitted_events: events,
+				execution_result: result,
+			})
+		}
+
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, weight: Weight) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			todo!()
 		}
 	}
 
