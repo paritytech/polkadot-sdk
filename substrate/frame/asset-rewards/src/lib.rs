@@ -213,12 +213,7 @@ pub mod pallet {
 
 	/// State and configuraiton of each staking pool.
 	#[pallet::storage]
-	pub type Pools<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		PoolId,
-		PoolInfoFor<T>,
-	>;
+	pub type Pools<T: Config> = StorageMap<_, Blake2_128Concat, PoolId, PoolInfoFor<T>>;
 
 	/// Stores the [`PoolId`] to use for the next pool.
 	///
