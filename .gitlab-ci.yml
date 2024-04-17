@@ -253,7 +253,6 @@ include:
     - CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='cargo-test-%p-%m.profraw' time cargo nextest run
       --workspace
       --locked
-      --release
       --no-fail-fast
       --partition count:1/5
       --features try-runtime,experimental > /dev/null || echo "some errors"
