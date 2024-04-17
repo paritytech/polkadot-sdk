@@ -109,13 +109,13 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(span, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config { config_attr_span, with_default_span }) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
-						span,
+						config_attr_span,
 						index,
 						item,
-						with_default,
+						with_default_span,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
@@ -484,6 +484,17 @@ impl Def {
 			quote::quote_spanned!(span => T)
 		}
 	}
+
+	/// Depending on if pallet is instantiable:
+	/// * either ``
+	/// * or `<I = ()>`
+	pub fn trait_decl_generics(&self, span: proc_macro2::Span) -> proc_macro2::TokenStream {
+		if self.config.has_instance {
+			quote::quote_spanned!(span => <I = ()>)
+		} else {
+			quote::quote_spanned!(span => )
+		}
+	}
 }
 
 /// Some generic kind for type which can be not generic, or generic over config,
@@ -565,7 +576,10 @@ mod keyword {
 /// Parse attributes for item in pallet module
 /// syntax must be `pallet::` (e.g. `#[pallet::config]`)
 enum PalletAttr {
-	Config(proc_macro2::Span, bool),
+	Config {
+		config_attr_span: proc_macro2::Span,
+		with_default_span: Option<proc_macro2::Span>,
+	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
 	/// A `#[pallet::call]` with optional attributes to specialize the behaviour.
@@ -627,7 +641,7 @@ enum PalletAttr {
 impl PalletAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::Config(span, _) => *span,
+			Self::Config { config_attr_span, .. } => *config_attr_span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
 			Self::Tasks(span) => *span,
@@ -662,13 +676,15 @@ impl syn::parse::Parse for PalletAttr {
 		let lookahead = content.lookahead1();
 		if lookahead.peek(keyword::config) {
 			let span = content.parse::<keyword::config>()?.span();
-			let with_default = content.peek(syn::token::Paren);
-			if with_default {
+			let with_default_span = if content.peek(syn::token::Paren) {
 				let inside_config;
 				let _paren = syn::parenthesized!(inside_config in content);
-				inside_config.parse::<keyword::with_default>()?;
-			}
-			Ok(PalletAttr::Config(span, with_default))
+				let span = inside_config.parse::<keyword::with_default>()?.span();
+				Some(span)
+			} else {
+				None
+			};
+			Ok(PalletAttr::Config { config_attr_span: span, with_default_span })
 		} else if lookahead.peek(keyword::pallet) {
 			Ok(PalletAttr::Pallet(content.parse::<keyword::pallet>()?.span()))
 		} else if lookahead.peek(keyword::hooks) {

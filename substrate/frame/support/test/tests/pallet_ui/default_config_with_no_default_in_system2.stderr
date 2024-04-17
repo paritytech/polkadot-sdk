@@ -1,0 +1,32 @@
+error[E0277]: the trait bound `Self: frame_system::Config` is not satisfied
+  --> tests/pallet_ui/default_config_with_no_default_in_system2.rs:25:19
+   |
+25 |     #[pallet::config(with_default)]
+   |                      ^^^^^^^^^^^^ the trait `frame_system::Config` is not implemented for `Self`
+   |
+help: consider further restricting `Self`
+   |
+25 |     #[pallet::config(with_default + frame_system::Config)]
+   |                                   ++++++++++++++++++++++
+
+error[E0277]: the trait bound `Self: frame_system::Config` is not satisfied
+  --> tests/pallet_ui/default_config_with_no_default_in_system2.rs:28:3
+   |
+28 |         type MyGetParam: Get<MySpecialType<Self>>;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `frame_system::Config` is not implemented for `Self`
+   |
+help: consider further restricting `Self`
+   |
+25 |     #[pallet::config(with_default + frame_system::Config)]
+   |                                   ++++++++++++++++++++++
+
+error[E0277]: the trait bound `Self: frame_system::Config` is not satisfied
+  --> tests/pallet_ui/default_config_with_no_default_in_system2.rs:31:3
+   |
+31 |         type MyOtherGetParam: Get<MyOtherSpecialType<Self>>;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `frame_system::Config` is not implemented for `Self`
+   |
+help: consider further restricting `Self`
+   |
+25 |     #[pallet::config(with_default + frame_system::Config)]
+   |                                   ++++++++++++++++++++++
