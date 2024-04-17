@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713314629149,
+  "lastUpdate": 1713346551855,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4783,6 +4783,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.007233763266666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4be9f93cd7e81c71ead1a8b5445bc695d98b10ba",
+          "message": "Adjust `xcm-bridge-hub-router`'s `SendXcm::validate` behavior for `NotApplicable` (#4162)\n\nThis PR adjusts `xcm-bridge-hub-router` to be usable in the chain of\nrouters when a `NotApplicable` error occurs.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4133\n\n## TODO\n\n- [ ] backport to polkadot-sdk 1.10.0 crates.io release",
+          "timestamp": "2024-04-17T09:09:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4be9f93cd7e81c71ead1a8b5445bc695d98b10ba"
+        },
+        "date": 1713346524551,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01396255126666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007072937600000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024246400799999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16071496279999983,
             "unit": "seconds"
           }
         ]
