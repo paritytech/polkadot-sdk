@@ -200,14 +200,35 @@ fn transfer_works() {
 }
 
 #[test]
-fn mutate_operations_unsupported_for_regions() {
-	TestExt::new().execute_with(|| {
+fn mutate_operations_work() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
 		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
 		assert_noop!(
 			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
-			TokenError::Unsupported
+			Error::<Test>::UnknownRegion
 		);
-		assert_noop!(<Broker as Mutate<_>>::burn(&region_id.into(), None), TokenError::Unsupported);
+
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_noop!(
+			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
+			Error::<Test>::NotAllowed
+		);
+
+		assert_noop!(
+			<Broker as Mutate<_>>::burn(&region_id.into(), Some(&2)),
+			Error::<Test>::NotOwner
+		);
+		// 'withdraw' the region from user 1:
+		assert_ok!(<Broker as Mutate<_>>::burn(&region_id.into(), Some(&1)));
+		assert_eq!(Regions::<Test>::get(region_id).unwrap().owner, None);
+
+		// `mint_into` works after burning:
+		assert_ok!(<Broker as Mutate<_>>::mint_into(&region_id.into(), &2));
+		assert_eq!(Regions::<Test>::get(region_id).unwrap().owner, Some(2));
+
+		// Unsupported operations:
 		assert_noop!(
 			<Broker as Mutate<_>>::set_attribute(&region_id.into(), &[], &[]),
 			TokenError::Unsupported
@@ -285,7 +306,7 @@ fn nft_metadata_works() {
 		assert_eq!(attribute::<Timeslice>(region, b"begin"), 4);
 		assert_eq!(attribute::<Timeslice>(region, b"length"), 3);
 		assert_eq!(attribute::<Timeslice>(region, b"end"), 7);
-		assert_eq!(attribute::<u64>(region, b"owner"), 1);
+		assert_eq!(attribute::<Option<u64>>(region, b"owner"), Some(1));
 		assert_eq!(attribute::<CoreMask>(region, b"part"), 0xfffff_fffff_fffff_fffff.into());
 		assert_eq!(attribute::<CoreIndex>(region, b"core"), 0);
 		assert_eq!(attribute::<Option<u64>>(region, b"paid"), Some(100));
@@ -297,7 +318,7 @@ fn nft_metadata_works() {
 		assert_eq!(attribute::<Timeslice>(region, b"begin"), 6);
 		assert_eq!(attribute::<Timeslice>(region, b"length"), 1);
 		assert_eq!(attribute::<Timeslice>(region, b"end"), 7);
-		assert_eq!(attribute::<u64>(region, b"owner"), 42);
+		assert_eq!(attribute::<Option<u64>>(region, b"owner"), Some(42));
 		assert_eq!(attribute::<CoreMask>(region, b"part"), 0x00000_fffff_fffff_00000.into());
 		assert_eq!(attribute::<CoreIndex>(region, b"core"), 0);
 		assert_eq!(attribute::<Option<u64>>(region, b"paid"), None);
