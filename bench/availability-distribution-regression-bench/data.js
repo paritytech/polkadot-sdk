@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713288146352,
+  "lastUpdate": 1713314629149,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4731,6 +4731,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.015842117399999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e81322bc3e8192b536067fed3ef9e20f2752c376",
+          "message": "Contracts verify benchmark block (#4130)\n\nAdd verify statement to ensure that benchmarks call do not revert\n\nAlso updated\n[benchmarks](https://weights.tasty.limo/compare?unit=time&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=master&new=pg/verify-benchmarks&path_pattern=substrate%2Fframe%2Fcontracts%2Fsrc%2Fweights.rs)\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-16T23:38:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e81322bc3e8192b536067fed3ef9e20f2752c376"
+        },
+        "date": 1713314602756,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014389612800000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02426154706666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1665731892666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007233763266666667,
             "unit": "seconds"
           }
         ]
