@@ -43,7 +43,7 @@
 //!
 //! ## Permissioning
 //!
-//! Currently, pool creation and management is permissioned and restricted to a configured Origin.
+//! Currently, pool creation and management restricted to a configured Origin.
 //!
 //! Future iterations of this pallet may allow permissionless creation and management of pools.
 //!
