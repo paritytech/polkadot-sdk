@@ -1948,29 +1948,30 @@ impl<T: Config> sp_staking::StakingUnsafe for Pallet<T> {
 		VirtualStakers::<T>::insert(who, ());
 	}
 
+	/// Virtually bonds `keyless_who` to `payee` with `value`.
+	///
+	/// The payee must not be the same as the `keyless_who`.
 	fn virtual_bond(
-		who: &Self::AccountId,
+		keyless_who: &Self::AccountId,
 		value: Self::Balance,
 		payee: &Self::AccountId,
 	) -> DispatchResult {
-		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(who.clone())) {
+		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(keyless_who.clone())) {
 			return Err(Error::<T>::AlreadyBonded.into())
 		}
 
 		// check if payee not same as who.
-		ensure!(who != payee, Error::<T>::RewardDestinationRestricted);
+		ensure!(keyless_who != payee, Error::<T>::RewardDestinationRestricted);
 
 		// mark this pallet as consumer of `who`.
-		frame_system::Pallet::<T>::inc_consumers(&who).map_err(|_| Error::<T>::BadState)?;
+		frame_system::Pallet::<T>::inc_consumers(&keyless_who).map_err(|_| Error::<T>::BadState)?;
 
 		// mark who as a virtual staker.
-		VirtualStakers::<T>::insert(who, ());
+		VirtualStakers::<T>::insert(keyless_who, ());
 
-		Self::deposit_event(Event::<T>::Bonded { stash: who.clone(), amount: value });
-		let ledger = StakingLedger::<T>::new(who.clone(), value);
+		Self::deposit_event(Event::<T>::Bonded { stash: keyless_who.clone(), amount: value });
+		let ledger = StakingLedger::<T>::new(keyless_who.clone(), value);
 
-		// You're auto-bonded forever, here. We might improve this by only bonding when
-		// you actually validate/nominate and remove once you unbond __everything__.
 		ledger.bond(RewardDestination::Account(payee.clone()))?;
 
 		Ok(())
