@@ -1923,6 +1923,82 @@ fn subsystem_assignment_import_updates_candidate_entry_and_schedules_wakeup() {
 }
 
 #[test]
+fn subsystem_always_has_a_wakeup_when_pending() {
+	test_harness(HarnessConfig::default(), |test_harness| async move {
+		let TestHarness {
+			mut virtual_overseer,
+			clock,
+			sync_oracle_handle: _sync_oracle_handle,
+			..
+		} = test_harness;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
+				rx.send(Ok(0)).unwrap();
+			}
+		);
+
+		let block_hash = Hash::repeat_byte(0x01);
+
+		let candidate_index = 0;
+		let validator = ValidatorIndex(0);
+		let validators = vec![
+			Sr25519Keyring::Alice,
+			Sr25519Keyring::Bob,
+			Sr25519Keyring::Charlie,
+			Sr25519Keyring::Dave,
+			Sr25519Keyring::Eve,
+		];
+		// Add block hash 0x01...
+		ChainBuilder::new()
+			.add_block(
+				block_hash,
+				ChainBuilder::GENESIS_HASH,
+				1,
+				BlockConfig {
+					slot: Slot::from(1),
+					candidates: None,
+					session_info: Some(SessionInfo {
+						validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(
+							vec![
+								vec![ValidatorIndex(0), ValidatorIndex(1)],
+								vec![ValidatorIndex(2)],
+								vec![ValidatorIndex(3), ValidatorIndex(4)],
+							],
+						),
+						..session_info(&validators)
+					}),
+					end_syncing: false,
+				},
+			)
+			.build(&mut virtual_overseer)
+			.await;
+
+		let rx = check_and_import_assignment(
+			&mut virtual_overseer,
+			block_hash,
+			candidate_index,
+			validator,
+		)
+		.await;
+
+		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
+		// Wake on the assignment no-show
+		assert!(clock.inner.lock().current_wakeup_is(30));
+
+		// Wake up from time to time to check if no-show was covered.
+		for iter in 1..5 {
+			clock.inner.lock().set_tick(30 + (iter - 1) * CHECK_NO_SHOW_COVERED);
+			futures_timer::Delay::new(Duration::from_millis(100)).await;
+			assert!(clock.inner.lock().current_wakeup_is(30 + iter * CHECK_NO_SHOW_COVERED));
+		}
+
+		virtual_overseer
+	});
+}
+
+#[test]
 fn subsystem_process_wakeup_schedules_wakeup() {
 	test_harness(HarnessConfig::default(), |test_harness| async move {
 		let TestHarness {
