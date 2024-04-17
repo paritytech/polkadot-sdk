@@ -921,7 +921,7 @@ mod set_pool_reward_rate_per_block {
 			// Check that rewards are calculated correctly with the updated rate
 			assert_hypothetically_earned(
 				staker,
-				10 * 100 + 10 * new_reward_rate - 1, // -1 due to rounding
+				10 * 100 + 10 * new_reward_rate,
 				pool_id,
 				NativeOrWithId::<u32>::Native,
 			);
@@ -1227,8 +1227,8 @@ fn integration() {
 		// - Staker 2 is earning 33.33 tokens per block.
 
 		// Check that Staker 1 has earned 350 tokens and Staker 2 has earned 150 tokens.
-		assert_hypothetically_earned(staker1, 349, pool_id, reward_asset_id.clone());
-		assert_hypothetically_earned(staker2, 149, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 350, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 150, pool_id, reward_asset_id.clone());
 
 		// Block 22: Staker 1 unstakes 100 tokens.
 		System::set_block_number(22);
@@ -1237,7 +1237,7 @@ fn integration() {
 		// - Staker 2 has earned 483 (150 + 33.33 * 10) tokens.
 		// - Staker 1 is earning 50 tokens per block.
 		// - Staker 2 is earning 50 tokens per block.
-		assert_hypothetically_earned(staker1, 1015, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1016, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 483, pool_id, reward_asset_id.clone());
 
 		// Block 23: Staker 1 unstakes 100 tokens.
@@ -1247,7 +1247,7 @@ fn integration() {
 		// - Staker 2 has earned 533 (483 + 50) tokens.
 		// - Staker 1 is earning 0 tokens per block.
 		// - Staker 2 is earning 100 tokens per block.
-		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 533, pool_id, reward_asset_id.clone());
 
 		// Block 50: Stakers should only have earned 2 blocks worth of tokens (expiry is 25).
@@ -1256,7 +1256,7 @@ fn integration() {
 		// - Staker 2 has earned 733 (533 + 2 * 100) tokens.
 		// - Staker 1 is earning 0 tokens per block.
 		// - Staker 2 is earning 0 tokens per block.
-		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 733, pool_id, reward_asset_id.clone());
 
 		// Block 51: Extend the pool expiry block to 60.
@@ -1268,7 +1268,7 @@ fn integration() {
 			pool_id,
 			60u64
 		));
-		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 733, pool_id, reward_asset_id.clone());
 
 		// Block 53: Check rewards are resumed.
@@ -1276,7 +1276,7 @@ fn integration() {
 		// - Staker 2 has earned 933 (733 + 2 * 100) tokens.
 		// - Staker 2 is earning 100 tokens per block.
 		System::set_block_number(53);
-		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 933, pool_id, reward_asset_id.clone());
 
 		// Block 55: Halve the block reward.
@@ -1289,7 +1289,7 @@ fn integration() {
 			pool_id,
 			50
 		));
-		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 1133, pool_id, reward_asset_id.clone());
 
 		// Block 57: Staker2 harvests their rewards.
@@ -1308,8 +1308,8 @@ fn integration() {
 		// - Staker 1 has earned 1065 tokens.
 		// - Staker 2 has earned 149 (3 * 50) tokens.
 		System::set_block_number(60);
-		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
-		assert_hypothetically_earned(staker2, 149, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker1, 1066, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 150, pool_id, reward_asset_id.clone());
 
 		// Finally, check events.
 		assert_eq!(

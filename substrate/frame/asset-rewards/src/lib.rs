@@ -107,7 +107,7 @@ pub use weights::WeightInfo;
 pub type PoolId = u32;
 
 /// Multiplier to maintain precision when calculating rewards.
-pub(crate) const PRECISION_SCALING_FACTOR: u32 = u32::MAX;
+pub(crate) const PRECISION_SCALING_FACTOR: u16 = 4096;
 
 /// Convenience alias for `PoolInfo`.
 pub type PoolInfoFor<T> = PoolInfo<
