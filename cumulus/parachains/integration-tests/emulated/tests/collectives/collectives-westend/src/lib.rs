@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,9 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod create_snapshot;
-pub mod execute_block;
-pub mod fast_forward;
-pub mod follow_chain;
-pub mod offchain_worker;
-pub mod on_runtime_upgrade;
+pub use xcm::{prelude::*, v3};
+
+pub use emulated_integration_tests_common::xcm_emulator::{
+	assert_expected_events, bx, Chain, RelayChain as Relay, TestExt,
+};
+pub use westend_system_emulated_network::{
+	asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+	collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+	westend_emulated_chain::WestendRelayPallet as WestendPallet,
+	AssetHubWestendPara as AssetHubWestend, CollectivesWestendPara as CollectivesWestend,
+	WestendRelay as Westend,
+};
+
+#[cfg(test)]
+mod tests;

@@ -567,7 +567,7 @@ mod tests {
 		let source_header_1 = header_id(1);
 		let target_header_1 = header_id(1);
 
-		// we start in perfec sync state - all headers are synced and finalized on both ends
+		// we start in perfect sync state - all headers are synced and finalized on both ends
 		let mut state = TestRaceStateImpl {
 			best_finalized_source_header_id_at_source: Some(source_header_1),
 			best_finalized_source_header_id_at_best_target: Some(source_header_1),
