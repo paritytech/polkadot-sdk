@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713372866693,
+  "lastUpdate": 1713378278331,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -4031,6 +4031,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.15859666359999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "305d311d5c732fcc4629f3295768f1ed44ef434c",
+          "message": "Asset Conversion: Pool Touch Call (#3251)\n\nIntroduce `touch` call designed to address operational prerequisites\nbefore providing liquidity to a pool.\n\nThis function ensures that essential requirements, such as the presence\nof the pool's accounts, are fulfilled. It is particularly beneficial in\nscenarios where a pool creator removes the pool's accounts without\nproviding liquidity.\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-17T16:45:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/305d311d5c732fcc4629f3295768f1ed44ef434c"
+        },
+        "date": 1713378251520,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.989279013466668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21943879793333335,
             "unit": "seconds"
           }
         ]
