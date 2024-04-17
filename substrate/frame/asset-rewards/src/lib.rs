@@ -377,7 +377,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Stake tokens in a pool.
+		/// Stake additional tokens in a pool.
 		///
 		/// A freeze is placed on the staked tokens.
 		#[pallet::call_index(1)]
@@ -491,6 +491,8 @@ pub mod pallet {
 		}
 
 		/// Modify a pool reward rate.
+		///
+		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(4)]
 		pub fn set_pool_reward_rate_per_block(
 			origin: OriginFor<T>,
@@ -518,6 +520,8 @@ pub mod pallet {
 		}
 
 		/// Modify a pool admin.
+		///
+		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(5)]
 		pub fn set_pool_admin(
 			origin: OriginFor<T>,
@@ -538,6 +542,8 @@ pub mod pallet {
 		}
 
 		/// Modify a expiry block.
+		///
+		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(6)]
 		pub fn set_pool_expiry_block(
 			origin: OriginFor<T>,
@@ -591,6 +597,8 @@ pub mod pallet {
 		}
 
 		/// Permissioned method to withdraw reward tokens from a pool.
+		///
+		/// Only the pool admin may perform this operation.
 		#[pallet::call_index(8)]
 		pub fn withdraw_reward_tokens(
 			origin: OriginFor<T>,
