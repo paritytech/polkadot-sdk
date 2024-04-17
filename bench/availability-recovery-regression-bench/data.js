@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713314926827,
+  "lastUpdate": 1713346855975,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3863,6 +3863,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.829880137666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4be9f93cd7e81c71ead1a8b5445bc695d98b10ba",
+          "message": "Adjust `xcm-bridge-hub-router`'s `SendXcm::validate` behavior for `NotApplicable` (#4162)\n\nThis PR adjusts `xcm-bridge-hub-router` to be usable in the chain of\nrouters when a `NotApplicable` error occurs.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/4133\n\n## TODO\n\n- [ ] backport to polkadot-sdk 1.10.0 crates.io release",
+          "timestamp": "2024-04-17T09:09:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4be9f93cd7e81c71ead1a8b5445bc695d98b10ba"
+        },
+        "date": 1713346828844,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.549001118933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18394468333333333,
             "unit": "seconds"
           }
         ]
