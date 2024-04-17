@@ -119,7 +119,7 @@ mod builder;
 mod prerequisites;
 mod version;
 mod wasm_project;
-#[cfg(feature = "experimental-metadata-hash")]
+#[cfg(feature = "metadata-hash")]
 mod metadata_hash;
 
 pub use builder::{WasmBuilder, WasmBuilderSelectProject};

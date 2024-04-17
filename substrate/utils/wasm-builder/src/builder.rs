@@ -23,6 +23,14 @@ use std::{
 
 use crate::RuntimeTarget;
 
+/// Extra information when generating the `metadata-hash`.
+#[cfg(feature = "metadata-hash")]
+pub(crate) struct MetadataExtraInfo {
+	pub base58_prefix: u16,
+	pub decimals: u32,
+	pub token_symbol: String,
+}
+
 /// Returns the manifest dir from the `CARGO_MANIFEST_DIR` env.
 fn get_manifest_dir() -> PathBuf {
 	env::var("CARGO_MANIFEST_DIR")
@@ -53,6 +61,8 @@ impl WasmBuilderSelectProject {
 			disable_runtime_version_section_check: false,
 			export_heap_base: false,
 			import_memory: false,
+			#[cfg(feature = "metadata-hash")]
+			enable_metadata_hash: None,
 		}
 	}
 
@@ -71,6 +81,8 @@ impl WasmBuilderSelectProject {
 				disable_runtime_version_section_check: false,
 				export_heap_base: false,
 				import_memory: false,
+				#[cfg(feature = "metadata-hash")]
+				enable_metadata_hash: None,
 			})
 		} else {
 			Err("Project path must point to the `Cargo.toml` of the project")
@@ -108,6 +120,10 @@ pub struct WasmBuilder {
 	export_heap_base: bool,
 	/// Whether `--import-memory` should be added to the link args (WASM-only).
 	import_memory: bool,
+
+	/// Whether to enable the metadata hash generation.
+	#[cfg(feature = "metadata-hash")]
+	enable_metadata_hash: Option<()>,
 }
 
 impl WasmBuilder {
@@ -146,10 +162,7 @@ impl WasmBuilder {
 	///    .export_heap_base()
 	/// ```
 	pub fn init_with_defaults() -> Self {
-		WasmBuilder::new()
-			.with_current_project()
-			.import_memory()
-			.export_heap_base()
+		WasmBuilder::new().with_current_project().import_memory().export_heap_base()
 	}
 
 	/// Enable exporting `__heap_base` as global variable in the WASM binary.
@@ -191,6 +204,22 @@ impl WasmBuilder {
 	/// `feature` needs to be a valid feature that is defined in the project `Cargo.toml`.
 	pub fn enable_feature(mut self, feature: impl Into<String>) -> Self {
 		self.features_to_enable.push(feature.into());
+		self
+	}
+
+	#[cfg(feature = "metadata-hash")]
+	pub fn enable_metadata_hash(
+		mut self,
+		token_symbol: impl Into<String>,
+		decimals: u32,
+		base58_prefix: u16,
+	) -> Self {
+		self.enable_metadata_hash = Some(MetadataExtraInfo {
+			token_symbol: token_symbol.into(),
+			decimals,
+			base58_prefix,
+		});
+
 		self
 	}
 

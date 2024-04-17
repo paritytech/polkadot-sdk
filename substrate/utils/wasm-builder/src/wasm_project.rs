@@ -136,8 +136,8 @@ pub(crate) fn create_and_compile(
 
 	let build_config = BuildConfiguration::detect(target, &project);
 
-	// Build the bloaty runtime blob
-	#[cfg(feature = "experimental-metadata-hash")]
+	// When the `metadata-hash` feature is enabled we need to build the runtime twice.
+	#[cfg(feature = "metadata-hash")]
 	let raw_blob_path = {
 		let raw_blob_path = build_bloaty_blob(
 			target,
@@ -160,7 +160,8 @@ pub(crate) fn create_and_compile(
 		)
 	};
 
-	#[cfg(not(feature = "experimental-metadata-hash"))]
+	// If the feature is not enabled, we only need to do it once.
+	#[cfg(not(feature = "metadata-hash"))]
 	let raw_blob_path = {
 		build_bloaty_blob(
 			target,
