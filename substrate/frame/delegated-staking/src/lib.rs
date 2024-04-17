@@ -226,7 +226,7 @@ pub mod pallet {
 	pub enum HoldReason {
 		/// Funds held for stake delegation to another account.
 		#[codec(index = 0)]
-		Delegating,
+		StakingDelegation,
 	}
 
 	#[pallet::event]
@@ -290,7 +290,7 @@ pub mod pallet {
 		/// Migrate from a `Nominator` account to `Agent` account.
 		///
 		/// The origin needs to
-		/// - be a `Nominator` with `CoreStaking`,
+		/// - be a `Nominator` with [`Config::CoreStaking`],
 		/// - not already an `Agent`,
 		/// - have enough funds to transfer existential deposit to a delegator account created for
 		///   the migration.
@@ -305,11 +305,8 @@ pub mod pallet {
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// ensure who is not already an agent.
-			ensure!(!Self::is_agent(&who), Error::<T>::NotAllowed);
-
-			// and they should already be a nominator in `CoreStaking`.
-			ensure!(Self::is_direct_staker(&who), Error::<T>::NotAllowed);
+			// ensure who is a staker in `CpreStaking` but not already an agent.
+			ensure!(!Self::is_agent(&who) && Self::is_direct_staker(&who), Error::<T>::NotAllowed);
 
 			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
@@ -375,7 +372,8 @@ pub mod pallet {
 		///
 		/// Conditions:
 		/// - Delegators cannot delegate to more than one agent.
-		/// - The `agent` account should already be registered as such. See [`Self::register_agent`]
+		/// - The `agent` account should already be registered as such. See
+		///   [`Self::register_agent`].
 		pub fn delegate_to_agent(
 			origin: OriginFor<T>,
 			agent: T::AccountId,
@@ -407,8 +405,6 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
-
-		fn integrity_test() {}
 	}
 }
 
@@ -420,7 +416,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Balance of a delegator that is delegated.
 	pub(crate) fn held_balance_of(who: &T::AccountId) -> BalanceOf<T> {
-		T::Currency::balance_on_hold(&HoldReason::Delegating.into(), who)
+		T::Currency::balance_on_hold(&HoldReason::StakingDelegation.into(), who)
 	}
 
 	/// Returns true if who is registered as an `Agent`.
@@ -439,7 +435,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_register_agent(who: &T::AccountId, reward_account: &T::AccountId) {
-		AgentLedger::<T>::new(reward_account).save(who);
+		AgentLedger::<T>::new(reward_account).update(who);
 
 		// Agent does not hold balance of its own but this pallet will provide for this to exist.
 		// This is expected to be a keyless account and not created by any user directly so safe.
@@ -493,7 +489,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let mut ledger = AgentLedger::<T>::get(agent).ok_or(Error::<T>::NotAgent)?;
 		// try to hold the funds.
-		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
+		T::Currency::hold(&HoldReason::StakingDelegation.into(), delegator, amount)?;
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
@@ -506,10 +502,10 @@ impl<T: Config> Pallet<T> {
 				amount
 			};
 
-		Delegation::<T>::new(agent, new_delegation_amount).save_or_kill(delegator);
+		Delegation::<T>::new(agent, new_delegation_amount).update_or_kill(delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
-		ledger.save(agent);
+		ledger.update(agent);
 
 		Self::deposit_event(Event::<T>::Delegated {
 			agent: agent.clone(),
@@ -547,7 +543,7 @@ impl<T: Config> Pallet<T> {
 		// claim withdraw from agent. Kill agent if no delegation left.
 		// TODO(ank4n): Ideally if there is a register, there should be an unregister that should
 		// clean up the agent. Need to improve this.
-		if agent.remove_unclaimed_withdraw(amount)?.save_or_kill()? {
+		if agent.remove_unclaimed_withdraw(amount)?.update_or_kill()? {
 			let _ = frame_system::Pallet::<T>::dec_providers(who).defensive();
 		}
 		// book keep delegation
@@ -557,10 +553,10 @@ impl<T: Config> Pallet<T> {
 			.defensive_ok_or(ArithmeticError::Overflow)?;
 
 		// remove delegator if nothing delegated anymore
-		delegation.save_or_kill(delegator);
+		delegation.update_or_kill(delegator);
 
 		let released = T::Currency::release(
-			&HoldReason::Delegating.into(),
+			&HoldReason::StakingDelegation.into(),
 			delegator,
 			amount,
 			Precision::BestEffort,
@@ -593,15 +589,16 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// update delegations
-		Delegation::<T>::new(&source_delegation.agent, amount).save_or_kill(destination_delegator);
+		Delegation::<T>::new(&source_delegation.agent, amount)
+			.update_or_kill(destination_delegator);
 		source_delegation
 			.decrease_delegation(amount)
 			.defensive_ok_or(Error::<T>::BadState)?
-			.save_or_kill(source_delegator);
+			.update_or_kill(source_delegator);
 
 		// release funds from source
 		let released = T::Currency::release(
-			&HoldReason::Delegating.into(),
+			&HoldReason::StakingDelegation.into(),
 			source_delegator,
 			amount,
 			Precision::BestEffort,
@@ -624,7 +621,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// hold the funds again in the new delegator account.
-		T::Currency::hold(&HoldReason::Delegating.into(), destination_delegator, amount)?;
+		T::Currency::hold(&HoldReason::StakingDelegation.into(), destination_delegator, amount)?;
 
 		Ok(())
 	}
@@ -645,7 +642,7 @@ impl<T: Config> Pallet<T> {
 
 		// slash delegator
 		let (mut credit, missing) =
-			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, amount);
+			T::Currency::slash(&HoldReason::StakingDelegation.into(), &delegator, amount);
 
 		defensive_assert!(missing.is_zero(), "slash should have been fully applied");
 
@@ -657,7 +654,7 @@ impl<T: Config> Pallet<T> {
 		delegation
 			.decrease_delegation(actual_slash)
 			.ok_or(ArithmeticError::Overflow)?
-			.save_or_kill(&delegator);
+			.update_or_kill(&delegator);
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> =

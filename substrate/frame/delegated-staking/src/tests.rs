@@ -49,7 +49,11 @@ fn create_a_agent_with_first_delegator() {
 		// verify
 		assert!(DelegatedStaking::is_agent(&agent));
 		assert_eq!(DelegatedStaking::stakeable_balance(&agent), 100);
-		assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator), 100);
+		assert_eq!(
+			Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
+			100
+		);
+		assert_eq!(DelegatedStaking::held_balance_of(&delegator), 100);
 	});
 }
 
@@ -115,7 +119,7 @@ fn create_multiple_delegators() {
 				100
 			));
 			// Balance of 100 held on delegator account for delegating to the agent.
-			assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
+			assert_eq!(Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &i), 100);
 		}
 
 		// verify
@@ -304,7 +308,7 @@ mod staking_integration {
 				));
 				delegated_balance += 100;
 				assert_eq!(
-					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
+					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 					100
 				);
 				assert_eq!(DelegatedStaking::delegator_balance(&delegator), 100);
@@ -589,7 +593,7 @@ mod staking_integration {
 			// verify all went well
 			let mut expected_proxy_delegated_amount = staked_amount;
 			assert_eq!(
-				Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
+				Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &proxy_delegator),
 				expected_proxy_delegated_amount
 			);
 			// stake amount is transferred from delegate to proxy delegator account.
@@ -611,12 +615,15 @@ mod staking_integration {
 					delegator_share
 				));
 				assert_eq!(
-					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
+					Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), &delegator),
 					delegator_share
 				);
 				expected_proxy_delegated_amount -= delegator_share;
 				assert_eq!(
-					Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
+					Balances::balance_on_hold(
+						&HoldReason::StakingDelegation.into(),
+						&proxy_delegator
+					),
 					expected_proxy_delegated_amount
 				);
 

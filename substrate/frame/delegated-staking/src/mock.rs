@@ -318,7 +318,7 @@ pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
 }
 
 pub(crate) fn held_balance(who: &AccountId) -> Balance {
-	Balances::balance_on_hold(&HoldReason::Delegating.into(), who)
+	Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), who)
 }
 
 parameter_types! {
