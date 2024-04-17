@@ -146,10 +146,7 @@ impl WasmBuilder {
 	///    .export_heap_base()
 	/// ```
 	pub fn init_with_defaults() -> Self {
-		WasmBuilder::new()
-			.with_current_project()
-			.import_memory()
-			.export_heap_base()
+		WasmBuilder::new().with_current_project().import_memory().export_heap_base()
 	}
 
 	/// Enable exporting `__heap_base` as global variable in the WASM binary.
