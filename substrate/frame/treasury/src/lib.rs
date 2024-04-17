@@ -100,7 +100,6 @@ use frame_support::{
 	weights::Weight,
 	PalletId,
 };
-
 pub use pallet::*;
 pub use weights::WeightInfo;
 

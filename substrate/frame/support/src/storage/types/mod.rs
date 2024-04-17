@@ -17,7 +17,7 @@
 
 //! Storage types to build abstraction on storage, they implements storage traits such as
 //! StorageMap and others.
-
+// TODO: Move generator test here?
 use codec::FullCodec;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryModifierIR};
 use sp_std::prelude::*;

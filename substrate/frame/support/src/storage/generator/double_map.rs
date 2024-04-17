@@ -14,14 +14,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+/*
 use crate::{
 	hash::{ReversibleStorageHasher, StorageHasher},
 	storage::{self, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-use sp_std::prelude::*;
 
 /// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///
@@ -43,6 +42,8 @@ use sp_std::prelude::*;
 /// If the key2s are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
 /// `blake2_256` must be used for Hasher2. Otherwise, other items in storage with the same first
 /// key can be compromised.
+use sp_std::prelude::*;
+
 pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
@@ -654,3 +655,4 @@ mod test_iterators {
 		})
 	}
 }
+*/

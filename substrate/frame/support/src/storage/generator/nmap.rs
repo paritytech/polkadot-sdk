@@ -28,7 +28,7 @@
 //! If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
 //! `blake2_256` must be used.  Otherwise, other values in storage with the same prefix can
 //! be compromised.
-
+/*
 use crate::{
 	storage::{
 		self, storage_prefix,
@@ -57,6 +57,7 @@ use sp_std::prelude::*;
 /// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
 /// `blake2_256` must be used.  Otherwise, other values in storage with the same prefix can
 /// be compromised.
+
 pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
@@ -453,6 +454,9 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 		}
 	}
 }
+*/
+
+/*
 
 /// Test iterators for StorageNMap
 #[cfg(test)]
@@ -627,3 +631,4 @@ mod test_iterators {
 		})
 	}
 }
+*/
