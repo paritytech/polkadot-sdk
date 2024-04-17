@@ -605,9 +605,9 @@ where
 		}
 	}
 
-	fn handle_dht_value_found_event(&mut self, values: PeerRecord) -> Result<()> {
+	fn handle_dht_value_found_event(&mut self, peer_record: PeerRecord) -> Result<()> {
 		// Ensure `values` is not empty and all its keys equal.
-		let remote_key = values.record.key.clone();
+		let remote_key = peer_record.record.key.clone();
 
 		let authority_id: AuthorityId =
 			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
@@ -627,7 +627,7 @@ where
 			auth_signature,
 			peer_signature,
 			creation_time: creation_time_info,
-		} = schema::SignedAuthorityRecord::decode(values.record.value.as_slice())
+		} = schema::SignedAuthorityRecord::decode(peer_record.record.value.as_slice())
 			.map_err(Error::DecodingProto)?;
 
 		let auth_signature = AuthoritySignature::decode(&mut &auth_signature[..])
@@ -708,7 +708,7 @@ where
 		let remote_addresses: Vec<Multiaddr> =
 			addresses.into_iter().take(MAX_ADDRESSES_PER_AUTHORITY).collect();
 
-		let answering_peer_id = values.peer.map(|peer| peer.into());
+		let answering_peer_id = peer_record.peer.map(|peer| peer.into());
 
 		let addr_cache_needs_update = self.handle_new_record(
 			&authority_id,
@@ -716,7 +716,7 @@ where
 			RecordInfo {
 				creation_time: records_creation_time,
 				peers_with_record: answering_peer_id.into_iter().collect(),
-				record: Some(values.record),
+				record: Some(peer_record.record),
 			},
 		);
 
