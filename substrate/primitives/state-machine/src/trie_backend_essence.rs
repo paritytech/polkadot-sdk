@@ -205,6 +205,7 @@ where
 pub struct TrieBackendEssence<H: Hasher, C, R> {
 	pub(crate) storage: Box<dyn AsDB<H>>,
 	root: H::Out,
+	// TODO would make sense to have root_location
 	empty: H::Out,
 	#[cfg(feature = "std")]
 	pub(crate) cache: RwLock<Cache<H::Out>>,
@@ -672,7 +673,7 @@ where
 	/// Return the storage root after applying the given `delta`.
 	pub fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, ChildChangeset<H::Out>)>,
 		state_version: StateVersion,
 	) -> BackendTransaction<H::Out> {
 		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
@@ -702,7 +703,7 @@ where
 				Ok(commit) => (Some(commit.root_hash()), commit),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
-					(None, BackendTransaction::unchanged(self.root))
+					(None, BackendTransaction::unchanged(self.root, Default::default()))
 				},
 			}
 		})
@@ -756,7 +757,7 @@ where
 					Ok(commit) => (Some(commit.root_hash()), commit),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
-						(None, BackendTransaction::unchanged(self.root))
+						(None, BackendTransaction::unchanged(self.root, Default::default()))
 					},
 				}
 			});

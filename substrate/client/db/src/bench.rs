@@ -410,13 +410,13 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<Hasher::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, ChildChangeset<Hasher::Out>)>,
 		state_version: StateVersion,
 	) -> BackendTransaction<Hasher::Out> {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or(BackendTransaction::unchanged(self.genesis_root), |s| {
+			.map_or(BackendTransaction::unchanged(self.genesis_root, Default::default()), |s| {
 				s.storage_root(delta, state_version)
 			})
 	}
@@ -428,7 +428,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		state_version: StateVersion,
 	) -> (BackendTransaction<Hasher::Out>, bool) {
 		self.state.borrow().as_ref().map_or_else(
-			|| (BackendTransaction::unchanged(self.genesis_root), true),
+			|| (BackendTransaction::unchanged(self.genesis_root, Default::default()), true),
 			|s| s.child_storage_root(child_info, delta, state_version),
 		)
 	}
@@ -663,7 +663,7 @@ mod test {
 
 			bench_state
 				.commit(
-					BackendTransaction::unchanged(Default::default()),
+					BackendTransaction::unchanged(Default::default(), Default::default()),
 					vec![("foo".as_bytes().to_vec(), None)],
 					vec![("child1".as_bytes().to_vec(), vec![("foo".as_bytes().to_vec(), None)])],
 				)

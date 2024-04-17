@@ -608,7 +608,7 @@ where
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, ChildChangeset<H::Out>)>,
 		state_version: StateVersion,
 	) -> BackendTransaction<H::Out>
 	where

@@ -185,7 +185,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, ChildChangeset<B::Hash>)>,
 		state_version: StateVersion,
 	) -> BackendTransaction<B::Hash> {
 		self.state.storage_root(delta, state_version)
