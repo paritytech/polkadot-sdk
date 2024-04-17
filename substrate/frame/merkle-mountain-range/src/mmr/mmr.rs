@@ -182,7 +182,7 @@ where
 
 	/// Commit the changes to underlying storage, return current number of leaves and
 	/// calculate the new MMR's root hash.
-	pub fn finalize(&mut self) -> Result<(NodeIndex, HashOf<T, I>), Error> {
+	pub fn finalize(mut self) -> Result<(NodeIndex, HashOf<T, I>), Error> {
 		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
 		self.mmr.commit().map_err(|e| Error::Commit.log_error(e))?;
 		Ok((self.leaves, root.hash()))

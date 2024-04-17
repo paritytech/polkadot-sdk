@@ -45,8 +45,6 @@ pub enum Keyring<AuthorityId> {
 	_Marker(PhantomData<AuthorityId>),
 }
 
-// impl AuthorityIdBound for Keyring<ecdsa_crypto::AuthorityId> {}
-
 /// Trait representing BEEFY specific generation and signing behavior of authority id
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.

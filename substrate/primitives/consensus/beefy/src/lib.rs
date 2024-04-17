@@ -57,7 +57,7 @@ use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 use sp_application_crypto::{AppCrypto, AppPublic, ByteArray, RuntimeAppPublic};
 use sp_core::H256;
-use sp_runtime::traits::{Hash as HashT, Header as HeaderT, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash as HashT, HashOutput, Header as HeaderT, Keccak256, NumberFor};
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;
@@ -307,6 +307,18 @@ pub struct VoteMessage<Number, Id, Signature> {
 	pub signature: Signature,
 }
 
+/// Trait containing generic methods for BEEFY equivocation proofs.
+pub trait BeefyEquivocationProof<Id, Number> {
+	/// Returns the authority ids of the misbehaving voters.
+	fn offender_ids(&self) -> Vec<&Id>;
+
+	/// Returns the round number at which the infringement occurred.
+	fn round_number(&self) -> &Number;
+
+	/// Returns the set id at which the infringement occurred.
+	fn set_id(&self) -> ValidatorSetId;
+}
+
 /// Proof of voter misbehavior on a given set id. Misbehavior/equivocation in
 /// BEEFY happens when a voter votes on the same round/block for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
@@ -323,12 +335,20 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 	pub fn offender_id(&self) -> &Id {
 		&self.first.id
 	}
-	/// Returns the round number at which the equivocation occurred.
-	pub fn round_number(&self) -> &Number {
+}
+
+impl<Number, Id, Signature> BeefyEquivocationProof<Id, Number>
+	for VoteEquivocationProof<Number, Id, Signature>
+{
+	fn offender_ids(&self) -> Vec<&Id> {
+		vec![self.offender_id()]
+	}
+
+	fn round_number(&self) -> &Number {
 		&self.first.commitment.block_number
 	}
-	/// Returns the set id at which the equivocation occurred.
-	pub fn set_id(&self) -> ValidatorSetId {
+
+	fn set_id(&self) -> ValidatorSetId {
 		self.first.commitment.validator_set_id
 	}
 }
@@ -350,17 +370,97 @@ pub struct ForkEquivocationProof<Id: RuntimeAppPublic, Header: HeaderT, Hash> {
 	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
 
-impl<Id: RuntimeAppPublic, H: HeaderT, Hash> ForkEquivocationProof<Id, H, Hash> {
-	/// Returns the authority ids of the misbehaving voters.
-	pub fn offender_ids(&self) -> Vec<&Id> {
+impl<Id: RuntimeAppPublic, Header: HeaderT, Hash: HashOutput>
+	ForkEquivocationProof<Id, Header, Hash>
+{
+	fn check_fork<NodeHash: HashT<Output = Hash>>(
+		&self,
+		best_root: Hash,
+		mmr_size: u64,
+		canonical_header_hash: &Header::Hash,
+		first_mmr_block_num: Header::Number,
+		best_block_num: Header::Number,
+	) -> bool {
+		if self.commitment.block_number <= best_block_num {
+			if let Some(canonical_header) = &self.canonical_header {
+				if check_header_proof(&self.commitment, canonical_header, canonical_header_hash) {
+					// avoid verifying the ancestry proof if a valid header proof has been provided
+					return true;
+				}
+			}
+
+			if let Some(ancestry_proof) = &self.ancestry_proof {
+				return check_ancestry_proof::<Header, NodeHash>(
+					&self.commitment,
+					ancestry_proof,
+					first_mmr_block_num,
+					best_root,
+					mmr_size,
+				);
+			}
+
+			return false;
+		}
+
+		true
+	}
+
+	/// Validates [ForkEquivocationProof] with the following checks:
+	/// - if the commitment is to a block in our history, then at least a header or an ancestry
+	///   proof is provided:
+	///   - the proof is correct if the provided `canonical_header` is at height
+	/// `commitment.block_number` and `commitment.payload` != `canonical_payload(canonical_header)`
+	///   - the proof is correct if the provided `ancestry_proof` proves
+	///   `mmr_root(commitment.block_number) != mmr_root(commitment.payload)`
+	/// - `commitment` is signed by all claimed signatories
+	///
+	/// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks. This is
+	/// fine since honest validators will not be slashed on the chain finalized by GRANDPA, which is
+	/// the only chain that ultimately matters. The only material difference not checking GRANDPA
+	/// proofs makes is that validators are not slashed for signing BEEFY commitments prior to the
+	/// blocks committed to being finalized by GRANDPA. This is fine too, since the slashing risk of
+	/// committing to an incorrect block implies validators will only sign blocks they *know* will
+	/// be finalized by GRANDPA.
+	pub fn check<MsgHash: HashT, NodeHash: HashT<Output = Hash>>(
+		&self,
+		best_root: Hash,
+		mmr_size: u64,
+		canonical_header_hash: &Header::Hash,
+		first_mmr_block_num: Header::Number,
+		best_block_num: Header::Number,
+	) -> bool
+	where
+		Id: BeefyAuthorityId<MsgHash> + PartialEq,
+	{
+		if !self.check_fork::<NodeHash>(
+			best_root,
+			mmr_size,
+			canonical_header_hash,
+			first_mmr_block_num,
+			best_block_num,
+		) {
+			return false;
+		}
+
+		return self.signatories.iter().all(|(authority_id, signature)| {
+			// TODO: refactor check_commitment_signature to take a slice of signatories
+			check_commitment_signature(&self.commitment, authority_id, signature)
+		})
+	}
+}
+
+impl<Id: RuntimeAppPublic, Header: HeaderT, Hash: HashOutput>
+	BeefyEquivocationProof<Id, Header::Number> for ForkEquivocationProof<Id, Header, Hash>
+{
+	fn offender_ids(&self) -> Vec<&Id> {
 		self.signatories.iter().map(|(id, _)| id).collect()
 	}
-	/// Returns the round number at which the infringement occurred.
-	pub fn round_number(&self) -> &H::Number {
+
+	fn round_number(&self) -> &Header::Number {
 		&self.commitment.block_number
 	}
-	/// Returns the set id at which the infringement occurred.
-	pub fn set_id(&self) -> ValidatorSetId {
+
+	fn set_id(&self) -> ValidatorSetId {
 		self.commitment.validator_set_id
 	}
 }
@@ -419,35 +519,30 @@ where
 /// Checks whether the provided header's payload differs from the commitment's payload.
 fn check_header_proof<Header>(
 	commitment: &Commitment<Header::Number>,
-	canonical_header: &Option<Header>,
+	canonical_header: &Header,
 	canonical_header_hash: &Header::Hash,
 ) -> bool
 where
 	Header: HeaderT,
 {
-	if let Some(canonical_header) = canonical_header {
-		let canonical_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
-		let canonical_payload = canonical_mmr_root_digest.map(|mmr_root| {
-			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
-		});
-		// Check header's hash and that the `payload` of the `commitment` differs from the
-		// `canonical_payload`. Note that if the signatories signed a payload when there should be
-		// none (for instance for a block prior to BEEFY activation), then canonical_payload = None,
-		// and they will likewise be slashed.
-		// Note that we can only check this if a valid header has been provided - we cannot
-		// slash for this with an ancestry proof - by necessity)
-		return canonical_header.hash() == *canonical_header_hash &&
-			Some(&commitment.payload) != canonical_payload.as_ref()
-	}
-	// if no header provided, the header proof is also not correct
-	false
+	let canonical_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
+	let canonical_payload = canonical_mmr_root_digest
+		.map(|mmr_root| Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode()));
+	// Check header's hash and that the `payload` of the `commitment` differs from the
+	// `canonical_payload`. Note that if the signatories signed a payload when there should be
+	// none (for instance for a block prior to BEEFY activation), then canonical_payload = None,
+	// and they will likewise be slashed.
+	// Note that we can only check this if a valid header has been provided - we cannot
+	// slash for this with an ancestry proof - by necessity)
+	return canonical_header.hash() == *canonical_header_hash &&
+		Some(&commitment.payload) != canonical_payload.as_ref()
 }
 
 /// Checks whether an ancestry proof has the correct size and its calculated root differs from the
 /// commitment's payload's.
 fn check_ancestry_proof<Header, NodeHash>(
 	commitment: &Commitment<Header::Number>,
-	ancestry_proof: &Option<AncestryProof<NodeHash::Output>>,
+	ancestry_proof: &AncestryProof<NodeHash::Output>,
 	first_mmr_block_num: Header::Number,
 	best_root: NodeHash::Output,
 	mmr_size: u64,
@@ -456,119 +551,53 @@ where
 	Header: HeaderT,
 	NodeHash: HashT,
 {
-	if let Some(ancestry_proof) = ancestry_proof {
-		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
-			commitment.block_number,
-			first_mmr_block_num,
-		)
-		.and_then(|leaf_index| {
-			leaf_index.checked_add(1).ok_or_else(|| {
-				sp_mmr_primitives::Error::InvalidNumericOp.log_debug("leaf_index + 1 overflowed")
-			})
-		});
+	let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
+		commitment.block_number,
+		first_mmr_block_num,
+	)
+	.and_then(|leaf_index| {
+		leaf_index.checked_add(1).ok_or_else(|| {
+			sp_mmr_primitives::Error::InvalidNumericOp.log_debug("leaf_index + 1 overflowed")
+		})
+	});
 
-		if let Ok(expected_leaf_count) = expected_leaf_count {
-			let expected_mmr_size =
-				sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
-			// verify that the prev_root is at the correct block number
-			// this can be inferred from the leaf_count / mmr_size of the prev_root:
-			// we've converted the commitment.block_number to an mmr size and now
-			// compare with the value in the ancestry proof
-			if expected_mmr_size != ancestry_proof.prev_size {
-				return false
-			}
-			if sp_mmr_primitives::utils::verify_ancestry_proof::<
-				NodeHash::Output,
-				utils::AncestryHasher<NodeHash>,
-			>(best_root, mmr_size, ancestry_proof.clone()) !=
-				Ok(true)
-			{
-				return false
-			}
-		} else {
-			// if the block number either under- or overflowed, the
-			// commitment.block_number was not valid and the commitment should not have
-			// been signed, hence we can skip the ancestry proof and slash the
-			// signatories
-			return true
+	if let Ok(expected_leaf_count) = expected_leaf_count {
+		let expected_mmr_size =
+			sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
+		// verify that the prev_root is at the correct block number
+		// this can be inferred from the leaf_count / mmr_size of the prev_root:
+		// we've converted the commitment.block_number to an mmr size and now
+		// compare with the value in the ancestry proof
+		if expected_mmr_size != ancestry_proof.prev_size {
+			return false
 		}
-
-		// once the ancestry proof is verified, calculate the prev_root to compare it
-		// with the commitment's prev_root
-		let ancestry_prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
+		if sp_mmr_primitives::utils::verify_ancestry_proof::<
 			NodeHash::Output,
-			AncestryHasher<NodeHash>,
-		>(ancestry_proof.prev_peaks.clone());
-		// if the commitment payload does not commit to an MMR root, then this
-		// commitment may have another purpose and should not be slashed
-		let commitment_prev_root =
-			commitment.payload.get_decoded::<NodeHash::Output>(&known_payloads::MMR_ROOT_ID);
-		return commitment_prev_root != ancestry_prev_root.ok()
-	}
-	// if no ancestry proof provided, the proof is also not correct
-	false
-}
-
-/// Validates [ForkEquivocationProof] with the following checks:
-/// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
-///   provided:
-///   - a `canonical_header` is correct if it's at height `commitment.block_number` and
-///   commitment.payload` != `canonical_payload(canonical_header)`
-///   - an `ancestry_proof` is correct if it proves mmr_root(commitment.block_number) !=
-///   mmr_root(commitment.payload)`
-/// - `commitment` is signed by all claimed signatories
-///
-/// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks. This is fine
-/// since honest validators will not be slashed on the chain finalized by GRANDPA, which is the only
-/// chain that ultimately matters. The only material difference not checking GRANDPA proofs makes is
-/// that validators are not slashed for signing BEEFY commitments prior to the blocks committed to
-/// being finalized by GRANDPA. This is fine too, since the slashing risk of committing to an
-/// incorrect block implies validators will only sign blocks they *know* will be finalized by
-/// GRANDPA.
-pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash>(
-	proof: &ForkEquivocationProof<Id, Header, NodeHash::Output>,
-	best_root: NodeHash::Output,
-	mmr_size: u64,
-	canonical_header_hash: &Header::Hash,
-	first_mmr_block_num: Header::Number,
-	best_block_num: Header::Number,
-) -> bool
-where
-	Id: BeefyAuthorityId<MsgHash> + PartialEq,
-	MsgHash: HashT,
-	Header: HeaderT,
-	NodeHash: HashT,
-{
-	let ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof } = proof;
-
-	// if commitment is to a block in the future, it's an equivocation as long as it's been signed
-	if commitment.block_number <= best_block_num {
-		if (canonical_header, ancestry_proof) == (&None, &None) {
-			// if commitment isn't to a block number in the future, at least a header or ancestry
-			// proof must be provided, otherwise the proof is entirely invalid
-			return false;
+			utils::AncestryHasher<NodeHash>,
+		>(best_root, mmr_size, ancestry_proof.clone()) !=
+			Ok(true)
+		{
+			return false
 		}
-
-		// if neither the ancestry proof nor the header proof is correct, the proof is invalid
-		// avoid verifying the ancestry proof if a valid header proof has been provided
-		if !check_header_proof(commitment, canonical_header, canonical_header_hash) &&
-			!check_ancestry_proof::<Header, NodeHash>(
-				commitment,
-				ancestry_proof,
-				first_mmr_block_num,
-				best_root,
-				mmr_size,
-			) {
-			return false;
-		}
+	} else {
+		// if the block number either under- or overflowed, the
+		// commitment.block_number was not valid and the commitment should not have
+		// been signed, hence we can skip the ancestry proof and slash the
+		// signatories
+		return true
 	}
 
-	// if commitment is to future block or either proof is valid, check the validator's signatures.
-	// The proof is verified if they are all correct.
-	return signatories.iter().all(|(authority_id, signature)| {
-		// TODO: refactor check_commitment_signature to take a slice of signatories
-		check_commitment_signature(&commitment, authority_id, signature)
-	})
+	// once the ancestry proof is verified, calculate the prev_root to compare it
+	// with the commitment's prev_root
+	let ancestry_prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
+		NodeHash::Output,
+		AncestryHasher<NodeHash>,
+	>(ancestry_proof.prev_peaks.clone());
+	// if the commitment payload does not commit to an MMR root, then this
+	// commitment may have another purpose and should not be slashed
+	let commitment_prev_root =
+		commitment.payload.get_decoded::<NodeHash::Output>(&known_payloads::MMR_ROOT_ID);
+	return commitment_prev_root != ancestry_prev_root.ok()
 }
 
 /// New BEEFY validator set notification hook.

@@ -199,8 +199,7 @@ impl<T: pallet_mmr::Config> CheckForkEquivocationProof<pallet_beefy::Error<T>, H
 			)
 			.map_err(|_| pallet_beefy::Error::<T>::InvalidForkEquivocationProof)?
 		};
-		if !sp_consensus_beefy::check_fork_equivocation_proof::<_, _, HeaderFor<T>, Self::Hash>(
-			proof,
+		if !proof.check::<_, Self::Hash>(
 			best_root,
 			mmr_size,
 			&canonical_header_hash,

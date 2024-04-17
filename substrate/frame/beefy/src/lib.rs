@@ -63,7 +63,7 @@ const LOG_TARGET: &str = "runtime::beefy";
 pub mod pallet {
 	use super::*;
 	use frame_system::{ensure_root, pallet_prelude::BlockNumberFor};
-	use sp_consensus_beefy::ForkEquivocationProof;
+	use sp_consensus_beefy::{BeefyEquivocationProof, ForkEquivocationProof};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -387,6 +387,58 @@ pub mod pallet {
 
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			Self::validate_unsigned(source, call)
+		}
+	}
+
+	impl<T: Config> Call<T> {
+		pub fn to_equivocation_evidence_for(
+			&self,
+		) -> Option<(
+			EquivocationEvidenceFor<T>,
+			Box<&dyn BeefyEquivocationProof<<T as Config>::BeefyId, BlockNumberFor<T>>>,
+		)> {
+			match self {
+				Call::report_vote_equivocation_unsigned { equivocation_proof, key_owner_proof } =>
+					Some((
+						EquivocationEvidenceFor::<T>::VoteEquivocationProof(
+							*equivocation_proof.clone(),
+							key_owner_proof.clone(),
+						),
+						Box::new(equivocation_proof.as_ref()),
+					)),
+				Call::report_fork_equivocation_unsigned {
+					equivocation_proof,
+					key_owner_proofs,
+				} => Some((
+					EquivocationEvidenceFor::<T>::ForkEquivocationProof(
+						*equivocation_proof.clone(),
+						key_owner_proofs.clone(),
+					),
+					Box::new(equivocation_proof.as_ref()),
+				)),
+				_ => None,
+			}
+		}
+	}
+
+	impl<T: Config> From<EquivocationEvidenceFor<T>> for Call<T> {
+		fn from(evidence: EquivocationEvidenceFor<T>) -> Self {
+			match evidence {
+				EquivocationEvidenceFor::VoteEquivocationProof(
+					equivocation_proof,
+					key_owner_proof,
+				) => Call::report_vote_equivocation_unsigned {
+					equivocation_proof: Box::new(equivocation_proof),
+					key_owner_proof,
+				},
+				EquivocationEvidenceFor::ForkEquivocationProof(
+					equivocation_proof,
+					key_owner_proofs,
+				) => Call::report_fork_equivocation_unsigned {
+					equivocation_proof: Box::new(equivocation_proof),
+					key_owner_proofs,
+				},
+			}
 		}
 	}
 }

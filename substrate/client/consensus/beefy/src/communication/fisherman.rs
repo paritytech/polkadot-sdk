@@ -25,10 +25,9 @@ use sc_client_api::Backend;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
-	check_fork_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefySignatureHasher, ForkEquivocationProof, MmrHashing, MmrRootHash, Payload,
-	PayloadProvider, SignedCommitment, ValidatorSet, VoteMessage,
+	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, ForkEquivocationProof, MmrHashing,
+	MmrRootHash, Payload, PayloadProvider, SignedCommitment, ValidatorSet, VoteMessage,
 };
 use sp_mmr_primitives::{AncestryProof, MmrApi};
 use sp_runtime::{
@@ -65,7 +64,8 @@ where
 		&self,
 		number: NumberFor<B>,
 	) -> Result<CanonicalHashHeaderPayload<B>, Error> {
-		// This should be un-ambiguous since `number` is finalized.
+		// This should be un-ambiguous since `number` should be finalized for
+		// incoming votes and proofs.
 		let hash = self
 			.backend
 			.blockchain()
@@ -139,13 +139,7 @@ where
 		.map_err(|e| Error::Backend(e.to_string()))?;
 
 		if proof.commitment.validator_set_id != set_id ||
-			!check_fork_equivocation_proof::<
-				AuthorityId,
-				BeefySignatureHasher,
-				B::Header,
-				MmrHashing,
-			>(
-				&proof,
+			!proof.check::<BeefySignatureHasher, MmrHashing>(
 				best_mmr_root,
 				leaf_count,
 				&canonical_commitment_block_hash,

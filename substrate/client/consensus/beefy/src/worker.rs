@@ -41,8 +41,9 @@ use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_vote_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefySignatureHasher, Commitment, MmrRootHash, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, BeefyEquivocationProof, BeefySignatureHasher, Commitment, MmrRootHash,
+	PayloadProvider, ValidatorSet, VersionedFinalityProof, VoteEquivocationProof, VoteMessage,
+	BEEFY_ENGINE_ID,
 };
 use sp_mmr_primitives::MmrApi;
 use sp_runtime::{
