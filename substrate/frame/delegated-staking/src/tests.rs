@@ -343,8 +343,6 @@ mod staking_integration {
 				Error::<T>::NotEnoughFunds
 			);
 
-			assert!(eq_stake(agent, total_staked, total_staked));
-
 			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 50));
 

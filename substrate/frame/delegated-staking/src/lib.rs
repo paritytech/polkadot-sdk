@@ -539,6 +539,7 @@ impl<T: Config> Pallet<T> {
 			// withdraw account.
 			let _ = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
+			// reload agent from storage since withdrawal might have changed the state.
 			agent = agent.refresh()?;
 		}
 
@@ -584,7 +585,7 @@ impl<T: Config> Pallet<T> {
 		destination_delegator: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let source_delegation =
+		let mut source_delegation =
 			Delegators::<T>::get(source_delegator).defensive_ok_or(Error::<T>::BadState)?;
 
 		// some checks that must have already been checked before.
@@ -596,10 +597,13 @@ impl<T: Config> Pallet<T> {
 		// update delegations
 		Delegation::<T>::new(&source_delegation.agent, amount)
 			.update_or_kill(destination_delegator);
-		source_delegation
-			.decrease_delegation(amount)
-			.defensive_ok_or(Error::<T>::BadState)?
-			.update_or_kill(source_delegator);
+
+		source_delegation.amount = source_delegation
+			.amount
+			.checked_sub(&amount)
+			.defensive_ok_or(Error::<T>::BadState)?;
+
+		source_delegation.update_or_kill(source_delegator);
 
 		// release funds from source
 		let released = T::Currency::release(
@@ -641,7 +645,7 @@ impl<T: Config> Pallet<T> {
 		// ensure there is something to slash
 		ensure!(agent.ledger.pending_slash > Zero::zero(), Error::<T>::NothingToSlash);
 
-		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+		let mut delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 		ensure!(delegation.agent == agent_acc, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
@@ -655,11 +659,9 @@ impl<T: Config> Pallet<T> {
 
 		// remove the applied slashed amount from agent.
 		agent.remove_slash(actual_slash).save();
-
-		delegation
-			.decrease_delegation(actual_slash)
-			.ok_or(ArithmeticError::Overflow)?
-			.update_or_kill(&delegator);
+		delegation.amount =
+			delegation.amount.checked_sub(&actual_slash).ok_or(ArithmeticError::Overflow)?;
+		delegation.update_or_kill(&delegator);
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> =
