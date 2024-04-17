@@ -2780,24 +2780,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2631" id="2631">2631</a>
 <a href="#2632" id="2632">2632</a>
 <a href="#2633" id="2633">2633</a>
-<a href="#2634" id="2634">2634</a>
-<a href="#2635" id="2635">2635</a>
-<a href="#2636" id="2636">2636</a>
-<a href="#2637" id="2637">2637</a>
-<a href="#2638" id="2638">2638</a>
-<a href="#2639" id="2639">2639</a>
-<a href="#2640" id="2640">2640</a>
-<a href="#2641" id="2641">2641</a>
-<a href="#2642" id="2642">2642</a>
-<a href="#2643" id="2643">2643</a>
-<a href="#2644" id="2644">2644</a>
-<a href="#2645" id="2645">2645</a>
-<a href="#2646" id="2646">2646</a>
-<a href="#2647" id="2647">2647</a>
-<a href="#2648" id="2648">2648</a>
-<a href="#2649" id="2649">2649</a>
-<a href="#2650" id="2650">2650</a>
-<a href="#2651" id="2651">2651</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3610,7 +3592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.live_topics.push(round, set_id);
 		<span class="self">self</span>.peers.reshuffle();
 
-		<span class="self">self</span>.multicast_neighbor_packet(<span class="bool-val">false</span>)
+		<span class="self">self</span>.multicast_neighbor_packet()
 	}
 
 	<span class="doccomment">/// Note that a voter set with given ID has started. Does nothing if the last
@@ -3647,10 +3629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.live_topics.push(Round(<span class="number">1</span>), set_id);
 		<span class="self">self</span>.authorities = authorities;
 
-		<span class="comment">// when transitioning to a new set we also want to send neighbor packets to light clients,
-		// this is so that they know who to ask justifications from in order to finalize the last
-		// block in the previous set.
-		</span><span class="self">self</span>.multicast_neighbor_packet(<span class="bool-val">true</span>)
+		<span class="self">self</span>.multicast_neighbor_packet()
 	}
 
 	<span class="doccomment">/// Note that we&#39;ve imported a commit finalizing a given block. Does nothing if the last
@@ -3669,7 +3648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
-		<span class="self">self</span>.multicast_neighbor_packet(<span class="bool-val">false</span>)
+		<span class="self">self</span>.multicast_neighbor_packet()
 	}
 
 	<span class="kw">fn </span>consider_vote(<span class="kw-2">&amp;</span><span class="self">self</span>, round: Round, set_id: SetId) -&gt; Consider {
@@ -3983,7 +3962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(neighbor_topics, action, catch_up, report)
 	}
 
-	<span class="kw">fn </span>multicast_neighbor_packet(<span class="kw-2">&amp;</span><span class="self">self</span>, force_light: bool) -&gt; MaybeMessage&lt;Block&gt; {
+	<span class="kw">fn </span>multicast_neighbor_packet(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MaybeMessage&lt;Block&gt; {
 		<span class="self">self</span>.local_view.as_ref().map(|local_view| {
 			<span class="kw">let </span>packet = NeighborPacket {
 				round: local_view.round,
@@ -3991,22 +3970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				commit_finalized_height: <span class="kw-2">*</span>local_view.last_commit_height().unwrap_or(<span class="kw-2">&amp;</span>Zero::zero()),
 			};
 
-			<span class="kw">let </span>peers = <span class="self">self
-				</span>.peers
-				.inner
-				.iter()
-				.filter_map(|(id, info)| {
-					<span class="comment">// light clients don&#39;t participate in the full GRANDPA voter protocol
-					// and therefore don&#39;t need to be informed about all view updates unless
-					// we explicitly require it (e.g. when transitioning to a new set)
-					</span><span class="kw">if </span>info.roles.is_light() &amp;&amp; !force_light {
-						<span class="prelude-val">None
-					</span>} <span class="kw">else </span>{
-						<span class="prelude-val">Some</span>(id)
-					}
-				})
-				.cloned()
-				.collect();
+			<span class="kw">let </span>peers = <span class="self">self</span>.peers.inner.iter().map(|(id, <span class="kw">_</span>)| id).cloned().collect();
 
 			(peers, packet)
 		})
@@ -5402,7 +5366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>sends_neighbor_packets_to_non_light_peers_when_starting_a_new_round() {
+	</span><span class="kw">fn </span>sends_neighbor_packets_to_all_peers_when_starting_a_new_round() {
 		<span class="kw">let </span>(val, <span class="kw">_</span>) = GossipValidator::&lt;Block&gt;::new(config(), voter_set_state(), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 
 		<span class="comment">// initialize the validator to a stable set id
@@ -5417,10 +5381,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		val.inner.write().peers.new_peer(light_peer, ObservedRole::Light);
 
 		val.note_round(Round(<span class="number">2</span>), |peers, message| {
-			<span class="macro">assert_eq!</span>(peers.len(), <span class="number">2</span>);
+			<span class="macro">assert_eq!</span>(peers.len(), <span class="number">3</span>);
 			<span class="macro">assert!</span>(peers.contains(<span class="kw-2">&amp;</span>authority_peer));
 			<span class="macro">assert!</span>(peers.contains(<span class="kw-2">&amp;</span>full_peer));
-			<span class="macro">assert!</span>(!peers.contains(<span class="kw-2">&amp;</span>light_peer));
+			<span class="macro">assert!</span>(peers.contains(<span class="kw-2">&amp;</span>light_peer));
 			<span class="macro">assert!</span>(<span class="macro">matches!</span>(message, NeighborPacket { set_id: SetId(<span class="number">1</span>), round: Round(<span class="number">2</span>), .. }));
 		});
 	}
