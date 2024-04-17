@@ -132,7 +132,7 @@ mod create_pool {
 					reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 					expiry_block: DEFAULT_EXPIRY_BLOCK,
-					admin: PermissionedAccountId::get(),
+					admin: Some(PermissionedAccountId::get()),
 				}]
 			);
 
@@ -147,7 +147,7 @@ mod create_pool {
 						reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 						reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 						expiry_block: DEFAULT_EXPIRY_BLOCK,
-						admin: PermissionedAccountId::get(),
+						admin: Some(PermissionedAccountId::get()),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
 						last_update_block: 0
@@ -179,7 +179,7 @@ mod create_pool {
 					staked_asset_id: staked_asset_id.clone(),
 					reward_asset_id: reward_asset_id.clone(),
 					reward_rate_per_block,
-					admin,
+					admin: Some(admin),
 					expiry_block,
 				}]
 			);
@@ -195,7 +195,7 @@ mod create_pool {
 							staked_asset_id: DEFAULT_STAKED_ASSET_ID,
 							reward_asset_id: DEFAULT_REWARD_ASSET_ID,
 							reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
-							admin: PermissionedAccountId::get(),
+							admin: Some(PermissionedAccountId::get()),
 							expiry_block: DEFAULT_EXPIRY_BLOCK,
 							total_tokens_staked: 0,
 							reward_per_token_stored: 0,
@@ -208,7 +208,7 @@ mod create_pool {
 							staked_asset_id,
 							reward_asset_id,
 							reward_rate_per_block,
-							admin,
+							admin: Some(admin),
 							total_tokens_staked: 0,
 							expiry_block,
 							reward_per_token_stored: 0,
@@ -246,7 +246,7 @@ mod create_pool {
 					reward_asset_id: asset.clone(),
 					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 					expiry_block: DEFAULT_EXPIRY_BLOCK,
-					admin: PermissionedAccountId::get(),
+					admin: Some(PermissionedAccountId::get()),
 				}]
 			);
 
@@ -261,7 +261,7 @@ mod create_pool {
 						reward_asset_id: asset,
 						reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
 						expiry_block: DEFAULT_EXPIRY_BLOCK,
-						admin: PermissionedAccountId::get(),
+						admin: Some(PermissionedAccountId::get()),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
 						last_update_block: 0
@@ -637,9 +637,9 @@ mod set_pool_admin {
 			// Check state
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin }
+				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin: Some(new_admin) }
 			);
-			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, new_admin);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, Some(new_admin));
 		});
 	}
 
@@ -656,9 +656,9 @@ mod set_pool_admin {
 			// Check state
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin }
+				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin: Some(new_admin) }
 			);
-			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, new_admin);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, Some(new_admin));
 		});
 	}
 
@@ -1373,7 +1373,7 @@ fn integration() {
 					reward_asset_id,
 					reward_rate_per_block: 100,
 					expiry_block: 25,
-					admin
+					admin: Some(admin)
 				},
 				Event::Staked { who: staker1, pool_id, amount: 100 },
 				Event::Staked { who: staker2, pool_id, amount: 100 },

@@ -145,7 +145,10 @@ pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The block the pool will cease distributing rewards.
 	expiry_block: BlockNumber,
 	/// The permissioned account that can manage this pool.
-	admin: AccountId,
+	///
+	/// This is currently always `Some`, and only an `Option` so in the future permissionless
+	/// pools may be enabled without storage migration.
+	admin: Option<AccountId>,
 	/// The total amount of tokens staked in this pool.
 	total_tokens_staked: Balance,
 	/// Total rewards accumulated per token, up to the `last_update_block`.
@@ -273,7 +276,7 @@ pub mod pallet {
 			/// The block the pool will cease to accumulate rewards.
 			expiry_block: BlockNumberFor<T>,
 			/// The account allowed to modify the pool.
-			admin: T::AccountId,
+			admin: Option<T::AccountId>,
 		},
 		/// A pool reward rate was modified by the admin.
 		PoolRewardRateModified {
@@ -287,7 +290,7 @@ pub mod pallet {
 			/// The modified pool.
 			pool_id: PoolId,
 			/// The new admin.
-			new_admin: T::AccountId,
+			new_admin: Option<T::AccountId>,
 		},
 		/// A pool expiry block was modified by the admin.
 		PoolExpiryBlockModified {
@@ -360,7 +363,7 @@ pub mod pallet {
 				reward_per_token_stored: 0u32.into(),
 				last_update_block: 0u32.into(),
 				expiry_block,
-				admin: admin.clone(),
+				admin: Some(admin.clone()),
 			};
 
 			// Insert it into storage.
@@ -376,7 +379,7 @@ pub mod pallet {
 				reward_asset_id: *reward_asset_id,
 				reward_rate_per_block,
 				expiry_block,
-				admin,
+				admin: Some(admin),
 			});
 
 			Ok(())
@@ -508,7 +511,7 @@ pub mod pallet {
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(caller == pool_info.admin, BadOrigin);
+			ensure!(Some(caller) == pool_info.admin, BadOrigin);
 
 			// Always start by updating the pool rewards.
 			let rewards_per_token = Self::reward_per_token(&pool_info)?;
@@ -538,11 +541,11 @@ pub mod pallet {
 				.or_else(|_| ensure_signed(origin))?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
-			pool_info.admin = new_admin.clone();
+			ensure!(pool_info.admin == Some(caller), BadOrigin);
+			pool_info.admin = Some(new_admin.clone());
 			Pools::<T>::insert(pool_id, pool_info);
 
-			Self::deposit_event(Event::PoolAdminModified { pool_id, new_admin });
+			Self::deposit_event(Event::PoolAdminModified { pool_id, new_admin: Some(new_admin) });
 
 			Ok(())
 		}
@@ -565,7 +568,7 @@ pub mod pallet {
 			);
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
+			ensure!(pool_info.admin == Some(caller), BadOrigin);
 
 			// Always start by updating the pool rewards.
 			let reward_per_token = Self::reward_per_token(&pool_info)?;
@@ -617,7 +620,7 @@ pub mod pallet {
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
+			ensure!(pool_info.admin == Some(caller), BadOrigin);
 
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
