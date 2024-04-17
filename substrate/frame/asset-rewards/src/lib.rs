@@ -506,7 +506,8 @@ pub mod pallet {
 			ensure!(caller == pool_info.admin, BadOrigin);
 
 			// Always start by updating the pool rewards.
-			let mut pool_info = Self::update_pool_rewards(&pool_info)?;
+			let rewards_per_token = Self::reward_per_token(&pool_info)?;
+			let mut pool_info = Self::update_pool_rewards(&pool_info, rewards_per_token)?;
 
 			pool_info.reward_rate_per_block = new_reward_rate_per_block;
 			Pools::<T>::insert(pool_id, pool_info);
@@ -562,7 +563,8 @@ pub mod pallet {
 			ensure!(pool_info.admin == caller, BadOrigin);
 
 			// Always start by updating the pool rewards.
-			let mut pool_info = Self::update_pool_rewards(&pool_info)?;
+			let reward_per_token = Self::reward_per_token(&pool_info)?;
+			let mut pool_info = Self::update_pool_rewards(&pool_info, reward_per_token)?;
 
 			pool_info.expiry_block = new_expiry_block;
 			Pools::<T>::insert(pool_id, pool_info);
@@ -646,10 +648,11 @@ pub mod pallet {
 			pool_info: &PoolInfoFor<T>,
 			staker_info: &PoolStakerInfo<T::Balance>,
 		) -> Result<(PoolInfoFor<T>, PoolStakerInfo<T::Balance>), DispatchError> {
-			let pool_info = Self::update_pool_rewards(pool_info)?;
+			let reward_per_token = Self::reward_per_token(&pool_info)?;
+			let pool_info = Self::update_pool_rewards(pool_info, reward_per_token.clone())?;
 
 			let mut new_staker_info = staker_info.clone();
-			new_staker_info.rewards = Self::derive_rewards(&pool_info, &staker_info)?;
+			new_staker_info.rewards = Self::derive_rewards(&staker_info, &reward_per_token)?;
 			new_staker_info.reward_per_token_paid = pool_info.reward_per_token_stored;
 			return Ok((pool_info, new_staker_info));
 		}
@@ -664,9 +667,8 @@ pub mod pallet {
 		/// the responsibility of the caller.
 		pub fn update_pool_rewards(
 			pool_info: &PoolInfoFor<T>,
+			reward_per_token: T::Balance,
 		) -> Result<PoolInfoFor<T>, DispatchError> {
-			let reward_per_token = Self::reward_per_token(&pool_info)?;
-
 			let mut new_pool_info = pool_info.clone();
 			new_pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
 			new_pool_info.reward_per_token_stored = reward_per_token;
@@ -704,11 +706,9 @@ pub mod pallet {
 		///
 		/// This is a helper function for `update_pool_rewards` and should not be called directly.
 		fn derive_rewards(
-			pool_info: &PoolInfoFor<T>,
 			staker_info: &PoolStakerInfo<T::Balance>,
+			reward_per_token: &T::Balance,
 		) -> Result<T::Balance, DispatchError> {
-			let reward_per_token = Self::reward_per_token(&pool_info)?;
-
 			Ok(staker_info
 				.amount
 				.saturating_mul(reward_per_token.saturating_sub(staker_info.reward_per_token_paid))
