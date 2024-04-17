@@ -51,7 +51,7 @@ use sp_mmr_primitives::{
 	AncestryProof,
 };
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
