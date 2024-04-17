@@ -323,12 +323,6 @@ impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 	pub fn hashes(&self) -> Vec<Block::Hash> {
 		self.displaced_leaves.keys().map(|h| *h).collect()
 	}
-
-	/// Constructor. We need this explicit initialization to not introduce a requirement
-	/// `Block: Default`
-	pub fn new() -> Self {
-		Self { displaced_leaves: BTreeMap::new(), tree_routes: BTreeMap::new() }
-	}
 }
 
 /// Blockchain info
