@@ -156,7 +156,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(staker.clone()), 0u32.into(), 100u32.into());
 
 		assert_last_event::<T>(
-			Event::Staked { who: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
+			Event::Staked { caller: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
 		);
 	}
 
@@ -197,7 +197,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(staker.clone()), 0u32.into(), 100u32.into());
 
 		assert_last_event::<T>(
-			Event::Unstaked { who: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
+			Event::Unstaked { caller: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
 		);
 	}
 
@@ -250,7 +250,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::RewardsHarvested {
-				who: staker.clone(),
+				caller: staker.clone(),
 				staker,
 				pool_id: 0u32.into(),
 				amount: (blocks_elapsed * 100u8.into()).saturated_into::<u32>().into(),

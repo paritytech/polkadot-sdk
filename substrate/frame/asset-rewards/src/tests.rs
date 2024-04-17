@@ -376,7 +376,7 @@ mod stake {
 			// Event is emitted.
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::Staked { who: user, amount: 1000, pool_id: 0 }
+				Event::<MockRuntime>::Staked { caller: user, amount: 1000, pool_id: 0 }
 			);
 
 			// Check that the pool's total tokens staked is updated
@@ -390,7 +390,7 @@ mod stake {
 			// Event is emitted.
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::Staked { who: user, amount: 500, pool_id: 0 }
+				Event::<MockRuntime>::Staked { caller: user, amount: 500, pool_id: 0 }
 			);
 
 			// Check that the user's staked amount is updated
@@ -442,7 +442,7 @@ mod unstake {
 			// Event is emitted.
 			assert_eq!(
 				*events().last().unwrap(),
-				Event::<MockRuntime>::Unstaked { who: user, amount: 500, pool_id: 0 }
+				Event::<MockRuntime>::Unstaked { caller: user, amount: 500, pool_id: 0 }
 			);
 
 			// Check that the user's staked amount is updated
@@ -530,7 +530,7 @@ mod harvest_rewards {
 			assert_eq!(
 				*events().last().unwrap(),
 				Event::<MockRuntime>::RewardsHarvested {
-					who: staker,
+					caller: staker,
 					staker,
 					pool_id,
 					amount: 10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
@@ -572,7 +572,7 @@ mod harvest_rewards {
 			assert_eq!(
 				*events().last().unwrap(),
 				Event::<MockRuntime>::RewardsHarvested {
-					who: harvester,
+					caller: harvester,
 					staker,
 					pool_id,
 					amount: 10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
@@ -1375,14 +1375,14 @@ fn integration() {
 					expiry_block: 25,
 					admin: Some(admin)
 				},
-				Event::Staked { who: staker1, pool_id, amount: 100 },
-				Event::Staked { who: staker2, pool_id, amount: 100 },
-				Event::Staked { who: staker1, pool_id, amount: 100 },
-				Event::Unstaked { who: staker1, pool_id, amount: 100 },
-				Event::Unstaked { who: staker1, pool_id, amount: 100 },
+				Event::Staked { caller: staker1, pool_id, amount: 100 },
+				Event::Staked { caller: staker2, pool_id, amount: 100 },
+				Event::Staked { caller: staker1, pool_id, amount: 100 },
+				Event::Unstaked { caller: staker1, pool_id, amount: 100 },
+				Event::Unstaked { caller: staker1, pool_id, amount: 100 },
 				Event::PoolExpiryBlockModified { pool_id, new_expiry_block: 60 },
 				Event::PoolRewardRateModified { pool_id, new_reward_rate_per_block: 50 },
-				Event::RewardsHarvested { who: staker2, staker: staker2, pool_id, amount: 1233 }
+				Event::RewardsHarvested { caller: staker2, staker: staker2, pool_id, amount: 1233 }
 			]
 		);
 	});

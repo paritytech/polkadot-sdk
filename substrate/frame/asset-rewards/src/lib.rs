@@ -235,7 +235,7 @@ pub mod pallet {
 		/// An account staked some tokens in a pool.
 		Staked {
 			/// The account that staked assets.
-			who: T::AccountId,
+			caller: T::AccountId,
 			/// The pool.
 			pool_id: PoolId,
 			/// The staked asset amount.
@@ -244,7 +244,7 @@ pub mod pallet {
 		/// An account unstaked some tokens from a pool.
 		Unstaked {
 			/// The account that unstaked assets.
-			who: T::AccountId,
+			caller: T::AccountId,
 			/// The pool.
 			pool_id: PoolId,
 			/// The unstaked asset amount.
@@ -253,7 +253,7 @@ pub mod pallet {
 		/// An account harvested some rewards.
 		RewardsHarvested {
 			/// The caller.
-			who: T::AccountId,
+			caller: T::AccountId,
 			/// The staker whos rewards were harvested.
 			staker: T::AccountId,
 			/// The pool.
@@ -410,7 +410,7 @@ pub mod pallet {
 			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
 
 			// Emit event.
-			Self::deposit_event(Event::Staked { who: caller, pool_id, amount });
+			Self::deposit_event(Event::Staked { caller, pool_id, amount });
 
 			Ok(())
 		}
@@ -447,7 +447,7 @@ pub mod pallet {
 			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
 
 			// Emit event.
-			Self::deposit_event(Event::Unstaked { who: caller, pool_id, amount });
+			Self::deposit_event(Event::Unstaked { caller, pool_id, amount });
 
 			Ok(())
 		}
@@ -485,7 +485,7 @@ pub mod pallet {
 
 			// Emit event.
 			Self::deposit_event(Event::RewardsHarvested {
-				who: caller.clone(),
+				caller: caller.clone(),
 				staker,
 				pool_id,
 				amount: staker_info.rewards,
