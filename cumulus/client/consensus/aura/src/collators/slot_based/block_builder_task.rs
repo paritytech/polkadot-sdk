@@ -240,12 +240,13 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 		collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 	};
 
-	let Ok(velocity) = u64::try_from(
+	let Ok(expected_cores) = u64::try_from(
 		relay_chain_slot_duration.as_millis() / slot_duration.as_duration().as_millis(),
 	) else {
-		tracing::error!(target: LOG_TARGET, ?relay_chain_slot_duration, ?slot_duration, "Unable to calculate expected parachain velocity.");
+		tracing::error!(target: LOG_TARGET, ?relay_chain_slot_duration, ?slot_duration, "Unable to calculate expected parachain expected_cores.");
 		return;
 	};
+	let expected_cores = expected_cores.max(1);
 
 	loop {
 		// We wait here until the next slot arrives.
@@ -262,7 +263,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 			continue;
 		}
 
-		let core_index_in_scheduled: u64 = *para_slot.slot % velocity;
+		let core_index_in_scheduled: u64 = *para_slot.slot % expected_cores;
 		let Some(core_index) = scheduled_cores.get(core_index_in_scheduled as usize) else {
 			tracing::debug!(target: LOG_TARGET, core_index_in_scheduled, core_len = scheduled_cores.len(), "Para is scheduled, but not enough cores available.");
 			continue;
