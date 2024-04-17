@@ -335,11 +335,12 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		let xcm_to_dest_clone = xcm.clone();
 		let dest_clone = dest.clone();
 
-		// At first, just use inner exporter to validate destination if it is even routable,
-		// if not just return error, if yes, then insert instructions to pay message fee at the
-		// sibling/child bridge hub: the cost will include both cost of: (1) to-sibling bridge hub
-		// delivery (returned by the `Config::ToBridgeHubSender`) and (2) to-bridged bridge hub
-		// delivery (returned by `Self::exporter_for`)
+		// First, use the inner exporter to validate the destination to determine if it is even
+		// routable. If it is not, return an error. If it is, then the XCM is extended with
+		// instructions to pay the message fee at the sibling/child bridge hub. The cost will
+		// include both the cost of (1) delivery to the sibling bridge hub (returned by
+		// `Config::ToBridgeHubSender`) and (2) delivery to the bridged bridge hub (returned by
+		// `Self::exporter_for`).
 		match ViaBridgeHubExporter::<T, I>::validate(dest, xcm) {
 			Ok((ticket, cost)) => {
 				// If the ticket is ok, it means we are routing with this router, so we need to
