@@ -38,6 +38,8 @@ use crate::{
 mod benchmarking;
 pub mod migration;
 
+const LOG_TARGET: &str = "runtime::parachains::coretime";
+
 pub trait WeightInfo {
 	fn request_core_count() -> Weight;
 	fn request_revenue_info_at() -> Weight;
@@ -250,7 +252,7 @@ impl<T: Config> Pallet<T> {
 				Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 				message,
 			) {
-				log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
+				log::error!(target: LOG_TARGET, "Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
 			}
 		}
 	}
@@ -284,11 +286,11 @@ impl<T: Config> Pallet<T> {
 					Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 					message,
 				) {
-					log::error!("Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
+					log::error!(target: LOG_TARGET, "Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
 				}
 			},
 			Err(_err) => {
-				log::error!("Converting on demand revenue for `NotifyRevenue`failed");
+				log::error!(target: LOG_TARGET, "Converting on demand revenue for `NotifyRevenue`failed");
 			},
 		}
 
@@ -309,7 +311,7 @@ impl<T: Config> Pallet<T> {
 			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 			message,
 		) {
-			log::error!("Sending `SwapLeases` to coretime chain failed: {:?}", err);
+			log::error!(target: LOG_TARGET, "Sending `SwapLeases` to coretime chain failed: {:?}", err);
 		}
 	}
 }
