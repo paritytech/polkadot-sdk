@@ -492,7 +492,8 @@ pub mod pallet {
 				&pool_account_id,
 				&staker,
 				staker_info.rewards,
-				Preservation::Preserve,
+				// Could kill the account, but only if the pool was already almost empty.
+				Preservation::Expendable,
 			)?;
 
 			// Emit event.
@@ -639,7 +640,8 @@ pub mod pallet {
 				&Self::pool_account_id(&pool_id)?,
 				&dest,
 				amount,
-				Preservation::Preserve,
+				// Allow completely draining the account.
+				Preservation::Expendable,
 			)?;
 
 			Ok(())
