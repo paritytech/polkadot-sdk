@@ -165,7 +165,7 @@ pub struct Agent<T: Config> {
 
 impl<T: Config> Agent<T> {
 	/// Get `Agent` from storage if it exists or return an error.
-	pub(crate) fn from(agent: &T::AccountId) -> Result<Agent<T>, DispatchError> {
+	pub(crate) fn get(agent: &T::AccountId) -> Result<Agent<T>, DispatchError> {
 		let ledger = AgentLedger::<T>::get(agent).ok_or(Error::<T>::NotAgent)?;
 		Ok(Agent { key: agent.clone(), ledger })
 	}
@@ -284,7 +284,7 @@ impl<T: Config> Agent<T> {
 
 	/// Reloads self from storage.
 	pub(crate) fn refresh(&self) -> Result<Agent<T>, DispatchError> {
-		Self::from(&self.key)
+		Self::get(&self.key)
 	}
 
 	/// Balance of `Agent` that is not bonded.
@@ -297,10 +297,7 @@ impl<T: Config> Agent<T> {
 
 		let net_balance = self.ledger.effective_balance();
 
-		defensive_assert!(
-			net_balance >= bonded_stake,
-			"cannot be bonded with more than the agent balance"
-		);
+		assert!(net_balance >= bonded_stake, "cannot be bonded with more than the agent balance");
 
 		net_balance.saturating_sub(bonded_stake)
 	}

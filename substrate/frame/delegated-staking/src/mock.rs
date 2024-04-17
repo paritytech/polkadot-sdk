@@ -299,7 +299,7 @@ pub(crate) fn setup_delegation_stake(
 
 	// sanity checks
 	assert_eq!(DelegatedStaking::stakeable_balance(&agent), delegated_amount);
-	assert_eq!(Agent::<T>::from(&agent).unwrap().available_to_bond(), 0);
+	assert_eq!(Agent::<T>::get(&agent).unwrap().available_to_bond(), 0);
 
 	delegated_amount
 }
@@ -314,7 +314,7 @@ pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool 
 }
 
 pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
-	Agent::<T>::from(agent).expect("delegate should exist")
+	Agent::<T>::get(agent).expect("delegate should exist")
 }
 
 pub(crate) fn held_balance(who: &AccountId) -> Balance {

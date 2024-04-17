@@ -87,14 +87,14 @@
 //! More details [here](https://hackmd.io/@ak0n/454-np-governance).
 //!
 //! ## Nomination Pool vs Delegation Staking
-//! This pallet is not a replacement for Nomination Pool but adds a new primitive in addition to staking
-//! pallet that can be used by Nomination Pool to support delegation based staking. It can be
-//! thought of as an extension to the Staking Pallet in relation to Nomination Pools. Technically, these
-//! changes could be made in one of those pallets as well but that would have meant significant
-//! refactoring and high chances of introducing a regression. With this approach, we can keep the
-//! existing pallets with minimal changes and introduce a new pallet that can be optionally used by
-//! Nomination Pool. The vision is to build this in a configurable way such that runtime can choose
-//! whether to use this pallet or not.
+//! This pallet is not a replacement for Nomination Pool but adds a new primitive in addition to
+//! staking pallet that can be used by Nomination Pool to support delegation based staking. It can
+//! be thought of as an extension to the Staking Pallet in relation to Nomination Pools.
+//! Technically, these changes could be made in one of those pallets as well but that would have
+//! meant significant refactoring and high chances of introducing a regression. With this approach,
+//! we can keep the existing pallets with minimal changes and introduce a new pallet that can be
+//! optionally used by Nomination Pool. The vision is to build this in a configurable way such that
+//! runtime can choose whether to use this pallet or not.
 //!
 //! With that said, following is the main difference between
 //! #### Nomination Pool without delegation support
@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_bond(agent_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		let agent = Agent::<T>::from(agent_acc)?;
+		let agent = Agent::<T>::get(agent_acc)?;
 
 		let available_to_bond = agent.available_to_bond();
 		defensive_assert!(amount == available_to_bond, "not expected value to bond");
@@ -526,7 +526,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		let mut agent = Agent::<T>::from(who)?;
+		let mut agent = Agent::<T>::get(who)?;
 		let mut delegation = Delegation::<T>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		// make sure delegation to be released is sound.
@@ -635,7 +635,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		let agent = Agent::<T>::from(&agent_acc)?;
+		let agent = Agent::<T>::get(&agent_acc)?;
 		// ensure there is something to slash
 		ensure!(agent.ledger.pending_slash > Zero::zero(), Error::<T>::NothingToSlash);
 
@@ -681,7 +681,7 @@ impl<T: Config> Pallet<T> {
 	/// Total balance that is available for stake. Includes already staked amount.
 	#[cfg(test)]
 	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		Agent::<T>::from(who)
+		Agent::<T>::get(who)
 			.map(|agent| agent.ledger.stakeable_balance())
 			.unwrap_or_default()
 	}
