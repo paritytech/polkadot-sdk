@@ -61,7 +61,7 @@ parameter_types! {
 				Some((BridgeFeeAsset::get(), BASE_FEE).into())
 			)
 		];
-	pub UnknownXcmVersionLocation: Location = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)]);
+	pub UnknownXcmVersionForRoutableLocation: Location = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)]);
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -76,7 +76,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion =
-		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionLocation>>;
+		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
