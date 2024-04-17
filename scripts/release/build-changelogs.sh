@@ -41,21 +41,22 @@ while IFS= read -r line; do
     audience=$(echo "$line" | jq -r '.const')
     description=$(echo "$line" | jq -r '.description')
     if [ -n "$audience" ] && [ -n "$description" ]; then
-        aud_desc_array+=("($audience, $description)")
+        aud_desc_array+=("($audience; $description)")
     fi
 done < <(echo -E $SCHEMA | jq -c '."$defs".audience_id.oneOf[]')
 
 # Generate a release notes doc per audience
 for tuple in "${aud_desc_array[@]}"; do
-    audience=$(echo "$tuple" | cut -d ',' -f 1 | sed 's/(//')
+    audience=$(echo "$tuple" | cut -d ';' -f 1 | sed 's/(//')
     audience_id="$(tr [A-Z] [a-z] <<< "$audience")"
     audience_id="$(tr ' ' '_' <<< "$audience_id")"
 
-    description=$(echo "$tuple" | cut -d ',' -f 2 | sed 's/)//')
+    description=$(echo "$tuple" | cut -d ';' -f 2 | sed 's/)//')
 
     echo "Processing audience: $audience ($audience_id)"
     export TARGET_AUDIENCE="$audience"
-    export AUDIENCE_DESC="These changes are relevant to: $description"
+    export AUDIENCE_DESC="**These changes are relevant to:** $description"
+
     tera -t "${TEMPLATE_AUDIENCE}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/relnote_${audience_id}.md"
     cat "$OUTPUT/relnote_${audience_id}.md" >> "$PROJECT_ROOT/scripts/release/templates/changelog.md"
 done

@@ -1,10 +1,6 @@
 ### Changelog for `{{ env.TARGET_AUDIENCE }}`
-<details>
-  <summary>Description</summary>
 
-  {{ env.AUDIENCE_DESC }}
-
-</details>
+{{ env.AUDIENCE_DESC }}
 
 {% for file in prdoc -%}
 {% for doc_item in file.content.doc %}
