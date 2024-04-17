@@ -305,6 +305,7 @@ mod staking_integration {
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
 					100
 				);
+				assert_eq!(DelegatedStaking::delegator_balance(&delegator), 100);
 
 				let agent_obj = get_agent(&agent);
 				assert_eq!(agent_obj.ledger.stakeable_balance(), delegated_balance);

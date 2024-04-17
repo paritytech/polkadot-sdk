@@ -27,7 +27,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 	/// Effective balance of the `Agent` account.
 	fn agent_balance(who: &Self::AccountId) -> Self::Balance {
-		Agent::<T>::from(who)
+		Agent::<T>::get(who)
 			.map(|agent| agent.ledger.effective_balance())
 			.unwrap_or_default()
 	}
@@ -81,7 +81,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 	/// Returns true if the `Agent` have any slash pending to be applied.
 	fn has_pending_slash(agent: &Self::AccountId) -> bool {
-		Agent::<T>::from(agent)
+		Agent::<T>::get(agent)
 			.map(|d| !d.ledger.pending_slash.is_zero())
 			.unwrap_or(false)
 	}
@@ -136,7 +136,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	fn on_withdraw(stash: &T::AccountId, amount: BalanceOf<T>) {
 		// if there is a withdraw to the agent, then add it to the unclaimed withdrawals.
-		let _ = Agent::<T>::from(stash)
+		let _ = Agent::<T>::get(stash)
 			// can't do anything if there is an overflow error. Just raise a defensive error.
 			.and_then(|agent| agent.add_unclaimed_withdraw(amount).defensive())
 			.map(|agent| agent.save());
