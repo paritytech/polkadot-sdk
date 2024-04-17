@@ -10671,6 +10671,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sidechains-session"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-sidechains-session",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-skip-feeless-payment"
 version = "3.0.0"
 dependencies = [

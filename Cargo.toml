@@ -378,6 +378,7 @@ members = [
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
 	"substrate/frame/session",
+	"substrate/frame/sidechains-session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
 	"substrate/frame/staking",
