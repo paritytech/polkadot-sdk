@@ -269,7 +269,7 @@ pub trait Backend<Block: BlockT>:
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
-		let mut result = DisplacedLeavesAfterFinalization::new();
+		let mut result = DisplacedLeavesAfterFinalization::default();
 
 		if finalized_block_number == Zero::zero() {
 			return Ok(result)
