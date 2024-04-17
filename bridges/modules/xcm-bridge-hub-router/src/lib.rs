@@ -328,51 +328,57 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		log::trace!(target: LOG_TARGET, "validate - msg: {xcm:?}, destination: {dest:?}");
-		// `dest` and `xcm` are required here
-		let dest_ref = dest.as_ref().ok_or(SendError::MissingArgument)?;
-		let xcm_ref = xcm.as_ref().ok_or(SendError::MissingArgument)?;
 
-		// we won't have an access to `dest` and `xcm` in the `deliver` method, so precompute
-		// everything required here
-		let message_size = xcm_ref.encoded_size() as _;
+		// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions and consume
+		// `dest` / `xcm`, so we retain the clone of original message and the destination for later
+		// `DestinationVersion` validation.
+		let xcm_to_dest_clone = xcm.clone();
+		let dest_clone = dest.clone();
 
-		// bridge doesn't support oversized/overweight messages now. So it is better to drop such
-		// messages here than at the bridge hub. Let's check the message size.
-		if message_size > HARD_MESSAGE_SIZE_LIMIT {
-			return Err(SendError::ExceedsMaxMessageSize)
+		// At first, just use inner exporter to validate destination if it is even routable,
+		// if not just return error, if yes, then insert instructions to pay message fee at the
+		// sibling/child bridge hub: the cost will include both cost of: (1) to-sibling bridge hub
+		// delivery (returned by the `Config::ToBridgeHubSender`) and (2) to-bridged bridge hub
+		// delivery (returned by `Self::exporter_for`)
+		match ViaBridgeHubExporter::<T, I>::validate(dest, xcm) {
+			Ok((ticket, cost)) => {
+				// If the ticket is ok, it means we are routing with this router, so we need to
+				// apply more validations to the cloned `dest` and `xcm`, which are required here.
+				let xcm_to_dest_clone = xcm_to_dest_clone.ok_or(SendError::MissingArgument)?;
+				let dest_clone = dest_clone.ok_or(SendError::MissingArgument)?;
+
+				// We won't have access to `dest` and `xcm` in the `deliver` method, so we need to
+				// precompute everything required here. However, `dest` and `xcm` were consumed by
+				// `ViaBridgeHubExporter`, so we need to use their clones.
+				let message_size = xcm_to_dest_clone.encoded_size() as _;
+
+				// The bridge doesn't support oversized or overweight messages. Therefore, it's
+				// better to drop such messages here rather than at the bridge hub. Let's check the
+				// message size."
+				if message_size > HARD_MESSAGE_SIZE_LIMIT {
+					return Err(SendError::ExceedsMaxMessageSize)
+				}
+
+				// We need to ensure that the known `dest`'s XCM version can comprehend the current
+				// `xcm` program. This may seem like an additional, unnecessary check, but it is
+				// not. A similar check is probably performed by the `ViaBridgeHubExporter`, which
+				// attempts to send a versioned message to the sibling bridge hub. However, the
+				// local bridge hub may have a higher XCM version than the remote `dest`. Once
+				// again, it is better to discard such messages here than at the bridge hub (e.g.,
+				// to avoid losing funds).
+				let destination_version = T::DestinationVersion::get_version_for(&dest_clone)
+					.ok_or(SendError::DestinationUnsupported)?;
+				let _ = VersionedXcm::from(xcm_to_dest_clone)
+					.into_version(destination_version)
+					.map_err(|()| SendError::DestinationUnsupported)?;
+
+				Ok(((message_size, ticket), cost))
+			},
+			Err(e) => {
+				log::trace!(target: LOG_TARGET, "validate - ViaBridgeHubExporter - error: {e:?}");
+				Err(e)
+			},
 		}
-
-		// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions, so we retain
-		// the clone of original message for the destination for later `DestinationVersion`
-		// validation.
-		let xcm_to_dest_clone = xcm_ref.clone();
-		let dest_clone = dest_ref.clone();
-
-		// just use exporter to validate destination and insert instructions to pay message fee
-		// at the sibling/child bridge hub
-		//
-		// the cost will include both cost of: (1) to-sibling bridge hub delivery (returned by
-		// the `Config::ToBridgeHubSender`) and (2) to-bridged bridge hub delivery (returned by
-		// `Self::exporter_for`)
-		let ticket = ViaBridgeHubExporter::<T, I>::validate(dest, xcm)
-			.map(|(ticket, cost)| ((message_size, ticket), cost));
-
-		// If ticket is ok, it means we are routing here.
-		if ticket.is_ok() {
-			// We need to ensure that the known `dest`'s XCM version can comprehend the current
-			// `xcm` program. This may seem like an additional, unnecessary check, but it is not. A
-			// similar check is probably performed by the `ViaBridgeHubExporter`, which attempts to
-			// send a versioned message to the sibling bridge hub. However, the local bridge hub may
-			// have a higher XCM version than the remote `dest`. Once again, it is better to discard
-			// such messages here than at the bridge hub (e.g., to avoid losing funds).
-			let destination_version = T::DestinationVersion::get_version_for(&dest_clone)
-				.ok_or(SendError::DestinationUnsupported)?;
-			let _ = VersionedXcm::from(xcm_to_dest_clone)
-				.into_version(destination_version)
-				.map_err(|()| SendError::DestinationUnsupported)?;
-		}
-
-		ticket
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
@@ -463,24 +469,51 @@ mod tests {
 	#[test]
 	fn not_applicable_if_destination_is_within_other_network() {
 		run_test(|| {
+			// unroutable dest
+			let dest = Location::new(2, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]);
+			let xcm: Xcm<()> = vec![ClearOrigin].into();
+
+			// check that router does not consume when `NotApplicable`
+			let mut xcm_wrapper = Some(xcm.clone());
 			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					Location::new(2, [GlobalConsensus(Rococo), Parachain(1000)]),
-					vec![].into(),
-				),
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
 				Err(SendError::NotApplicable),
 			);
+			// XCM is NOT consumed and untouched
+			assert_eq!(Some(xcm.clone()), xcm_wrapper);
+
+			// check the full `send_xcm`
+			assert_eq!(send_xcm::<XcmBridgeHubRouter>(dest, xcm,), Err(SendError::NotApplicable),);
 		});
 	}
 
 	#[test]
 	fn exceeds_max_message_size_if_size_is_above_hard_limit() {
 		run_test(|| {
+			// routable dest with XCM version
+			let dest =
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+			// oversized XCM
+			let xcm: Xcm<()> = vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into();
+
+			// dest is routable with the inner router
+			assert_ok!(ViaBridgeHubExporter::<TestRuntime, ()>::validate(
+				&mut Some(dest.clone()),
+				&mut Some(xcm.clone())
+			));
+
+			// check for oversized message
+			let mut xcm_wrapper = Some(xcm.clone());
 			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					Location::new(2, [GlobalConsensus(Rococo), Parachain(1000)]),
-					vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into(),
-				),
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
+				Err(SendError::ExceedsMaxMessageSize),
+			);
+			// XCM is consumed by the inner router
+			assert!(xcm_wrapper.is_none());
+
+			// check the full `send_xcm`
+			assert_eq!(
+				send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
 				Err(SendError::ExceedsMaxMessageSize),
 			);
 		});
@@ -489,11 +522,28 @@ mod tests {
 	#[test]
 	fn destination_unsupported_if_wrap_version_fails() {
 		run_test(|| {
+			// routable dest but we don't know XCM version
+			let dest = UnknownXcmVersionForRoutableLocation::get();
+			let xcm: Xcm<()> = vec![ClearOrigin].into();
+
+			// dest is routable with the inner router
+			assert_ok!(ViaBridgeHubExporter::<TestRuntime, ()>::validate(
+				&mut Some(dest.clone()),
+				&mut Some(xcm.clone())
+			));
+
+			// check that it does not pass XCM version check
+			let mut xcm_wrapper = Some(xcm.clone());
 			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					UnknownXcmVersionLocation::get(),
-					vec![ClearOrigin].into(),
-				),
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
+				Err(SendError::DestinationUnsupported),
+			);
+			// XCM is consumed by the inner router
+			assert!(xcm_wrapper.is_none());
+
+			// check the full `send_xcm`
+			assert_eq!(
+				send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
 				Err(SendError::DestinationUnsupported),
 			);
 		});
