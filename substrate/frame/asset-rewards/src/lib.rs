@@ -95,7 +95,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::Get;
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::{
+	traits::{CheckedAdd, Zero},
+	DispatchError,
+};
 use sp_std::boxed::Box;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -315,6 +318,8 @@ pub mod pallet {
 		BlockNumberConversionError,
 		/// The expiry block must be in the future.
 		ExpiryBlockMustBeInTheFuture,
+		/// An amount overflowed.
+		Overflow,
 	}
 
 	/// Pallet's callable functions.
@@ -407,7 +412,9 @@ pub mod pallet {
 			// TODO: (blocked https://github.com/paritytech/polkadot-sdk/issues/3342)
 
 			// Update Pools.
-			pool_info.total_tokens_staked.saturating_accrue(amount);
+			pool_info.total_tokens_staked =
+				pool_info.total_tokens_staked.checked_add(&amount).ok_or(Error::<T>::Overflow)?;
+
 			Pools::<T>::insert(pool_id, pool_info);
 
 			// Update PoolStakers.
