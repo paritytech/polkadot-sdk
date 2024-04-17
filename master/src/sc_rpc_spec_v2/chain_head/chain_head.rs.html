@@ -870,7 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Maximum pinned blocks across all connections.
 /// This number is large enough to consider immediate blocks.
 /// Note: This should never exceed the `PINNING_CACHE_SIZE` from client/db.
-</span><span class="kw">const </span>MAX_PINNED_BLOCKS: usize = <span class="number">512</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_PINNED_BLOCKS: usize = <span class="number">512</span>;
 
 <span class="doccomment">/// Any block of any subscription should not be pinned more than
 /// this constant. When a subscription contains a block older than this,

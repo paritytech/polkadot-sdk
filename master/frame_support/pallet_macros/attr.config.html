@@ -184,23 +184,41 @@ config:</p>
 	<span class="attr">#[pallet::config(with_default)] </span><span class="comment">// &lt;- with_default is optional
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
-		</span><span class="attr">#[pallet::no_default_bounds] </span><span class="comment">// Default is not supported for RuntimeEvent
+		</span><span class="attr">#[pallet::no_default_bounds] </span><span class="comment">// Default with bounds is not supported for RuntimeEvent
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
-		<span class="comment">// ...other config items get default
-	</span>}
+		<span class="doccomment">/// A more complex type.
+		</span><span class="attr">#[pallet::no_default] </span><span class="comment">// Example of type where no default should be provided
+		</span><span class="kw">type </span>MoreComplexType: SomeMoreComplexBound;
+
+		<span class="doccomment">/// A simple type.
+		</span><span class="comment">// Default with bounds is supported for simple types
+		</span><span class="kw">type </span>SimpleType: From&lt;u32&gt;;
+	}
 
 	<span class="attr">#[pallet::event]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		SomeEvent(u16, u32),
 	}
 }</code></pre></div>
-<p>As shown above, you may also attach the <a href="attr.no_default.html" title="attr frame_support::pallet_macros::no_default"><code>#[pallet::no_default]</code></a>
+<p>As shown above:</p>
+<ul>
+<li>you may attach the <a href="attr.no_default.html" title="attr frame_support::pallet_macros::no_default"><code>#[pallet::no_default]</code></a>
 attribute to specify that a particular trait item <em>cannot</em> be used as a default when a
 test <code>Config</code> is derived using the <a href="../attr.derive_impl.html" title="attr frame_support::derive_impl"><code>#[derive_impl(..)]</code></a>
 attribute macro. This will cause that particular trait item to simply not appear in
 default testing configs based on this config (the trait item will not be included in
-<code>DefaultConfig</code>).</p>
+<code>DefaultConfig</code>).</li>
+<li>you may attach the <a href="attr.no_default_bounds.html" title="attr frame_support::pallet_macros::no_default_bounds"><code>#[pallet::no_default_bounds]</code></a>
+attribute to specify that a particular trait item can be used as a default when a
+test <code>Config</code> is derived using the <a href="../attr.derive_impl.html" title="attr frame_support::derive_impl"><code>#[derive_impl(..)]</code></a>
+attribute macro. But its bounds cannot be enforced at this point and should be
+discarded when generating the default config trait.</li>
+<li>you may not specify any attribute to generate a trait item in the default config
+trait.</li>
+</ul>
+<p>In case origin of error is not clear it is recommended to disable all default with
+<a href="attr.no_default.html" title="attr frame_support::pallet_macros::no_default"><code>#[pallet::no_default]</code></a> and enable them one by one.</p>
 <h4 id="defaultconfig-caveats"><a href="#defaultconfig-caveats"><code>DefaultConfig</code> Caveats</a></h4>
 <p>The auto-generated <code>DefaultConfig</code> trait:</p>
 <ul>
@@ -219,7 +237,12 @@ with <a href="../attr.derive_impl.html" title="attr frame_support::derive_impl">
 the <code>DefaultConfig</code> trait, and therefore any impl of <code>DefaultConfig</code> doesn’t need to
 implement such items.</li>
 </ul>
-<p>For more information, see <a href="../attr.derive_impl.html" title="attr frame_support::derive_impl"><code>frame_support::derive_impl</code></a>.</p>
+<p>For more information, see:</p>
+<ul>
+<li><a href="../attr.derive_impl.html" title="attr frame_support::derive_impl"><code>frame_support::derive_impl</code></a>.</li>
+<li><a href="attr.no_default.html" title="attr frame_support::pallet_macros::no_default"><code>#[pallet::no_default]</code></a></li>
+<li><a href="attr.no_default_bounds.html" title="attr frame_support::pallet_macros::no_default_bounds"><code>#[pallet::no_default_bounds]</code></a></li>
+</ul>
 <hr />
 <p>Documentation for this macro can be found at <code>frame_support::pallet_macros::config</code>.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

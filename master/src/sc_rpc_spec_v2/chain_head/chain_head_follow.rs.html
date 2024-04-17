@@ -855,6 +855,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -876,7 +882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Implementation of the `chainHead_follow` method.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::chain_head::{
-	chain_head::LOG_TARGET,
+	chain_head::{LOG_TARGET, MAX_PINNED_BLOCKS},
 	event::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
@@ -894,6 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
 <span class="kw">use </span>sc_rpc::utils::to_sub_message;
+<span class="kw">use </span>schnellru::{ByLength, LruMap};
 <span class="kw">use </span>sp_api::CallApiAt;
 <span class="kw">use </span>sp_blockchain::{
 	Backend <span class="kw">as </span>BlockChainBackend, Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata, Info,
@@ -925,7 +932,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Subscription ID.
 	</span>sub_id: String,
 	<span class="doccomment">/// The best reported block by this subscription.
-	</span>best_block_cache: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
+	</span>current_best_block: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
+	<span class="doccomment">/// LRU cache of pruned blocks.
+	</span>pruned_blocks: LruMap&lt;Block::Hash, ()&gt;,
 	<span class="doccomment">/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	</span>max_lagging_distance: usize,
@@ -947,7 +956,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sub_handle,
 			with_runtime,
 			sub_id,
-			best_block_cache: <span class="prelude-val">None</span>,
+			current_best_block: <span class="prelude-val">None</span>,
+			pruned_blocks: LruMap::new(ByLength::new(
+				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
+			)),
 			max_lagging_distance,
 		}
 	}
@@ -1160,18 +1172,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Generate the initial events reported by the RPC `follow` method.
 	///
-	/// Returns the initial events that should be reported directly, together with pruned
-	/// block hashes that should be ignored by the `Finalized` event.
+	/// Returns the initial events that should be reported directly.
 	</span><span class="kw">fn </span>generate_init_events(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		startup_point: <span class="kw-2">&amp;</span>StartupPoint&lt;Block&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;FollowEvent&lt;Block::Hash&gt;&gt;, HashSet&lt;Block::Hash&gt;), SubscriptionManagementError&gt;
-	{
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;FollowEvent&lt;Block::Hash&gt;&gt;, SubscriptionManagementError&gt; {
 		<span class="kw">let </span>init = <span class="self">self</span>.get_init_blocks_with_forks(startup_point.finalized_hash)<span class="question-mark">?</span>;
 
 		<span class="comment">// The initialized event is the first one sent.
 		</span><span class="kw">let </span>initial_blocks = init.finalized_block_descendants;
 		<span class="kw">let </span>finalized_block_hashes = init.finalized_block_hashes;
+		<span class="comment">// These are the pruned blocks that we should not report again.
+		</span><span class="kw">for </span>pruned <span class="kw">in </span>init.pruned_forks {
+			<span class="self">self</span>.pruned_blocks.insert(pruned, ());
+		}
 
 		<span class="kw">let </span>finalized_block_hash = startup_point.finalized_hash;
 		<span class="kw">let </span>finalized_block_runtime = <span class="self">self</span>.generate_runtime_event(finalized_block_hash, <span class="prelude-val">None</span>);
@@ -1202,11 +1216,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>best_block_hash = startup_point.best_hash;
 		<span class="kw">if </span>best_block_hash != finalized_block_hash {
 			<span class="kw">let </span>best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-			<span class="self">self</span>.best_block_cache = <span class="prelude-val">Some</span>(best_block_hash);
+			<span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(best_block_hash);
 			finalized_block_descendants.push(best_block);
 		};
 
-		<span class="prelude-val">Ok</span>((finalized_block_descendants, init.pruned_forks))
+		<span class="prelude-val">Ok</span>(finalized_block_descendants)
 	}
 
 	<span class="doccomment">/// Generate the &quot;NewBlock&quot; event and potentially the &quot;BestBlockChanged&quot; event for the
@@ -1234,19 +1248,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>best_block_event =
 			FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash: block_hash });
 
-		<span class="kw">match </span><span class="self">self</span>.best_block_cache {
+		<span class="kw">match </span><span class="self">self</span>.current_best_block {
 			<span class="prelude-val">Some</span>(block_cache) =&gt; {
 				<span class="comment">// The RPC layer has not reported this block as best before.
 				// Note: This handles the race with the finalized branch.
 				</span><span class="kw">if </span>block_cache != block_hash {
-					<span class="self">self</span>.best_block_cache = <span class="prelude-val">Some</span>(block_hash);
+					<span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(block_hash);
 					<span class="macro">vec!</span>[new_block, best_block_event]
 				} <span class="kw">else </span>{
 					<span class="macro">vec!</span>[new_block]
 				}
 			},
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="self">self</span>.best_block_cache = <span class="prelude-val">Some</span>(block_hash);
+				<span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(block_hash);
 				<span class="macro">vec!</span>[new_block, best_block_event]
 			},
 		}
@@ -1315,7 +1329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// When the node falls out of sync and then syncs up to the tip of the chain, it can
 				// happen that we skip notifications. Then it is better to terminate the connection
 				// instead of trying to send notifications for all missed blocks.
-				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(best_block_hash) = <span class="self">self</span>.best_block_cache {
+				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(best_block_hash) = <span class="self">self</span>.current_best_block {
 					<span class="kw">let </span>ancestor = sp_blockchain::lowest_common_ancestor(
 						<span class="kw-2">&amp;*</span><span class="self">self</span>.client,
 						<span class="kw-2">*</span>hash,
@@ -1338,13 +1352,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get all pruned block hashes from the provided stale heads.
-	///
-	/// The result does not include hashes from `to_ignore`.
 	</span><span class="kw">fn </span>get_pruned_hashes(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		stale_heads: <span class="kw-2">&amp;</span>[Block::Hash],
 		last_finalized: Block::Hash,
-		to_ignore: <span class="kw-2">&amp;mut </span>HashSet&lt;Block::Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Block::Hash&gt;, SubscriptionManagementError&gt; {
 		<span class="kw">let </span>blockchain = <span class="self">self</span>.backend.blockchain();
 		<span class="kw">let </span><span class="kw-2">mut </span>pruned = Vec::new();
@@ -1354,11 +1365,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Collect only blocks that are not part of the canonical chain.
 			</span>pruned.extend(tree_route.enacted().iter().filter_map(|block| {
-				<span class="kw">if </span>!to_ignore.remove(<span class="kw-2">&amp;</span>block.hash) {
-					<span class="prelude-val">Some</span>(block.hash)
-				} <span class="kw">else </span>{
-					<span class="prelude-val">None
+				<span class="kw">if </span><span class="self">self</span>.pruned_blocks.get(<span class="kw-2">&amp;</span>block.hash).is_some() {
+					<span class="comment">// The block was already reported as pruned.
+					</span><span class="kw">return </span><span class="prelude-val">None
 				</span>}
+
+				<span class="self">self</span>.pruned_blocks.insert(block.hash, ());
+				<span class="prelude-val">Some</span>(block.hash)
 			}))
 		}
 
@@ -1372,7 +1385,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>handle_finalized_blocks(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		notification: FinalityNotification&lt;Block&gt;,
-		to_ignore: <span class="kw-2">&amp;mut </span>HashSet&lt;Block::Hash&gt;,
 		startup_point: <span class="kw-2">&amp;</span>StartupPoint&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;FollowEvent&lt;Block::Hash&gt;&gt;, SubscriptionManagementError&gt; {
 		<span class="kw">let </span>last_finalized = notification.hash;
@@ -1393,25 +1405,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Report all pruned blocks from the notification that are not
 		// part of the fork we need to ignore.
 		</span><span class="kw">let </span>pruned_block_hashes =
-			<span class="self">self</span>.get_pruned_hashes(<span class="kw-2">&amp;</span>notification.stale_heads, last_finalized, to_ignore)<span class="question-mark">?</span>;
+			<span class="self">self</span>.get_pruned_hashes(<span class="kw-2">&amp;</span>notification.stale_heads, last_finalized)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>finalized_event = FollowEvent::Finalized(Finalized {
 			finalized_block_hashes,
 			pruned_block_hashes: pruned_block_hashes.clone(),
 		});
 
-		<span class="kw">match </span><span class="self">self</span>.best_block_cache {
-			<span class="prelude-val">Some</span>(block_cache) =&gt; {
-				<span class="comment">// If the best block wasn&#39;t pruned, we are done here.
-				</span><span class="kw">if </span>!pruned_block_hashes.iter().any(|hash| <span class="kw-2">*</span>hash == block_cache) {
-					events.push(finalized_event);
-					<span class="kw">return </span><span class="prelude-val">Ok</span>(events)
-				}
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(current_best_block) = <span class="self">self</span>.current_best_block {
+			<span class="comment">// The best reported block is in the pruned list. Report a new best block.
+			</span><span class="kw">let </span>is_in_pruned_list =
+				pruned_block_hashes.iter().any(|hash| <span class="kw-2">*</span>hash == current_best_block);
+			<span class="comment">// The block is not the last finalized block.
+			//
+			// It can be either:
+			//  - a descendant of the last finalized block
+			//  - a block on a fork that will be pruned in the future.
+			//
+			// In those cases, we emit a new best block.
+			</span><span class="kw">let </span>is_not_last_finalized = current_best_block != last_finalized;
 
-				<span class="comment">// The best block is reported as pruned. Therefore, we need to signal a new
-				// best block event before submitting the finalized event.
+			<span class="kw">if </span>is_in_pruned_list || is_not_last_finalized {
+				<span class="comment">// We need to generate a best block event.
 				</span><span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
-				<span class="kw">if </span>best_block_hash == block_cache {
+
+				<span class="comment">// Defensive check against state missmatch.
+				</span><span class="kw">if </span>best_block_hash == current_best_block {
 					<span class="comment">// The client doest not have any new information about the best block.
 					// The information from `.info()` is updated from the DB as the last
 					// step of the finalization and it should be up to date.
@@ -1421,23 +1440,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="string">&quot;[follow][id={:?}] Client does not contain different best block&quot;</span>,
 						<span class="self">self</span>.sub_id,
 					);
-					events.push(finalized_event);
-					<span class="prelude-val">Ok</span>(events)
 				} <span class="kw">else </span>{
 					<span class="comment">// The RPC needs to also submit a new best block changed before the
 					// finalized event.
-					</span><span class="self">self</span>.best_block_cache = <span class="prelude-val">Some</span>(best_block_hash);
-					<span class="kw">let </span>best_block_event =
-						FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-					events.extend([best_block_event, finalized_event]);
-					<span class="prelude-val">Ok</span>(events)
+					</span><span class="self">self</span>.current_best_block = <span class="prelude-val">Some</span>(best_block_hash);
+					events
+						.push(FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash }));
 				}
-			},
-			<span class="prelude-val">None </span>=&gt; {
-				events.push(finalized_event);
-				<span class="prelude-val">Ok</span>(events)
-			},
+			}
 		}
+
+		events.push(finalized_event);
+		<span class="prelude-val">Ok</span>(events)
 	}
 
 	<span class="doccomment">/// Submit the events from the provided stream to the RPC client
@@ -1446,7 +1460,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		startup_point: <span class="kw-2">&amp;</span>StartupPoint&lt;Block&gt;,
 		<span class="kw-2">mut </span>stream: EventStream,
-		<span class="kw-2">mut </span>to_ignore: HashSet&lt;Block::Hash&gt;,
 		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver&lt;()&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt;
@@ -1469,7 +1482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				NotificationType::NewBlock(notification) =&gt;
 					<span class="self">self</span>.handle_import_blocks(notification, <span class="kw-2">&amp;</span>startup_point),
 				NotificationType::Finalized(notification) =&gt;
-					<span class="self">self</span>.handle_finalized_blocks(notification, <span class="kw-2">&amp;mut </span>to_ignore, <span class="kw-2">&amp;</span>startup_point),
+					<span class="self">self</span>.handle_finalized_blocks(notification, <span class="kw-2">&amp;</span>startup_point),
 				NotificationType::MethodResponse(notification) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[notification]),
 			};
 
@@ -1539,7 +1552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|response| NotificationType::MethodResponse(response));
 
 		<span class="kw">let </span>startup_point = StartupPoint::from(<span class="self">self</span>.client.info());
-		<span class="kw">let </span>(initial_events, pruned_forks) = <span class="kw">match </span><span class="self">self</span>.generate_init_events(<span class="kw-2">&amp;</span>startup_point) {
+		<span class="kw">let </span>initial_events = <span class="kw">match </span><span class="self">self</span>.generate_init_events(<span class="kw-2">&amp;</span>startup_point) {
 			<span class="prelude-val">Ok</span>(blocks) =&gt; blocks,
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">debug!</span>(
@@ -1559,8 +1572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>merged = tokio_stream::StreamExt::merge(merged, stream_responses);
 		<span class="kw">let </span>stream = stream::once(futures::future::ready(initial)).chain(merged);
 
-		<span class="self">self</span>.submit_events(<span class="kw-2">&amp;</span>startup_point, stream.boxed(), pruned_forks, sink, sub_data.rx_stop)
-			.<span class="kw">await
+		<span class="self">self</span>.submit_events(<span class="kw-2">&amp;</span>startup_point, stream.boxed(), sink, sub_data.rx_stop).<span class="kw">await
 	</span>}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
