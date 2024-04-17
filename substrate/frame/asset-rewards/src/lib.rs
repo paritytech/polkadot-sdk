@@ -313,6 +313,8 @@ pub mod pallet {
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
+		///
+		/// If an explicity admin is not specified, it defaults to the caller.
 		#[pallet::call_index(0)]
 		pub fn create_pool(
 			origin: OriginFor<T>,
@@ -376,6 +378,8 @@ pub mod pallet {
 		}
 
 		/// Stake tokens in a pool.
+		///
+		/// A freeze is placed on the staked tokens.
 		#[pallet::call_index(1)]
 		pub fn stake(origin: OriginFor<T>, pool_id: PoolId, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
@@ -404,6 +408,8 @@ pub mod pallet {
 		}
 
 		/// Unstake tokens from a pool.
+		///
+		/// Removes the freeze on the staked tokens.
 		#[pallet::call_index(2)]
 		pub fn unstake(
 			origin: OriginFor<T>,
@@ -439,6 +445,9 @@ pub mod pallet {
 		}
 
 		/// Harvest unclaimed pool rewards for a staker.
+		///
+		/// Anyone may harvest rewards on behalf of a staker. If an explicit staker is not provided,
+		/// the caller is assumed to be the staker.
 		#[pallet::call_index(3)]
 		pub fn harvest_rewards(
 			origin: OriginFor<T>,
