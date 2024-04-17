@@ -38,7 +38,7 @@ mod benchmarks {
 		_(
 			root_origin as <T as frame_system::Config>::RuntimeOrigin,
 			// TODO: Better when param
-			BlockNumberFor::<T>::from(100),
+			BlockNumberFor::<T>::from(100u32),
 		)
 	}
 
