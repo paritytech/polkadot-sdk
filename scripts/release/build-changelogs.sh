@@ -2,7 +2,7 @@
 
 export PRODUCT=polkadot
 export VERSION=${VERSION:-1.5.0}
-export ENGINE=${ENGINE:-docker}
+export ENGINE=${ENGINE:-podman}
 export REF1=${REF1:-'HEAD'}
 export REF2=${REF2}
 export RUSTC_STABLE=${RUSTC_STABLE:-'1.0'}
@@ -26,8 +26,8 @@ OUTPUT="${TMP}/changelogs/$PRODUCT/$VERSION"
 echo -e "OUTPUT: \t\t$OUTPUT"
 mkdir -p $OUTPUT
 
-#$ENGINE run --rm -v ${PROJECT_ROOT}:/repo paritytech/prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
-prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
+$ENGINE run --rm -v ${PROJECT_ROOT}:/repo paritytech/prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
+#prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
 # ls -al $DATA_JSON
 
 cat $DATA_JSON | jq ' { "prdoc" : .}' > $CONTEXT_JSON
