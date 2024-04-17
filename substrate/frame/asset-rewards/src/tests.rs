@@ -221,6 +221,57 @@ mod create_pool {
 	}
 
 	#[test]
+	fn success_same_assest() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
+
+			// Create a pool with the same staking and reward asset.
+			let asset = NativeOrWithId::<u32>::Native;
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::root(),
+				Box::new(asset.clone()),
+				Box::new(asset.clone()),
+				DEFAULT_REWARD_RATE_PER_BLOCK,
+				DEFAULT_EXPIRY_BLOCK,
+				None
+			));
+
+			// Event is emitted.
+			assert_eq!(
+				events(),
+				[Event::<MockRuntime>::PoolCreated {
+					creator: PermissionedAccountId::get(),
+					pool_id: 0,
+					staked_asset_id: asset.clone(),
+					reward_asset_id: asset.clone(),
+					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
+					expiry_block: DEFAULT_EXPIRY_BLOCK,
+					admin: PermissionedAccountId::get(),
+				}]
+			);
+
+			// State is updated correctly.
+			assert_eq!(NextPoolId::<MockRuntime>::get(), 1);
+			assert_eq!(
+				pools(),
+				vec![(
+					0,
+					PoolInfo {
+						staked_asset_id: asset.clone(),
+						reward_asset_id: asset,
+						reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
+						expiry_block: DEFAULT_EXPIRY_BLOCK,
+						admin: PermissionedAccountId::get(),
+						total_tokens_staked: 0,
+						reward_per_token_stored: 0,
+						last_update_block: 0
+					}
+				)]
+			);
+		})
+	}
+
+	#[test]
 	fn fails_for_non_existent_asset() {
 		new_test_ext().execute_with(|| {
 			let valid_asset = NativeOrWithId::<u32>::WithId(1);
