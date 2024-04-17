@@ -419,7 +419,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_drop_history(when: Timeslice) -> DispatchResult {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		ensure!(status.last_timeslice > when + config.contribution_timeout, Error::<T>::StillValid);
+		ensure!(
+			status.last_timeslice > when.saturating_add(config.contribution_timeout),
+			Error::<T>::StillValid
+		);
 		let record = InstaPoolHistory::<T>::take(when).ok_or(Error::<T>::NoHistory)?;
 		if let Some(payout) = record.maybe_payout {
 			let _ = Self::charge(&Self::account_id(), payout);
