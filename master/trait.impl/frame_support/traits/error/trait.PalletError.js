@@ -12,6 +12,7 @@
 "frame_system":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"frame_system/pallet/enum.Error.html\" title=\"enum frame_system::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_alliance":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_alliance/pallet/enum.Error.html\" title=\"enum pallet_alliance::pallet::Error\">Error</a>&lt;T, I&gt;"]],
 "pallet_asset_conversion":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_asset_conversion/pallet/enum.Error.html\" title=\"enum pallet_asset_conversion::pallet::Error\">Error</a>&lt;T&gt;"]],
+"pallet_asset_conversion_ops":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_asset_conversion_ops/pallet/enum.Error.html\" title=\"enum pallet_asset_conversion_ops::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_asset_rate":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_asset_rate/pallet/enum.Error.html\" title=\"enum pallet_asset_rate::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_assets":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_assets/pallet/enum.Error.html\" title=\"enum pallet_assets::pallet::Error\">Error</a>&lt;T, I&gt;"]],
 "pallet_atomic_swap":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_atomic_swap/pallet/enum.Error.html\" title=\"enum pallet_atomic_swap::pallet::Error\">Error</a>&lt;T&gt;"]],

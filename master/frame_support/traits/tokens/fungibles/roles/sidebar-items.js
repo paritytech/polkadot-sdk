@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["Inspect"]};
+window.SIDEBAR_ITEMS = {"trait":["Inspect","ResetTeam"]};

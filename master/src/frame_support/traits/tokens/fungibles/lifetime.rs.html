@@ -233,6 +233,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -250,13 +266,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Traits for creating and destroying assets.
+</span><span class="doccomment">//! Traits for creating, editing and destroying assets.
 //!
 //! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
-</span><span class="kw">use </span>sp_runtime::{DispatchError, DispatchResult};
-
-<span class="kw">use </span><span class="kw">super</span>::Inspect;
+</span><span class="kw">use </span><span class="kw">super</span>::Inspect;
+<span class="kw">use </span><span class="kw">crate</span>::traits::tokens::{AssetId, Balance};
+<span class="kw">use </span>sp_runtime::{DispatchError, DispatchResult};
 
 <span class="doccomment">/// Trait for providing the ability to create new fungible assets.
 </span><span class="kw">pub trait </span>Create&lt;AccountId&gt;: Inspect&lt;AccountId&gt; {
@@ -267,6 +283,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		is_sufficient: bool,
 		min_balance: <span class="self">Self</span>::Balance,
 	) -&gt; DispatchResult;
+}
+
+<span class="doccomment">/// Trait for refunding the existence deposit of a target asset account.
+///
+/// The existence deposit might by necessary and present in cases where the asset held by the
+/// account is insufficient for the required storage, or when the system cannot provide a consumer
+/// reference for any reason.
+</span><span class="kw">pub trait </span>Refund&lt;AccountId&gt; {
+	<span class="doccomment">/// Means of identifying one asset class from another.
+	</span><span class="kw">type </span>AssetId: AssetId;
+	<span class="doccomment">/// Scalar type for representing deposit balance of an account.
+	</span><span class="kw">type </span>Balance: Balance;
+	<span class="doccomment">/// Returns the amount of account deposit and depositor address, if any.
+	</span><span class="kw">fn </span>deposit_held(id: <span class="self">Self</span>::AssetId, who: AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;(AccountId, <span class="self">Self</span>::Balance)&gt;;
+	<span class="doccomment">/// Return the deposit (if any) of a target asset account.
+	</span><span class="kw">fn </span>refund(id: <span class="self">Self</span>::AssetId, who: AccountId) -&gt; DispatchResult;
 }
 
 <span class="doccomment">/// Trait for providing the ability to destroy existing fungible assets.

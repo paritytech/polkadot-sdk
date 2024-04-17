@@ -3517,7 +3517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>origin = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
 			<span class="kw">let </span>id: T::AssetId = id.into();
-			<span class="self">Self</span>::do_refund_other(id, <span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>origin)
+			<span class="self">Self</span>::do_refund_other(id, <span class="kw-2">&amp;</span>who, <span class="prelude-val">Some</span>(origin))
 		}
 
 		<span class="doccomment">/// Disallow further unprivileged transfers of an asset `id` to and from an account `who`.

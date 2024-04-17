@@ -280,6 +280,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -301,6 +339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_runtime::traits::TryConvert;
 
 <span class="doccomment">/// Represents a swap path with associated asset amounts indicating how much of the asset needs to
 /// be deposited to get the following asset&#39;s amount withdrawn (this is inclusive of fees).
@@ -350,49 +389,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The `PoolId` is represented as a tuple of `AssetKind`s with `FirstAsset` always positioned as
 /// the first element.
-</span><span class="kw">pub struct </span>WithFirstAsset&lt;FirstAsset, AccountId, AssetKind&gt;(
-	PhantomData&lt;(FirstAsset, AccountId, AssetKind)&gt;,
+</span><span class="kw">pub struct </span>WithFirstAsset&lt;FirstAsset, AccountId, AssetKind, AccountIdConverter&gt;(
+	PhantomData&lt;(FirstAsset, AccountId, AssetKind, AccountIdConverter)&gt;,
 );
-<span class="kw">impl</span>&lt;FirstAsset, AccountId, AssetKind&gt; PoolLocator&lt;AccountId, AssetKind, (AssetKind, AssetKind)&gt;
-	<span class="kw">for </span>WithFirstAsset&lt;FirstAsset, AccountId, AssetKind&gt;
+<span class="kw">impl</span>&lt;FirstAsset, AccountId, AssetKind, AccountIdConverter&gt;
+	PoolLocator&lt;AccountId, AssetKind, (AssetKind, AssetKind)&gt;
+	<span class="kw">for </span>WithFirstAsset&lt;FirstAsset, AccountId, AssetKind, AccountIdConverter&gt;
 <span class="kw">where
 	</span>AssetKind: Eq + Clone + Encode,
 	AccountId: Decode,
 	FirstAsset: Get&lt;AssetKind&gt;,
+	AccountIdConverter: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(AssetKind, AssetKind), AccountId&gt;,
 {
 	<span class="kw">fn </span>pool_id(asset1: <span class="kw-2">&amp;</span>AssetKind, asset2: <span class="kw-2">&amp;</span>AssetKind) -&gt; <span class="prelude-ty">Result</span>&lt;(AssetKind, AssetKind), ()&gt; {
+		<span class="kw">if </span>asset1 == asset2 {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(());
+		}
 		<span class="kw">let </span>first = FirstAsset::get();
-		<span class="kw">match </span><span class="bool-val">true </span>{
-			<span class="kw">_ if </span>asset1 == asset2 =&gt; <span class="prelude-val">Err</span>(()),
-			<span class="kw">_ if </span>first == <span class="kw-2">*</span>asset1 =&gt; <span class="prelude-val">Ok</span>((first, asset2.clone())),
-			<span class="kw">_ if </span>first == <span class="kw-2">*</span>asset2 =&gt; <span class="prelude-val">Ok</span>((first, asset1.clone())),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+		<span class="kw">if </span>first == <span class="kw-2">*</span>asset1 {
+			<span class="prelude-val">Ok</span>((first, asset2.clone()))
+		} <span class="kw">else if </span>first == <span class="kw-2">*</span>asset2 {
+			<span class="prelude-val">Ok</span>((first, asset1.clone()))
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Err</span>(())
 		}
 	}
 	<span class="kw">fn </span>address(id: <span class="kw-2">&amp;</span>(AssetKind, AssetKind)) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, ()&gt; {
-		<span class="kw">let </span>encoded = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>Encode::encode(id)[..]);
-		Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(encoded.as_ref())).map_err(|<span class="kw">_</span>| ())
+		AccountIdConverter::try_convert(id).map_err(|<span class="kw">_</span>| ())
 	}
 }
 
 <span class="doccomment">/// Pool locator where the `PoolId` is a tuple of `AssetKind`s arranged in ascending order.
-</span><span class="kw">pub struct </span>Ascending&lt;AccountId, AssetKind&gt;(PhantomData&lt;(AccountId, AssetKind)&gt;);
-<span class="kw">impl</span>&lt;AccountId, AssetKind&gt; PoolLocator&lt;AccountId, AssetKind, (AssetKind, AssetKind)&gt;
-	<span class="kw">for </span>Ascending&lt;AccountId, AssetKind&gt;
+</span><span class="kw">pub struct </span>Ascending&lt;AccountId, AssetKind, AccountIdConverter&gt;(
+	PhantomData&lt;(AccountId, AssetKind, AccountIdConverter)&gt;,
+);
+<span class="kw">impl</span>&lt;AccountId, AssetKind, AccountIdConverter&gt;
+	PoolLocator&lt;AccountId, AssetKind, (AssetKind, AssetKind)&gt;
+	<span class="kw">for </span>Ascending&lt;AccountId, AssetKind, AccountIdConverter&gt;
 <span class="kw">where
 	</span>AssetKind: Ord + Clone + Encode,
 	AccountId: Decode,
+	AccountIdConverter: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(AssetKind, AssetKind), AccountId&gt;,
 {
 	<span class="kw">fn </span>pool_id(asset1: <span class="kw-2">&amp;</span>AssetKind, asset2: <span class="kw-2">&amp;</span>AssetKind) -&gt; <span class="prelude-ty">Result</span>&lt;(AssetKind, AssetKind), ()&gt; {
-		<span class="kw">match </span><span class="bool-val">true </span>{
-			<span class="kw">_ if </span>asset1 &gt; asset2 =&gt; <span class="prelude-val">Ok</span>((asset2.clone(), asset1.clone())),
-			<span class="kw">_ if </span>asset1 &lt; asset2 =&gt; <span class="prelude-val">Ok</span>((asset1.clone(), asset2.clone())),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+		<span class="kw">if </span>asset1 &gt; asset2 {
+			<span class="prelude-val">Ok</span>((asset2.clone(), asset1.clone()))
+		} <span class="kw">else if </span>asset1 &lt; asset2 {
+			<span class="prelude-val">Ok</span>((asset1.clone(), asset2.clone()))
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Err</span>(())
 		}
 	}
 	<span class="kw">fn </span>address(id: <span class="kw-2">&amp;</span>(AssetKind, AssetKind)) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, ()&gt; {
-		<span class="kw">let </span>encoded = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>Encode::encode(id)[..]);
-		Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(encoded.as_ref())).map_err(|<span class="kw">_</span>| ())
+		AccountIdConverter::try_convert(id).map_err(|<span class="kw">_</span>| ())
 	}
 }
 
@@ -411,6 +460,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">fn </span>address(id: <span class="kw-2">&amp;</span>(AssetKind, AssetKind)) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, ()&gt; {
 		First::address(id).or(Second::address(id))
+	}
+}
+
+<span class="doccomment">/// `PoolId` to `AccountId` conversion.
+</span><span class="kw">pub struct </span>AccountIdConverter&lt;Seed, PoolId&gt;(PhantomData&lt;(Seed, PoolId)&gt;);
+<span class="kw">impl</span>&lt;Seed, PoolId, AccountId&gt; TryConvert&lt;<span class="kw-2">&amp;</span>PoolId, AccountId&gt; <span class="kw">for </span>AccountIdConverter&lt;Seed, PoolId&gt;
+<span class="kw">where
+	</span>PoolId: Encode,
+	AccountId: Decode,
+	Seed: Get&lt;PalletId&gt;,
+{
+	<span class="kw">fn </span>try_convert(id: <span class="kw-2">&amp;</span>PoolId) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, <span class="kw-2">&amp;</span>PoolId&gt; {
+		sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>Encode::encode(<span class="kw-2">&amp;</span>(Seed::get(), id))[..])
+			.using_encoded(|e| Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(e)).map_err(|<span class="kw">_</span>| id))
+	}
+}
+
+<span class="doccomment">/// `PoolId` to `AccountId` conversion without an addition arguments to the seed.
+</span><span class="kw">pub struct </span>AccountIdConverterNoSeed&lt;PoolId&gt;(PhantomData&lt;PoolId&gt;);
+<span class="kw">impl</span>&lt;PoolId, AccountId&gt; TryConvert&lt;<span class="kw-2">&amp;</span>PoolId, AccountId&gt; <span class="kw">for </span>AccountIdConverterNoSeed&lt;PoolId&gt;
+<span class="kw">where
+	</span>PoolId: Encode,
+	AccountId: Decode,
+{
+	<span class="kw">fn </span>try_convert(id: <span class="kw-2">&amp;</span>PoolId) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, <span class="kw-2">&amp;</span>PoolId&gt; {
+		sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>Encode::encode(id)[..])
+			.using_encoded(|e| Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(e)).map_err(|<span class="kw">_</span>| id))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

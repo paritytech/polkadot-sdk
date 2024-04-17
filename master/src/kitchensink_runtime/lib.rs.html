@@ -3422,6 +3422,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3273" id="3273">3273</a>
 <a href="#3274" id="3274">3274</a>
 <a href="#3275" id="3275">3275</a>
+<a href="#3276" id="3276">3276</a>
+<a href="#3277" id="3277">3277</a>
+<a href="#3278" id="3278">3278</a>
+<a href="#3279" id="3279">3279</a>
+<a href="#3280" id="3280">3280</a>
+<a href="#3281" id="3281">3281</a>
+<a href="#3282" id="3282">3282</a>
+<a href="#3283" id="3283">3283</a>
+<a href="#3284" id="3284">3284</a>
+<a href="#3285" id="3285">3285</a>
+<a href="#3286" id="3286">3286</a>
+<a href="#3287" id="3287">3287</a>
+<a href="#3288" id="3288">3288</a>
+<a href="#3289" id="3289">3289</a>
+<a href="#3290" id="3290">3290</a>
+<a href="#3291" id="3291">3291</a>
+<a href="#3292" id="3292">3292</a>
+<a href="#3293" id="3293">3293</a>
+<a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
+<a href="#3296" id="3296">3296</a>
+<a href="#3297" id="3297">3297</a>
+<a href="#3298" id="3298">3298</a>
+<a href="#3299" id="3299">3299</a>
+<a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3487,7 +3513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">pub use </span>node_primitives::{AccountId, Signature};
 <span class="kw">use </span>node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
-<span class="kw">use </span>pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
+<span class="kw">use </span>pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 <span class="kw">use </span>pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 <span class="kw">use </span>pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 <span class="kw">use </span>pallet_identity::legacy::IdentityInfo;
@@ -5134,8 +5160,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Assets = UnionOf&lt;Balances, Assets, NativeFromLeft, NativeOrWithId&lt;u32&gt;, AccountId&gt;;
 	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
 	<span class="kw">type </span>PoolLocator = Chain&lt;
-		WithFirstAsset&lt;Native, AccountId, NativeOrWithId&lt;u32&gt;&gt;,
-		Ascending&lt;AccountId, NativeOrWithId&lt;u32&gt;&gt;,
+		WithFirstAsset&lt;
+			Native,
+			AccountId,
+			NativeOrWithId&lt;u32&gt;,
+			AccountIdConverter&lt;AssetConversionPalletId, <span class="self">Self</span>::PoolId&gt;,
+		&gt;,
+		Ascending&lt;
+			AccountId,
+			NativeOrWithId&lt;u32&gt;,
+			AccountIdConverter&lt;AssetConversionPalletId, <span class="self">Self</span>::PoolId&gt;,
+		&gt;,
 	&gt;;
 	<span class="kw">type </span>PoolAssetId = &lt;<span class="self">Self </span><span class="kw">as </span>pallet_assets::Config&lt;Instance2&gt;&gt;::AssetId;
 	<span class="kw">type </span>PoolAssets = PoolAssets;
@@ -5150,6 +5185,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MintMinLiquidity = MintMinLiquidity;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
+}
+
+<span class="kw">impl </span>pallet_asset_conversion_ops::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed&lt;(
+		NativeOrWithId&lt;u32&gt;,
+		NativeOrWithId&lt;u32&gt;,
+	)&gt;;
+	<span class="kw">type </span>AssetsRefund = &lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::Assets;
+	<span class="kw">type </span>PoolAssetsRefund = &lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::PoolAssets;
+	<span class="kw">type </span>PoolAssetsTeam = &lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::PoolAssets;
+	<span class="kw">type </span>DepositAsset = Balances;
+	<span class="kw">type </span>WeightInfo = pallet_asset_conversion_ops::weights::SubstrateWeight&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -5898,6 +5946,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">78</span>)]
 	</span><span class="kw">pub type </span>PalletExampleMbms = pallet_example_mbm;
+
+	<span class="attr">#[runtime::pallet_index(<span class="number">79</span>)]
+	</span><span class="kw">pub type </span>AssetConversionMigration = pallet_asset_conversion_ops;
 }
 
 <span class="doccomment">/// The address format for describing accounts.
@@ -6057,6 +6108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
 		[pallet_example_mbm, PalletExampleMbms]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 	);
 }
 

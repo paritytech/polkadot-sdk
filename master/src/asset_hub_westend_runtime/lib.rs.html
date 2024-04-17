@@ -1893,6 +1893,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1744" id="1744">1744</a>
 <a href="#1745" id="1745">1745</a>
 <a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2210,6 +2236,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountId,
 &gt;;
 
+<span class="kw">pub type </span>PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter&lt;
+	AssetConversionPalletId,
+	(xcm::v3::Location, xcm::v3::Location),
+&gt;;
+
 <span class="kw">impl </span>pallet_asset_conversion::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
@@ -2217,8 +2248,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AssetKind = xcm::v3::Location;
 	<span class="kw">type </span>Assets = NativeAndAssets;
 	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
-	<span class="kw">type </span>PoolLocator =
-		pallet_asset_conversion::WithFirstAsset&lt;WestendLocationV3, AccountId, <span class="self">Self</span>::AssetKind&gt;;
+	<span class="kw">type </span>PoolLocator = pallet_asset_conversion::WithFirstAsset&lt;
+		WestendLocationV3,
+		AccountId,
+		<span class="self">Self</span>::AssetKind,
+		PoolIdToAccountId,
+	&gt;;
 	<span class="kw">type </span>PoolAssetId = u32;
 	<span class="kw">type </span>PoolAssets = PoolAssets;
 	<span class="kw">type </span>PoolSetupFee = ConstU128&lt;<span class="number">0</span>&gt;; <span class="comment">// Asset class deposit fees are sufficient to prevent spam
@@ -2237,6 +2272,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::v3::Location,
 	&gt;;
+}
+
+<span class="kw">impl </span>pallet_asset_conversion_ops::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed&lt;
+		&lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::PoolId,
+	&gt;;
+	<span class="kw">type </span>AssetsRefund = &lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::Assets;
+	<span class="kw">type </span>PoolAssetsRefund = &lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::PoolAssets;
+	<span class="kw">type </span>PoolAssetsTeam = &lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::PoolAssets;
+	<span class="kw">type </span>DepositAsset = Balances;
+	<span class="kw">type </span>WeightInfo = weights::pallet_asset_conversion_ops::WeightInfo&lt;Runtime&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2801,6 +2848,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		NftFractionalization: pallet_nft_fractionalization = <span class="number">54</span>,
 		PoolAssets: pallet_assets::&lt;Instance3&gt; = <span class="number">55</span>,
 		AssetConversion: pallet_asset_conversion = <span class="number">56</span>,
+
+		<span class="comment">// TODO: the pallet instance should be removed once all pools have migrated
+		// to the new account IDs.
+		</span>AssetConversionMigration: pallet_asset_conversion_ops = <span class="number">200</span>,
 	}
 );
 
@@ -2980,6 +3031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToRococo]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 		<span class="comment">// XCM
 		</span>[pallet_xcm, PalletXcmExtrinsicsBenchmark::&lt;Runtime&gt;]
 		<span class="comment">// NOTE: Make sure you point to the individual modules below.

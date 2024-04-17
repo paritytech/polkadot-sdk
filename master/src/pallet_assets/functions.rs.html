@@ -1163,6 +1163,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1014" id="1014">1014</a>
 <a href="#1015" id="1015">1015</a>
 <a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1533,11 +1562,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Returns a `DepositFrom` of an account only if balance is zero.
+	<span class="doccomment">/// Refunds the `DepositFrom` of an account only if its balance is zero.
+	///
+	/// If the `maybe_check_caller` parameter is specified, it must match the account that provided
+	/// the deposit or must be the admin of the asset.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>do_refund_other(
 		id: T::AssetId,
 		who: <span class="kw-2">&amp;</span>T::AccountId,
-		caller: <span class="kw-2">&amp;</span>T::AccountId,
+		maybe_check_caller: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 	) -&gt; DispatchResult {
 		<span class="kw">let </span><span class="kw-2">mut </span>account = Account::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::NoDeposit)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(depositor, deposit) =
@@ -1545,7 +1577,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>details = Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id).ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(details.status == AssetStatus::Live, Error::&lt;T, I&gt;::AssetNotLive);
 		<span class="macro">ensure!</span>(!account.status.is_frozen(), Error::&lt;T, I&gt;::Frozen);
-		<span class="macro">ensure!</span>(caller == <span class="kw-2">&amp;</span>depositor || caller == <span class="kw-2">&amp;</span>details.admin, Error::&lt;T, I&gt;::NoPermission);
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(caller) = maybe_check_caller {
+			<span class="macro">ensure!</span>(caller == depositor || caller == details.admin, Error::&lt;T, I&gt;::NoPermission);
+		}
 		<span class="macro">ensure!</span>(account.balance.is_zero(), Error::&lt;T, I&gt;::WouldBurn);
 
 		T::Currency::unreserve(<span class="kw-2">&amp;</span>depositor, deposit);
@@ -2177,6 +2211,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::maybe_balance(id.clone(), account.clone()).map(|balance| (id, balance))
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+	}
+
+	<span class="doccomment">/// Reset the team for the asset with the given `id`.
+	///
+	/// ### Parameters
+	/// - `id`: The identifier of the asset for which the team is being reset.
+	/// - `owner`: The new `owner` account for the asset.
+	/// - `admin`: The new `admin` account for the asset.
+	/// - `issuer`: The new `issuer` account for the asset.
+	/// - `freezer`: The new `freezer` account for the asset.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_reset_team(
+		id: T::AssetId,
+		owner: T::AccountId,
+		admin: T::AccountId,
+		issuer: T::AccountId,
+		freezer: T::AccountId,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span><span class="kw-2">mut </span>d = Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id).ok_or(Error::&lt;T, I&gt;::Unknown)<span class="question-mark">?</span>;
+		d.owner = owner;
+		d.admin = admin;
+		d.issuer = issuer;
+		d.freezer = freezer;
+		Asset::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>id, d);
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
