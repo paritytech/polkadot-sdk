@@ -150,7 +150,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, RuntimeDebug, Saturating,
 };
-use sp_staking::{EraIndex, StakingInterface, StakingUnsafe};
+use sp_staking::{EraIndex, StakingInterface, StakingUnchecked};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -186,7 +186,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Core staking implementation.
-		type CoreStaking: StakingUnsafe<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+		type CoreStaking: StakingUnchecked<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -263,7 +263,7 @@ pub mod pallet {
 		/// them. The `Agent` can then use the delegated funds to stake to [`Config::CoreStaking`].
 		///
 		/// Implementation note: This function allows any account to become an agent. It is
-		/// important though that accounts that call [`StakingUnsafe::virtual_bond`] are keyless
+		/// important though that accounts that call [`StakingUnchecked::virtual_bond`] are keyless
 		/// accounts. This is not a problem for now since this is only used by other pallets in the
 		/// runtime which use keyless account as agents. If we later want to expose this as a
 		/// dispatchable call, we should derive a sub-account from the caller and use that as the
@@ -506,7 +506,7 @@ impl<T: Config> Pallet<T> {
 				amount
 			};
 
-		Delegation::<T>::from(agent, new_delegation_amount).save_or_kill(delegator);
+		Delegation::<T>::new(agent, new_delegation_amount).save_or_kill(delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.save(agent);
@@ -593,7 +593,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// update delegations
-		Delegation::<T>::from(&source_delegation.agent, amount).save_or_kill(destination_delegator);
+		Delegation::<T>::new(&source_delegation.agent, amount).save_or_kill(destination_delegator);
 		source_delegation
 			.decrease_delegation(amount)
 			.defensive_ok_or(Error::<T>::BadState)?
