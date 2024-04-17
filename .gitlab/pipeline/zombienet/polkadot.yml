@@ -205,8 +205,9 @@ zombienet-polkadot-smoke-0001-parachains-smoke-test:
     - echo "colander image ${COL_IMAGE}"
     - echo "malus image ${MALUS_IMAGE}"
   script:
-    # PoC zombienet-sdk
+    # PoC zombienet-sdk (TODO: set tu always use new version, remove it when is ready)
     - R=$(( $CI_PIPELINE_ID % 2));
+      R=0;
       if [[ $R -eq 0 ]];then
       /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
         --local-dir="${LOCAL_DIR}/smoke"
