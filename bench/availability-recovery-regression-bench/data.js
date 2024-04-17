@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713346855975,
+  "lastUpdate": 1713350661748,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3905,6 +3905,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18394468333333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sergej Sakac",
+            "username": "Szegoo",
+            "email": "73715684+Szegoo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e6f3106d894277deba043a83e91565de24263a1b",
+          "message": "XCM coretime region transfers (#3455)\n\nThis PR introduces changes enabling the transfer of coretime regions via\nXCM.\n\nTL;DR: There are two primary issues that are resolved in this PR:\n\n1. The `mint` and `burn` functions were not implemented for coretime\nregions. These operations are essential for moving assets to and from\nthe XCM holding register.\n2. The transfer of non-fungible assets through XCM was previously\ndisallowed. This was due to incorrectly benchmarking non-fungible asset\ntransfers via XCM, which led to assigning it a weight of `Weight::Max`,\neffectively preventing its execution.\n\n### `mint_into` and `burn` implementation\n\nThis PR addresses the issue with cross-chain transferring regions back\nto the Coretime chain. Remote reserve transfers are performed by\nwithdrawing and depositing the asset to and from the holding registry.\nThis requires the asset to support burning and minting functionality.\n\nThis PR adds burning and minting; however, they work a bit differently\nthan usual so that the associated region record is not lost when\nburning. Instead of removing all the data, burning will set the owner of\nthe region to `None`, and when minting it back, it will set it to an\nactual value. So, when cross-chain transferring, withdrawing into the\nregistry will remove the region from its original owner, and when\ndepositing it from the registry, it will set its owner to another\naccount\n\nThis was originally implemented in this PR: #3455, however we decided to\nmove all of it to this single PR\n(https://github.com/paritytech/polkadot-sdk/pull/3455#discussion_r1547324892)\n\n### Fixes made in this PR\n\n- Update the `XcmReserveTransferFilter` on coretime chain since it is\nmeant as a reserve chain for coretime regions.\n- Update the XCM benchmark to use `AssetTransactor` instead of assuming\n`pallet-balances` for fungible transfers.\n- Update the XCM benchmark to properly measure weight consumption for\nnonfungible reserve asset transfers. ATM reserve transfers via the\nextrinsic do not work since the weight for it is set to `Weight::max()`.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/865\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>",
+          "timestamp": "2024-04-17T09:25:33Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e6f3106d894277deba043a83e91565de24263a1b"
+        },
+        "date": 1713350634814,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.23329906419999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.85856696373333,
             "unit": "seconds"
           }
         ]
