@@ -43,7 +43,7 @@ std = [
 	"sp-core/std",
 	"sp-debug-derive/std",
 	"sp-runtime/std",
-	"sp-std/std"
+	"sp-std/std",
 ]
 
 # Serde support without relying on std features.
