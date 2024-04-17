@@ -31,7 +31,7 @@ use polkadot_subsystem_bench::{
 };
 use std::io::Write;
 
-const BENCH_COUNT: usize = 50;
+const BENCH_COUNT: usize = 5;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -40,6 +40,8 @@ fn main() -> Result<(), String> {
 	config.n_cores = 10;
 	config.n_validators = 500;
 	config.num_blocks = 3;
+	config.connectivity = 100;
+	config.latency = None;
 	config.generate_pov_sizes();
 	let state = TestState::new(&config);
 

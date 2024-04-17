@@ -925,3 +925,28 @@ impl<
 		}
 	}
 }
+
+impl<
+		Left: fungible::Inspect<AccountId>,
+		Right: fungibles::Inspect<AccountId> + fungibles::Refund<AccountId>,
+		Criterion: Convert<AssetKind, Either<(), <Right as fungibles::Refund<AccountId>>::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::Refund<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	type AssetId = AssetKind;
+	type Balance = <Right as fungibles::Refund<AccountId>>::Balance;
+
+	fn deposit_held(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
+		match Criterion::convert(asset) {
+			Left(()) => None,
+			Right(a) => <Right as fungibles::Refund<AccountId>>::deposit_held(a, who),
+		}
+	}
+	fn refund(asset: AssetKind, who: AccountId) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(()) => Err(DispatchError::Unavailable),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::refund(a, who),
+		}
+	}
+}

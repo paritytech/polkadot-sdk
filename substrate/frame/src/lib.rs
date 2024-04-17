@@ -53,24 +53,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
 
-/// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
-/// being a pallet, eg `#[polkadot_sdk_frame::pallet] mod pallet { .. }`.
-///
-/// Note that this is not part of the prelude, in order to make it such that the common way to
-/// define a macro is `#[polkadot_sdk_frame::pallet] mod pallet { .. }`, followed by
-/// `#[pallet::foo]`, `#[pallet::bar]` inside the mod.
+#[doc(no_inline)]
 pub use frame_support::pallet;
 
+#[doc(no_inline)]
 pub use frame_support::pallet_macros::{import_section, pallet_section};
 
 /// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
 
-/// A list of all macros used within the main [`pallet`] macro.
+/// Macros used within the main [`pallet`] macro.
 ///
 /// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
 /// }`. They are mainly provided for documentation and IDE support.
+///
+/// To view a list of all the macros and their documentation, follow the links in the 'Re-exports'
+/// section below:
 pub mod pallet_macros {
+	#[doc(no_inline)]
 	pub use frame_support::{derive_impl, pallet, pallet_macros::*};
 }
 
