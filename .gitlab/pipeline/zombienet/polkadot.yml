@@ -210,9 +210,9 @@ zombienet-polkadot-smoke-0001-parachains-smoke-test:
       if [[ $R -eq 0 ]];then
       /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
         --local-dir="${LOCAL_DIR}/smoke"
-        --test="0001-parachains-smoke-test.zndsl"
+        --test="0001-parachains-smoke-test.zndsl";
       else
-      cd ${LOCAL_SDK_TEST} && cargo test -- --nocapture
+      cd ${LOCAL_SDK_TEST} && cargo test -- --nocapture;
       fi;
 
 zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
