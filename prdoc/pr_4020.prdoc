@@ -11,7 +11,7 @@ doc:
       `RuntimeBlockWeights` for `DispatchClass::Normal` type extrinsics.
       
       During benchmark execution developers can either choose to throw an error, log a warning, or ignore if the weight exceeds the limit. Default behaviour is 
-      warning. This can be configured by passing an argument to `--sanity-check` flag in the benchmarking CLI.
+      warning. This can be configured by passing an argument to `--sanity-weight-check` flag in the benchmarking CLI.
 
       Note: This introduces a breaking change for `frame_benchmarking::Benchmark` runtime API. `benchmark_metadata` function now returns new struct `RuntimeBenchmarkInfo` 
       that encapsulates exhaustive benchmarks related information. To ensure backwards compatibility, `RuntimeBenchmarkInfo` can be created from previous 
