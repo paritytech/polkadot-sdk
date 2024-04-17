@@ -393,7 +393,7 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Balance = Balance;
 	type Assets = NativeAndAllAssets;
 	type AssetId = xcm::v3::Location;
-	type PermissionedOrigin = EnsureWithSuccess<
+	type CreatePoolOrigin = EnsureWithSuccess<
 		EitherOfDiverse<
 			EnsureRoot<AccountId>,
 			EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,

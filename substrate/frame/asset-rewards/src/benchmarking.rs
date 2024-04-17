@@ -17,7 +17,7 @@
 
 //! Asset Rewards pallet benchmarking.
 //!
-//! Note: these benchmarks assume that Root passes the `PermissionedOrigin` checks.
+//! Note: these benchmarks assume that Root passes the `CreatePoolOrigin` checks.
 
 use super::*;
 use crate::Pallet as AssetRewards;
@@ -87,7 +87,7 @@ mod benchmarks {
 	fn create_pool() {
 		use super::*;
 
-		let root_acc = T::PermissionedOrigin::ensure_origin(Root.into()).unwrap();
+		let root_acc = T::CreatePoolOrigin::ensure_origin(Root.into()).unwrap();
 		let staked_asset = T::BenchmarkHelper::to_asset_id(1);
 		let reward_asset = T::BenchmarkHelper::to_asset_id(2);
 		create_and_mint_asset::<T>(
@@ -114,7 +114,7 @@ mod benchmarks {
 		assert_last_event::<T>(
 			Event::PoolCreated {
 				creator: root_acc.clone(),
-				admin: root_acc,
+				admin: Some(root_acc),
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: 100u32.into(),
@@ -328,7 +328,9 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(Root, 0u32.into(), new_admin.clone());
 
-		assert_last_event::<T>(Event::PoolAdminModified { pool_id: 0u32.into(), new_admin }.into());
+		assert_last_event::<T>(
+			Event::PoolAdminModified { pool_id: 0u32.into(), new_admin: Some(new_admin) }.into(),
+		);
 	}
 
 	#[benchmark]

@@ -193,7 +193,7 @@ pub mod pallet {
 		///
 		/// The Origin must return an AccountId. This can be achieved for any Origin by wrapping it
 		/// with `EnsureSuccess`.
-		type PermissionedOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+		type CreatePoolOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Registry of assets that can be configured to either stake for rewards, or be offered as
 		/// rewards for staking.
@@ -333,7 +333,7 @@ pub mod pallet {
 			admin: Option<T::AccountId>,
 		) -> DispatchResult {
 			// Check the origin.
-			let creator = T::PermissionedOrigin::ensure_origin(origin.clone())?;
+			let creator = T::CreatePoolOrigin::ensure_origin(origin.clone())?;
 
 			// Ensure the assets exist.
 			ensure!(
@@ -507,7 +507,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_reward_rate_per_block: T::Balance,
 		) -> DispatchResult {
-			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
@@ -537,7 +537,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_admin: T::AccountId,
 		) -> DispatchResult {
-			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
@@ -559,7 +559,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_expiry_block: BlockNumberFor<T>,
 		) -> DispatchResult {
-			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
 			ensure!(
@@ -616,7 +616,7 @@ pub mod pallet {
 			amount: T::Balance,
 			dest: T::AccountId,
 		) -> DispatchResult {
-			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+			let caller = T::CreatePoolOrigin::ensure_origin(origin.clone())
 				.or_else(|_| ensure_signed(origin))?;
 
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;

@@ -149,7 +149,7 @@ impl Config for MockRuntime {
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
-	type PermissionedOrigin = MockPermissionedOrigin;
+	type CreatePoolOrigin = MockPermissionedOrigin;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
