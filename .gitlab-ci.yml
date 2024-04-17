@@ -287,7 +287,6 @@ test-linux-stable-codecov:
       time cargo nextest run \
         --workspace \
         --locked \
-        --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
