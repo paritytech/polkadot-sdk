@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713288403408,
+  "lastUpdate": 1713314926827,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3821,6 +3821,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1711067200666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e81322bc3e8192b536067fed3ef9e20f2752c376",
+          "message": "Contracts verify benchmark block (#4130)\n\nAdd verify statement to ensure that benchmarks call do not revert\n\nAlso updated\n[benchmarks](https://weights.tasty.limo/compare?unit=time&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=master&new=pg/verify-benchmarks&path_pattern=substrate%2Fframe%2Fcontracts%2Fsrc%2Fweights.rs)\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-16T23:38:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e81322bc3e8192b536067fed3ef9e20f2752c376"
+        },
+        "date": 1713314900476,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21458435506666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.829880137666663,
             "unit": "seconds"
           }
         ]
