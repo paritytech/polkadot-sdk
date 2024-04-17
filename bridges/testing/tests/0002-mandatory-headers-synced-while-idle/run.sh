@@ -24,12 +24,6 @@ echo -e "Sleeping 90s before starting relayer ...\n"
 sleep 90
 ${BASH_SOURCE%/*}/../../environments/rococo-westend/start_relayer.sh $rococo_dir $westend_dir relayer_pid
 
-# Sometimes the relayer syncs multiple parachain heads in the beginning leading to test failures.
-# See issue: https://github.com/paritytech/parity-bridges-common/issues/2838.
-# TODO: Remove this sleep after the issue is fixed.
-echo -e "Sleeping 180s before runing the tests ...\n"
-sleep 180
-
 run_zndsl ${BASH_SOURCE%/*}/rococo-to-westend.zndsl $westend_dir
 run_zndsl ${BASH_SOURCE%/*}/westend-to-rococo.zndsl $rococo_dir
 

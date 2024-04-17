@@ -1,0 +1,25 @@
+title: Add `candidates_pending_availability` Runtime API
+
+doc:
+  - audience: "Node Dev"
+    description: |
+     This new API retrieves all `CommittedCandidateReceipts` of all candidates pending availability
+     for a parachain at a given relay chain block number. It is required by collators that make use
+     of elastic scaling capability in the context of PoV recovery and block import. The old API 
+     `candidate_pending_availability` is now deprectated and will be removed in the future.
+
+crates:
+  - name: polkadot-node-core-runtime-api
+    bump: minor
+  - name: polkadot-node-subsystem-types
+    bump: minor
+  - name: polkadot-node-subsystem-util
+    bump: minor
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: cumulus-relay-chain-rpc-interface
+    bump: minor
+  - name: cumulus-relay-chain-minimal-node
+    bump: minor

@@ -48,6 +48,7 @@ pub(crate) struct RequestResultCache {
 	validation_code: LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCode>>,
 	validation_code_by_hash: LruMap<ValidationCodeHash, Option<ValidationCode>>,
 	candidate_pending_availability: LruMap<(Hash, ParaId), Option<CommittedCandidateReceipt>>,
+	candidates_pending_availability: LruMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>>,
 	candidate_events: LruMap<Hash, Vec<CandidateEvent>>,
 	session_executor_params: LruMap<SessionIndex, Option<ExecutorParams>>,
 	session_info: LruMap<SessionIndex, SessionInfo>,
@@ -86,6 +87,7 @@ impl Default for RequestResultCache {
 			validation_code: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			validation_code_by_hash: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			candidate_pending_availability: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			candidates_pending_availability: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			candidate_events: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			session_executor_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			session_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -259,6 +261,21 @@ impl RequestResultCache {
 		value: Option<CommittedCandidateReceipt>,
 	) {
 		self.candidate_pending_availability.insert(key, value);
+	}
+
+	pub(crate) fn candidates_pending_availability(
+		&mut self,
+		key: (Hash, ParaId),
+	) -> Option<&Vec<CommittedCandidateReceipt>> {
+		self.candidates_pending_availability.get(&key).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_candidates_pending_availability(
+		&mut self,
+		key: (Hash, ParaId),
+		value: Vec<CommittedCandidateReceipt>,
+	) {
+		self.candidates_pending_availability.insert(key, value);
 	}
 
 	pub(crate) fn candidate_events(&mut self, relay_parent: &Hash) -> Option<&Vec<CandidateEvent>> {
@@ -591,4 +608,5 @@ pub(crate) enum RequestResult {
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
+	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
 }
