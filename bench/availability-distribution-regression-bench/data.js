@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713372565349,
+  "lastUpdate": 1713378014535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4991,6 +4991,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024163979933333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "305d311d5c732fcc4629f3295768f1ed44ef434c",
+          "message": "Asset Conversion: Pool Touch Call (#3251)\n\nIntroduce `touch` call designed to address operational prerequisites\nbefore providing liquidity to a pool.\n\nThis function ensures that essential requirements, such as the presence\nof the pool's accounts, are fulfilled. It is particularly beneficial in\nscenarios where a pool creator removes the pool's accounts without\nproviding liquidity.\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-17T16:45:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/305d311d5c732fcc4629f3295768f1ed44ef434c"
+        },
+        "date": 1713377987225,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015449250133333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024397798666666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16665834713333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008169633333333351,
             "unit": "seconds"
           }
         ]
