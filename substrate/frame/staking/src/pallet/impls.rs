@@ -36,9 +36,10 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{
-		Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
+		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
+		StaticLookup, Zero,
 	},
-	Perbill, Percent,
+	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -163,12 +164,12 @@ impl<T: Config> Pallet<T> {
 			additional.min(
 				T::Currency::free_balance(stash)
 					.checked_sub(&ledger.total)
-					.ok_or(sp_runtime::ArithmeticError::Overflow)?,
+					.ok_or(ArithmeticError::Overflow)?,
 			)
 		};
 
-		ledger.total += extra;
-		ledger.active += extra;
+		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
+		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		// last check: the new active amount of ledger must be more than ED.
 		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
