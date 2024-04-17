@@ -20,7 +20,7 @@ use crate::{
 	discovery::{DiscoveryBehaviour, DiscoveryConfig, DiscoveryOut},
 	event::DhtEvent,
 	peer_info,
-	peer_store::PeerStoreHandle,
+	peer_store::PeerStoreProvider,
 	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
 	request_responses::{self, IfDisconnected, ProtocolConfig, RequestFailure},
@@ -34,7 +34,7 @@ use libp2p::{
 	core::Multiaddr,
 	identify::Info as IdentifyInfo,
 	identity::PublicKey,
-	kad::{PeerRecord, RecordKey},
+	kad::{Record, RecordKey},
 	swarm::NetworkBehaviour,
 	PeerId,
 };
@@ -177,7 +177,7 @@ impl<B: BlockT> Behaviour<B> {
 		local_public_key: PublicKey,
 		disco_config: DiscoveryConfig,
 		request_response_protocols: Vec<ProtocolConfig>,
-		peer_store_handle: PeerStoreHandle,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
@@ -190,7 +190,7 @@ impl<B: BlockT> Behaviour<B> {
 			discovery: disco_config.finish(),
 			request_responses: request_responses::RequestResponsesBehaviour::new(
 				request_response_protocols.into_iter(),
-				Box::new(peer_store_handle),
+				peer_store_handle,
 			)?,
 		})
 	}
@@ -287,8 +287,8 @@ impl<B: BlockT> Behaviour<B> {
 	/// Puts a record into DHT, on the provided Peers
 	pub fn put_record_to(
 		&mut self,
-		record: PeerRecord,
-		peers: HashSet<PeerId>,
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
 		update_local_storage: bool,
 	) {
 		self.discovery.put_record_to(record, peers, update_local_storage);

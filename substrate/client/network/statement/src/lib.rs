@@ -30,18 +30,23 @@ use crate::config::*;
 
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered, FutureExt};
-use libp2p::{multiaddr, PeerId};
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
-	config::{NonDefaultSetConfig, NonReservedPeerMode, SetConfig},
-	error,
-	service::traits::{NotificationEvent, NotificationService, ValidationResult},
+	config::{NonReservedPeerMode, SetConfig},
+	error, multiaddr,
+	peer_store::PeerStoreProvider,
+	service::{
+		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_common::role::ObservedRole;
 use sc_network_sync::{SyncEvent, SyncEventStream};
+use sc_network_types::PeerId;
+use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	Hash, NetworkPriority, Statement, StatementSource, StatementStore, SubmitResult,
 };
@@ -107,17 +112,23 @@ pub struct StatementHandlerPrototype {
 
 impl StatementHandlerPrototype {
 	/// Create a new instance.
-	pub fn new<Hash: AsRef<[u8]>>(
+	pub fn new<
+		Hash: AsRef<[u8]>,
+		Block: BlockT,
+		Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	>(
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-	) -> (Self, NonDefaultSetConfig) {
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let protocol_name = if let Some(fork_id) = fork_id {
 			format!("/{}/{}/statement/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
 		} else {
 			format!("/{}/statement/1", array_bytes::bytes2hex("", genesis_hash))
 		};
-		let (config, notification_service) = NonDefaultSetConfig::new(
+		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone().into(),
 			Vec::new(),
 			MAX_STATEMENT_SIZE,
@@ -128,6 +139,8 @@ impl StatementHandlerPrototype {
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
+			metrics,
+			peer_store_handle,
 		);
 
 		(Self { protocol_name: protocol_name.into(), notification_service }, config)
@@ -138,7 +151,7 @@ impl StatementHandlerPrototype {
 	/// Important: the statements handler is initially disabled and doesn't gossip statements.
 	/// Gossiping is enabled when major syncing is done.
 	pub fn build<
-		N: NetworkPeers + NetworkEventStream + NetworkNotification,
+		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	>(
 		self,
@@ -201,7 +214,7 @@ impl StatementHandlerPrototype {
 
 /// Handler for statements. Call [`StatementHandler::run`] to start the processing.
 pub struct StatementHandler<
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 > {
 	protocol_name: ProtocolName,
@@ -241,7 +254,7 @@ struct Peer {
 
 impl<N, S> StatementHandler<N, S>
 where
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -459,8 +472,7 @@ where
 
 			if !to_send.is_empty() {
 				log::trace!(target: LOG_TARGET, "Sending {} statements to {}", to_send.len(), who);
-				self.network
-					.write_notification(*who, self.protocol_name.clone(), to_send.encode());
+				self.notification_service.send_sync_notification(who, to_send.encode());
 			}
 		}
 

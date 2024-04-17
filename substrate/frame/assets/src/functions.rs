@@ -491,7 +491,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(
 			d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-			Error::<T, I>::AssetNotLive
+			Error::<T, I>::IncorrectStatus
 		);
 
 		let actual = Self::decrease_balance(id.clone(), target, amount, f, |actual, details| {

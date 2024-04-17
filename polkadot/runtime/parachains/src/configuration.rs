@@ -231,7 +231,7 @@ pub struct HostConfiguration<BlockNumber> {
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
 	fn default() -> Self {
-		Self {
+		let ret = Self {
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
@@ -270,7 +270,30 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
-		}
+		};
+
+		#[cfg(feature = "runtime-benchmarks")]
+		let ret = ret.with_benchmarking_default();
+		ret
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<BlockNumber: Default + From<u32>> HostConfiguration<BlockNumber> {
+	/// Mutate the values of self to be good estimates for benchmarking.
+	///
+	/// The values do not need to be worst-case, since the benchmarking logic extrapolates. They
+	/// should be a bit more than usually expected.
+	fn with_benchmarking_default(mut self) -> Self {
+		self.max_head_data_size = self.max_head_data_size.max(1 << 20);
+		self.max_downward_message_size = self.max_downward_message_size.max(1 << 16);
+		self.hrmp_channel_max_capacity = self.hrmp_channel_max_capacity.max(1000);
+		self.hrmp_channel_max_message_size = self.hrmp_channel_max_message_size.max(1 << 16);
+		self.hrmp_max_parachain_inbound_channels =
+			self.hrmp_max_parachain_inbound_channels.max(100);
+		self.hrmp_max_parachain_outbound_channels =
+			self.hrmp_max_parachain_outbound_channels.max(100);
+		self
 	}
 }
 
@@ -517,8 +540,7 @@ pub mod pallet {
 	/// The active configuration for the current session.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	#[pallet::getter(fn config)]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<_, HostConfiguration<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Pending configuration changes.
@@ -1288,7 +1310,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		session_index: &SessionIndex,
 	) -> SessionChangeOutcome<BlockNumberFor<T>> {
-		let pending_configs = <PendingConfigs<T>>::get();
+		let pending_configs = PendingConfigs::<T>::get();
 		let prev_config = ActiveConfig::<T>::get();
 
 		// No pending configuration changes, so we're done.
@@ -1315,7 +1337,7 @@ impl<T: Config> Pallet<T> {
 			ActiveConfig::<T>::put(new_config);
 		}
 
-		<PendingConfigs<T>>::put(future);
+		PendingConfigs::<T>::put(future);
 
 		SessionChangeOutcome { prev_config, new_config }
 	}
@@ -1350,7 +1372,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
 	) -> DispatchResult {
-		let mut pending_configs = <PendingConfigs<T>>::get();
+		let mut pending_configs = PendingConfigs::<T>::get();
 
 		// 1. pending_configs = [] No pending configuration changes.
 		//
@@ -1381,7 +1403,7 @@ impl<T: Config> Pallet<T> {
 		let mut base_config = pending_configs
 			.last()
 			.map(|(_, config)| config.clone())
-			.unwrap_or_else(Self::config);
+			.unwrap_or_else(ActiveConfig::<T>::get);
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.
@@ -1433,7 +1455,7 @@ impl<T: Config> Pallet<T> {
 			pending_configs.push((scheduled_session, new_config));
 		}
 
-		<PendingConfigs<T>>::put(pending_configs);
+		PendingConfigs::<T>::put(pending_configs);
 
 		Ok(())
 	}

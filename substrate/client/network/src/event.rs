@@ -34,7 +34,7 @@ use sc_network_common::role::ObservedRole;
 #[must_use]
 pub enum DhtEvent {
 	/// The value was found.
-	ValueFound(Vec<PeerRecord>),
+	ValueFound(PeerRecord),
 
 	/// The requested record has not been found in the DHT.
 	ValueNotFound(Key),

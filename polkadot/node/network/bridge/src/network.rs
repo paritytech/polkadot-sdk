@@ -25,9 +25,8 @@ use parking_lot::Mutex;
 use parity_scale_codec::Encode;
 
 use sc_network::{
-	config::parse_addr, multiaddr::Multiaddr, types::ProtocolName, IfDisconnected, MessageSink,
-	NetworkPeers, NetworkRequest, NetworkService, OutboundFailure, ReputationChange,
-	RequestFailure,
+	config::parse_addr, multiaddr::Multiaddr, service::traits::NetworkService, types::ProtocolName,
+	IfDisconnected, MessageSink, OutboundFailure, ReputationChange, RequestFailure,
 };
 
 use polkadot_node_network_protocol::{
@@ -35,7 +34,7 @@ use polkadot_node_network_protocol::{
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
 	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, PeerId,
 };
-use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
+use polkadot_primitives::AuthorityDiscoveryId;
 
 use crate::{metrics::Metrics, validator_discovery::AuthorityDiscovery, WireMessage};
 
@@ -239,13 +238,13 @@ pub trait Network: Clone + Send + 'static {
 }
 
 #[async_trait]
-impl Network for Arc<NetworkService<Block, Hash>> {
+impl Network for Arc<dyn NetworkService> {
 	async fn set_reserved_peers(
 		&mut self,
 		protocol: ProtocolName,
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String> {
-		NetworkService::set_reserved_peers(&**self, protocol, multiaddresses)
+		<dyn NetworkService>::set_reserved_peers(&**self, protocol, multiaddresses)
 	}
 
 	async fn add_peers_to_reserved_set(
@@ -253,7 +252,7 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 		protocol: ProtocolName,
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String> {
-		NetworkService::add_peers_to_reserved_set(&**self, protocol, multiaddresses)
+		<dyn NetworkService>::add_peers_to_reserved_set(&**self, protocol, multiaddresses)
 	}
 
 	async fn remove_from_peers_set(
@@ -261,15 +260,15 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 		protocol: ProtocolName,
 		peers: Vec<PeerId>,
 	) -> Result<(), String> {
-		NetworkService::remove_peers_from_reserved_set(&**self, protocol, peers)
+		<dyn NetworkService>::remove_peers_from_reserved_set(&**self, protocol, peers)
 	}
 
 	fn report_peer(&self, who: PeerId, rep: ReputationChange) {
-		NetworkService::report_peer(&**self, who, rep);
+		<dyn NetworkService>::report_peer(&**self, who, rep);
 	}
 
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
-		NetworkService::disconnect_peer(&**self, who, protocol);
+		<dyn NetworkService>::disconnect_peer(&**self, who, protocol);
 	}
 
 	async fn start_request<AD: AuthorityDiscovery>(
@@ -304,7 +303,7 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 						Ok(v) => v,
 						Err(_) => continue,
 					};
-					NetworkService::add_known_address(self, peer_id, addr);
+					<dyn NetworkService>::add_known_address(&**self, peer_id, addr);
 					found_peer_id = Some(peer_id);
 				}
 				found_peer_id
@@ -336,8 +335,8 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 			"Starting request",
 		);
 
-		NetworkService::start_request(
-			self,
+		<dyn NetworkService>::start_request(
+			&**self,
 			peer_id,
 			req_protocol_names.get_name(protocol),
 			payload,
@@ -348,7 +347,7 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 	}
 
 	fn peer_role(&self, who: PeerId, handshake: Vec<u8>) -> Option<sc_network::ObservedRole> {
-		NetworkService::peer_role(self, who, handshake)
+		<dyn NetworkService>::peer_role(&**self, who, handshake)
 	}
 }
 

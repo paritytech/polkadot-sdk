@@ -4,7 +4,7 @@ package authority_discovery_v3;
 
 // First we need to serialize the addresses in order to be able to sign them.
 message AuthorityRecord {
-	// Possibly multiple `MultiAddress`es through which the node can be 
+	// Possibly multiple `MultiAddress`es through which the node can be reached.
 	repeated bytes addresses = 1;
 }
 
@@ -26,7 +26,7 @@ message SignedAuthorityRecord {
 	bytes record = 1;
 	bytes auth_signature = 2;
 	// Even if there are multiple `record.addresses`, all of them have the same peer id.
-    // Old versions are missing this field. It is optional in order to provide compatibility both ways.
+	// Old versions are missing this field. It is optional in order to provide compatibility both ways.
 	PeerSignature peer_signature = 3;
 	// Information regarding the creation data of this record.
 	TimestampInfo creation_time = 4;

@@ -451,7 +451,7 @@ pub enum NetworkBridgeTxMessage {
 	},
 
 	/// Extends the known validators set with new peers we already know the `Multiaddrs`, this is
-	/// usually needed for validators that change their address mid-session. it is usually called
+	/// usually needed for validators that change their address mid-session. It is usually called
 	/// after a ConnectToResolvedValidators at the beginning of the session.
 	AddToResolvedValidators {
 		/// Each entry corresponds to the addresses of an already resolved validator.
@@ -680,7 +680,7 @@ pub enum RuntimeApiRequest {
 	/// Get validation code by its hash, either past, current or future code can be returned, as
 	/// long as state is still available.
 	ValidationCodeByHash(ValidationCodeHash, RuntimeApiSender<Option<ValidationCode>>),
-	/// Get a the candidate pending availability for a particular parachain by parachain / core
+	/// Get the candidate pending availability for a particular parachain by parachain / core
 	/// index
 	CandidatePendingAvailability(ParaId, RuntimeApiSender<Option<CommittedCandidateReceipt>>),
 	/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
@@ -749,6 +749,9 @@ pub enum RuntimeApiRequest {
 	/// Fetch the `ClaimQueue` from scheduler pallet
 	/// `V11`
 	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
+	/// Get the candidates pending availability for a particular parachain
+	/// `V11`
+	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
 }
 
 impl RuntimeApiRequest {
@@ -786,6 +789,9 @@ impl RuntimeApiRequest {
 
 	/// `ClaimQueue`
 	pub const CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `candidates_pending_availability`
+	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
 }
 
 /// A message to the Runtime API subsystem.

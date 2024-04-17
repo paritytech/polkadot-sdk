@@ -133,6 +133,9 @@ where
 			CandidatePendingAvailability(relay_parent, para_id, candidate) => self
 				.requests_cache
 				.cache_candidate_pending_availability((relay_parent, para_id), candidate),
+			CandidatesPendingAvailability(relay_parent, para_id, candidates) => self
+				.requests_cache
+				.cache_candidates_pending_availability((relay_parent, para_id), candidates),
 			CandidateEvents(relay_parent, events) =>
 				self.requests_cache.cache_candidate_events(relay_parent, events),
 			SessionExecutorParams(_relay_parent, session_index, index) =>
@@ -252,6 +255,9 @@ where
 			Request::CandidatePendingAvailability(para, sender) =>
 				query!(candidate_pending_availability(para), sender)
 					.map(|sender| Request::CandidatePendingAvailability(para, sender)),
+			Request::CandidatesPendingAvailability(para, sender) =>
+				query!(candidates_pending_availability(para), sender)
+					.map(|sender| Request::CandidatesPendingAvailability(para, sender)),
 			Request::CandidateEvents(sender) =>
 				query!(candidate_events(), sender).map(|sender| Request::CandidateEvents(sender)),
 			Request::SessionExecutorParams(session_index, sender) => {
@@ -529,6 +535,12 @@ where
 			CandidatePendingAvailability,
 			candidate_pending_availability(para),
 			ver = 1,
+			sender
+		),
+		Request::CandidatesPendingAvailability(para, sender) => query!(
+			CandidatesPendingAvailability,
+			candidates_pending_availability(para),
+			ver = Request::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
 			sender
 		),
 		Request::CandidateEvents(sender) => {

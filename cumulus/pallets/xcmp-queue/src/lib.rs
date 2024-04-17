@@ -942,7 +942,10 @@ impl<T: Config> SendXcm for Pallet<T> {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
-			Err(e) => Err(SendError::Transport(e.into())),
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
+				Err(SendError::Transport(e.into()))
+			},
 		}
 	}
 }

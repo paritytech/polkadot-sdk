@@ -92,7 +92,11 @@ const MAX_KNOWN_EXTERNAL_ADDRESSES: usize = 32;
 /// record is replicated to.
 pub const DEFAULT_KADEMLIA_REPLICATION_FACTOR: usize = 20;
 
+// The minimum number of peers we expect an answer before we terminate the request.
+const GET_RECORD_REDUNDANCY_FACTOR: u32 = 4;
+
 /// `DiscoveryBehaviour` configuration.
+///
 ///
 /// Note: In order to discover nodes or load and store values via Kademlia one has to add
 ///       Kademlia protocol via [`DiscoveryConfig::with_kademlia`].
@@ -413,17 +417,17 @@ impl DiscoveryBehaviour {
 	/// If `update_local_storage` is true, the local storage is update as well.
 	pub fn put_record_to(
 		&mut self,
-		record: PeerRecord,
-		peers: HashSet<PeerId>,
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
 		update_local_storage: bool,
 	) {
 		if let Some(kad) = self.kademlia.as_mut() {
 			if update_local_storage {
-				if let Err(_e) = kad.store_mut().put(record.record.clone()) {
+				if let Err(_e) = kad.store_mut().put(record.clone()) {
 					warn!(target: "sub-libp2p", "Failed to update local starage");
 				}
 			}
-			kad.put_record_to(record.record, peers.into_iter(), Quorum::One);
+			kad.put_record_to(record, peers.into_iter().map(|peer_id| peer_id.into()), Quorum::All);
 		}
 	}
 
@@ -493,7 +497,7 @@ pub enum DiscoveryOut {
 	/// The DHT yielded results for the record request.
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
-	ValueFound(Vec<PeerRecord>, Duration),
+	ValueFound(PeerRecord, Duration),
 
 	/// The record requested was not found in the DHT.
 	///
@@ -816,7 +820,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								// enough to make sure we also touch peers which might have
 								// old record, so that we can update them once we notice
 								// they have old records.
-								if stats.num_successes() > 4 {
+								if stats.num_successes() > GET_RECORD_REDUNDANCY_FACTOR {
 									if let Some(kad) = self.kademlia.as_mut() {
 										if let Some(mut query) = kad.query_mut(&id) {
 											query.finish();
@@ -828,10 +832,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								// `FinishedWithNoAdditionalRecord`.
 								self.records_to_publish.insert(id, r.record.clone());
 
-								DiscoveryOut::ValueFound(
-									vec![r],
-									stats.duration().unwrap_or_default(),
-								)
+								DiscoveryOut::ValueFound(r, stats.duration().unwrap_or_default())
 							},
 							Ok(GetRecordOk::FinishedWithNoAdditionalRecord {
 								cache_candidates,
