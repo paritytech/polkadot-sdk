@@ -3102,6 +3102,7 @@ pub(crate) mod tests {
 
 			op.db_updates = sp_trie::Changeset {
 				old_root: Default::default(),
+				death_row_child: Default::default(),
 				change: sp_trie::Changenode::New(Box::new(sp_trie::NewChangesetNode {
 					hash: key.into(),
 					prefix: Default::default(),
@@ -3153,6 +3154,7 @@ pub(crate) mod tests {
 
 			op.db_updates = sp_trie::Changeset {
 				old_root: Default::default(),
+				death_row_child: Default::default(),
 				change: sp_trie::Changenode::New(Box::new(sp_trie::NewChangesetNode {
 					hash: key.into(),
 					prefix: Default::default(),
@@ -3204,6 +3206,7 @@ pub(crate) mod tests {
 
 			op.db_updates = sp_trie::Changeset {
 				old_root: Default::default(),
+				death_row_child: Default::default(),
 				change: sp_trie::Changenode::New(Box::new(sp_trie::NewChangesetNode {
 					hash: Default::default(),
 					prefix: Default::default(),
