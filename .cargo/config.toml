@@ -3,6 +3,7 @@ rustdocflags = [
 	"-Dwarnings",
 	"-Arustdoc::redundant_explicit_links", # stylistic
 ]
+profiler = true
 
 [env]
 # Needed for musl builds so user doesn't have to install musl-tools.
