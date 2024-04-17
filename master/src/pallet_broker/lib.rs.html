@@ -959,6 +959,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -997,6 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>types;
 <span class="kw">mod </span>utility_impls;
 
+<span class="kw">pub mod </span>migration;
 <span class="kw">pub mod </span>runtime_api;
 
 <span class="kw">pub mod </span>weights;
@@ -1006,6 +1014,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>core_mask::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>coretime_interface::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>types::<span class="kw-2">*</span>;
+
+<span class="doccomment">/// The log target for this pallet.
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::broker&quot;</span>;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -1022,7 +1033,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_runtime::traits::{Convert, ConvertBack};
 	<span class="kw">use </span>sp_std::vec::Vec;
 
+	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">1</span>);
+
 	<span class="attr">#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
@@ -1177,9 +1191,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="doccomment">/// The duration of the Region.
 			</span>duration: Timeslice,
 			<span class="doccomment">/// The old owner of the Region.
-			</span>old_owner: T::AccountId,
+			</span>old_owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 			<span class="doccomment">/// The new owner of the Region.
-			</span>owner: T::AccountId,
+			</span>owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 		},
 		<span class="doccomment">/// A Region has been split into two non-overlapping Regions.
 		</span>Partitioned {

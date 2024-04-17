@@ -1403,8 +1403,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_last_event::&lt;T&gt;(
 			Event::Transferred {
 				region_id: region,
-				old_owner: caller,
-				owner: recipient,
+				old_owner: <span class="prelude-val">Some</span>(caller),
+				owner: <span class="prelude-val">Some</span>(recipient),
 				duration: <span class="number">3u32</span>.into(),
 			}
 			.into(),

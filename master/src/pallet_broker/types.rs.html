@@ -524,7 +524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The end of the Region.
 	</span><span class="kw">pub </span>end: Timeslice,
 	<span class="doccomment">/// The owner of the Region.
-	</span><span class="kw">pub </span>owner: AccountId,
+	</span><span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 	<span class="doccomment">/// The amount paid to Polkadot for this Region, or `None` if renewal is not allowed.
 	</span><span class="kw">pub </span>paid: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 }

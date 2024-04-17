@@ -149,7 +149,7 @@ var srcIndex = JSON.parse('{\
 "pallet_bridge_messages":["",[],["benchmarking.rs","inbound_lane.rs","lib.rs","outbound_lane.rs","weights.rs","weights_ext.rs"]],\
 "pallet_bridge_parachains":["",[],["benchmarking.rs","call_ext.rs","lib.rs","weights.rs","weights_ext.rs"]],\
 "pallet_bridge_relayers":["",[],["benchmarking.rs","lib.rs","payment_adapter.rs","stake_adapter.rs","weights.rs","weights_ext.rs"]],\
-"pallet_broker":["",[],["adapt_price.rs","benchmarking.rs","core_mask.rs","coretime_interface.rs","dispatchable_impls.rs","lib.rs","nonfungible_impl.rs","runtime_api.rs","tick_impls.rs","types.rs","utility_impls.rs","weights.rs"]],\
+"pallet_broker":["",[],["adapt_price.rs","benchmarking.rs","core_mask.rs","coretime_interface.rs","dispatchable_impls.rs","lib.rs","migration.rs","nonfungible_impl.rs","runtime_api.rs","tick_impls.rs","types.rs","utility_impls.rs","weights.rs"]],\
 "pallet_child_bounties":["",[],["benchmarking.rs","lib.rs","weights.rs"]],\
 "pallet_collator_selection":["",[],["benchmarking.rs","lib.rs","migration.rs","weights.rs"]],\
 "pallet_collective":["",[["migrations",[],["mod.rs","v4.rs"]]],["benchmarking.rs","lib.rs","weights.rs"]],\

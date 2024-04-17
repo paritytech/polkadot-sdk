@@ -582,6 +582,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -602,10 +622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bounded_collections::{ConstU32, WeakBoundedVec};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
-<span class="kw">use </span>frame_support::{
-	traits::fungible::{Inspect, Mutate},
-	weights::Weight,
-};
+<span class="kw">use </span>frame_support::{assert_ok, weights::Weight};
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, v2};
@@ -674,11 +691,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">benchmarks! </span>{
-	where_clause {
-		<span class="kw">where
-			</span>T: pallet_balances::Config,
-			&lt;T <span class="kw">as </span>pallet_balances::Config&gt;::Balance: From&lt;u128&gt; + Into&lt;u128&gt;,
-	}
 	send {
 		<span class="kw">let </span>send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
@@ -713,11 +725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>transferred_amount = <span class="kw">match </span><span class="kw-2">&amp;</span>asset.fun {
-			Fungible(amount) =&gt; <span class="kw-2">*</span>amount,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BenchmarkError::Stop(<span class="string">&quot;Benchmark asset not fungible&quot;</span>)),
-		}.into();
-		<span class="kw">let </span>assets: Assets = asset.into();
+		<span class="kw">let </span>assets: Assets = asset.clone().into();
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>send_origin = RawOrigin::Signed(caller.clone());
@@ -734,13 +742,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FeeReason::ChargeFees,
 		);
 
-		<span class="comment">// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
-		</span><span class="kw">let </span>balance = &lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Inspect&lt;<span class="kw">_</span>&gt;&gt;::balance(<span class="kw-2">&amp;</span>caller);
-		<span class="comment">// Add transferred_amount to origin
-		</span>&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Mutate&lt;<span class="kw">_</span>&gt;&gt;::mint_into(<span class="kw-2">&amp;</span>caller, transferred_amount)<span class="question-mark">?</span>;
-		<span class="comment">// verify initial balance
-		</span><span class="kw">let </span>balance = balance + transferred_amount;
-		<span class="macro">assert_eq!</span>(&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Inspect&lt;<span class="kw">_</span>&gt;&gt;::balance(<span class="kw-2">&amp;</span>caller), balance);
+		<span class="kw">match </span><span class="kw-2">&amp;</span>asset.fun {
+			Fungible(amount) =&gt; {
+				<span class="comment">// Add transferred_amount to origin
+				</span>&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::deposit_asset(
+					<span class="kw-2">&amp;</span>Asset { fun: Fungible(<span class="kw-2">*</span>amount), id: asset.id },
+					<span class="kw-2">&amp;</span>origin_location,
+					<span class="prelude-val">None</span>,
+				).map_err(|error| {
+				  <span class="macro">log::error!</span>(<span class="string">&quot;Fungible asset couldn&#39;t be deposited, error: {:?}&quot;</span>, error);
+				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})<span class="question-mark">?</span>;
+			},
+			NonFungible(instance) =&gt; {
+				&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>origin_location, <span class="prelude-val">None</span>)
+					.map_err(|error| {
+						<span class="macro">log::error!</span>(<span class="string">&quot;Nonfungible asset couldn&#39;t be deposited, error: {:?}&quot;</span>, error);
+						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+					})<span class="question-mark">?</span>;
+			}
+		};
 
 		<span class="kw">let </span>recipient = [<span class="number">0u8</span>; <span class="number">32</span>];
 		<span class="kw">let </span>versioned_dest: VersionedLocation = destination.into();
@@ -748,21 +769,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			AccountId32 { network: <span class="prelude-val">None</span>, id: recipient.into() }.into();
 		<span class="kw">let </span>versioned_assets: VersionedAssets = assets.into();
 	}: <span class="kw">_</span>&lt;RuntimeOrigin&lt;T&gt;&gt;(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), <span class="number">0</span>)
-	verify {
-		<span class="comment">// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		</span><span class="macro">assert!</span>(&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Inspect&lt;<span class="kw">_</span>&gt;&gt;::balance(<span class="kw-2">&amp;</span>caller) &lt;= balance - transferred_amount);
-	}
 
 	reserve_transfer_assets {
 		<span class="kw">let </span>(asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>transferred_amount = <span class="kw">match </span><span class="kw-2">&amp;</span>asset.fun {
-			Fungible(amount) =&gt; <span class="kw-2">*</span>amount,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BenchmarkError::Stop(<span class="string">&quot;Benchmark asset not fungible&quot;</span>)),
-		}.into();
-		<span class="kw">let </span>assets: Assets = asset.into();
+		<span class="kw">let </span>assets: Assets = asset.clone().into();
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>send_origin = RawOrigin::Signed(caller.clone());
@@ -779,23 +792,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FeeReason::ChargeFees,
 		);
 
-		<span class="comment">// Actual balance (e.g. `ensure_successful_delivery` could drip delivery fees, ...)
-		</span><span class="kw">let </span>balance = &lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Inspect&lt;<span class="kw">_</span>&gt;&gt;::balance(<span class="kw-2">&amp;</span>caller);
-		<span class="comment">// Add transferred_amount to origin
-		</span>&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Mutate&lt;<span class="kw">_</span>&gt;&gt;::mint_into(<span class="kw-2">&amp;</span>caller, transferred_amount)<span class="question-mark">?</span>;
-		<span class="comment">// verify initial balance
-		</span><span class="kw">let </span>balance = balance + transferred_amount;
-		<span class="macro">assert_eq!</span>(&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Inspect&lt;<span class="kw">_</span>&gt;&gt;::balance(<span class="kw-2">&amp;</span>caller), balance);
+		<span class="kw">match </span><span class="kw-2">&amp;</span>asset.fun {
+			Fungible(amount) =&gt; {
+				<span class="comment">// Add transferred_amount to origin
+				</span>&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::deposit_asset(
+					<span class="kw-2">&amp;</span>Asset { fun: Fungible(<span class="kw-2">*</span>amount), id: asset.id.clone() },
+					<span class="kw-2">&amp;</span>origin_location,
+					<span class="prelude-val">None</span>,
+				).map_err(|error| {
+				  <span class="macro">log::error!</span>(<span class="string">&quot;Fungible asset couldn&#39;t be deposited, error: {:?}&quot;</span>, error);
+				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})<span class="question-mark">?</span>;
+			},
+			NonFungible(instance) =&gt; {
+				&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::deposit_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>origin_location, <span class="prelude-val">None</span>)
+					.map_err(|error| {
+						<span class="macro">log::error!</span>(<span class="string">&quot;Nonfungible asset couldn&#39;t be deposited, error: {:?}&quot;</span>, error);
+						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+					})<span class="question-mark">?</span>;
+			}
+		};
 
 		<span class="kw">let </span>recipient = [<span class="number">0u8</span>; <span class="number">32</span>];
-		<span class="kw">let </span>versioned_dest: VersionedLocation = destination.into();
+		<span class="kw">let </span>versioned_dest: VersionedLocation = destination.clone().into();
 		<span class="kw">let </span>versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: <span class="prelude-val">None</span>, id: recipient.into() }.into();
 		<span class="kw">let </span>versioned_assets: VersionedAssets = assets.into();
 	}: <span class="kw">_</span>&lt;RuntimeOrigin&lt;T&gt;&gt;(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), <span class="number">0</span>)
 	verify {
-		<span class="comment">// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		</span><span class="macro">assert!</span>(&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Inspect&lt;<span class="kw">_</span>&gt;&gt;::balance(<span class="kw-2">&amp;</span>caller) &lt;= balance - transferred_amount);
+		<span class="kw">match </span><span class="kw-2">&amp;</span>asset.fun {
+			Fungible(amount) =&gt; {
+				<span class="macro">assert_ok!</span>(&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::withdraw_asset(
+					<span class="kw-2">&amp;</span>Asset { fun: Fungible(<span class="kw-2">*</span>amount), id: asset.id },
+					<span class="kw-2">&amp;</span>destination,
+					<span class="prelude-val">None</span>,
+				));
+			},
+			NonFungible(instance) =&gt; {
+				<span class="macro">assert_ok!</span>(&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::withdraw_asset(
+					<span class="kw-2">&amp;</span>asset,
+					<span class="kw-2">&amp;</span>destination,
+					<span class="prelude-val">None</span>,
+				));
+			}
+		};
 	}
 
 	transfer_assets {

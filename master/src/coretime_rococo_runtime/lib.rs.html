@@ -1051,6 +1051,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
 <a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1162,6 +1195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
 </span><span class="kw">pub type </span>Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
+	pallet_broker::migration::MigrateV0ToV1&lt;Runtime&gt;,
 	<span class="comment">// permanent
 	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 );
@@ -1772,11 +1806,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
-				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				&gt;;
+				<span class="kw">type </span>DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					&gt;,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					&gt;
+				);
 
 				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
@@ -1794,9 +1837,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
-					<span class="comment">// Reserve transfers are disabled
-					</span><span class="prelude-val">None
-				</span>}
+					<span class="comment">// Coretime chain can reserve transfer regions to some random parachain.
+
+					// Properties of a mock region:
+					</span><span class="kw">let </span>core = <span class="number">0</span>;
+					<span class="kw">let </span>begin = <span class="number">0</span>;
+					<span class="kw">let </span>end = <span class="number">42</span>;
+
+					<span class="kw">let </span>region_id = pallet_broker::Pallet::&lt;Runtime&gt;::issue(core, begin, end, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+					<span class="prelude-val">Some</span>((
+						Asset {
+							fun: NonFungible(Index(region_id.into())),
+							id: AssetId(xcm_config::BrokerPalletLocation::get())
+						},
+						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+					))
+				}
 
 				<span class="kw">fn </span>get_asset() -&gt; Asset {
 					Asset {
@@ -1811,15 +1867,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					RocRelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
+				<span class="kw">pub const </span>RandomParaId: ParaId = ParaId::new(<span class="number">43211234</span>);
 			}
 
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
 				<span class="kw">type </span>XcmConfig = xcm_config::XcmConfig;
-				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				&gt;;
+				<span class="kw">type </span>DeliveryHelper = (
+					cumulus_primitives_utility::ToParentDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						xcm_config::PriceForParentDelivery,
+					&gt;,
+					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						RandomParaId,
+						ParachainSystem,
+					&gt;
+				);
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationToAccountId;
 				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(RocRelayLocation::get())

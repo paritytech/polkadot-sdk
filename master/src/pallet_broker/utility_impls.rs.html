@@ -342,11 +342,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>issue(
+	<span class="kw">pub fn </span>issue(
 		core: CoreIndex,
 		begin: Timeslice,
 		end: Timeslice,
-		owner: T::AccountId,
+		owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 		paid: <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt;,
 	) -&gt; RegionId {
 		<span class="kw">let </span>id = RegionId { begin, core, mask: CoreMask::complete() };
@@ -364,7 +364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>region = Regions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>region_id).ok_or(Error::&lt;T&gt;::UnknownRegion)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(check_owner) = maybe_check_owner {
-			<span class="macro">ensure!</span>(check_owner == region.owner, Error::&lt;T&gt;::NotOwner);
+			<span class="macro">ensure!</span>(<span class="prelude-val">Some</span>(check_owner) == region.owner, Error::&lt;T&gt;::NotOwner);
 		}
 
 		Regions::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>region_id);

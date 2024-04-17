@@ -630,6 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -752,7 +753,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sale.sellout_price = <span class="prelude-val">Some</span>(price);
 		}
 		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>sale);
-		<span class="kw">let </span>id = <span class="self">Self</span>::issue(core, sale.region_begin, sale.region_end, who.clone(), <span class="prelude-val">Some</span>(price));
+		<span class="kw">let </span>id =
+			<span class="self">Self</span>::issue(core, sale.region_begin, sale.region_end, <span class="prelude-val">Some</span>(who.clone()), <span class="prelude-val">Some</span>(price));
 		<span class="kw">let </span>duration = sale.region_end.saturating_sub(sale.region_begin);
 		<span class="self">Self</span>::deposit_event(Event::Purchased { who, region_id: id, price, duration });
 		<span class="prelude-val">Ok</span>(id)
@@ -810,11 +812,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>region = Regions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>region_id).ok_or(Error::&lt;T&gt;::UnknownRegion)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(check_owner) = maybe_check_owner {
-			<span class="macro">ensure!</span>(check_owner == region.owner, Error::&lt;T&gt;::NotOwner);
+			<span class="macro">ensure!</span>(<span class="prelude-val">Some</span>(check_owner) == region.owner, Error::&lt;T&gt;::NotOwner);
 		}
 
 		<span class="kw">let </span>old_owner = region.owner;
-		region.owner = new_owner;
+		region.owner = <span class="prelude-val">Some</span>(new_owner);
 		Regions::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>region_id, <span class="kw-2">&amp;</span>region);
 		<span class="kw">let </span>duration = region.end.saturating_sub(region_id.begin);
 		<span class="self">Self</span>::deposit_event(Event::Transferred {
@@ -835,7 +837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>region = Regions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>region_id).ok_or(Error::&lt;T&gt;::UnknownRegion)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(check_owner) = maybe_check_owner {
-			<span class="macro">ensure!</span>(check_owner == region.owner, Error::&lt;T&gt;::NotOwner);
+			<span class="macro">ensure!</span>(<span class="prelude-val">Some</span>(check_owner) == region.owner, Error::&lt;T&gt;::NotOwner);
 		}
 		<span class="kw">let </span>pivot = region_id.begin.saturating_add(pivot_offset);
 		<span class="macro">ensure!</span>(pivot &lt; region.end, Error::&lt;T&gt;::PivotTooLate);
@@ -859,7 +861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>region = Regions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>region_id).ok_or(Error::&lt;T&gt;::UnknownRegion)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(check_owner) = maybe_check_owner {
-			<span class="macro">ensure!</span>(check_owner == region.owner, Error::&lt;T&gt;::NotOwner);
+			<span class="macro">ensure!</span>(<span class="prelude-val">Some</span>(check_owner) == region.owner, Error::&lt;T&gt;::NotOwner);
 		}
 
 		<span class="macro">ensure!</span>((pivot &amp; !region_id.mask).is_void(), Error::&lt;T&gt;::ExteriorPivot);
