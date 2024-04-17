@@ -101,6 +101,7 @@ mod benchmarks {
 			T::Assets::minimum_balance(reward_asset.clone()),
 		);
 
+		let block_number_before = frame_system::Pallet::<T>::block_number();
 		#[extrinsic_call]
 		_(
 			Root,
@@ -118,7 +119,7 @@ mod benchmarks {
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: 100u32.into(),
-				expiry_block: 200u32.into(),
+				expiry_block: block_number_before + 200u32.into(),
 				pool_id: 0u32.into(),
 			}
 			.into(),
