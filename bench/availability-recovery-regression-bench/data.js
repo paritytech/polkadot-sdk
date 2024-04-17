@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713350661748,
+  "lastUpdate": 1713356526893,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3947,6 +3947,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 12.85856696373333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4e10d3b0a6ec2eccf58c471e7739948c1a867acf",
+          "message": "Asset Conversion: Pool Account ID derivation with additional Pallet ID seed (#3250)\n\nIntroduce `PalletId` as an additional seed parameter for pool's account\nid derivation.\n\nThe PR also introduces the `pallet_asset_conversion_ops` pallet with a\ncall to migrate a given pool to thew new account. Additionally\n`fungibles::lifetime::ResetTeam` and `fungible::lifetime::Refund`\ntraits, to facilitate the migration of pools.\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-17T10:39:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e10d3b0a6ec2eccf58c471e7739948c1a867acf"
+        },
+        "date": 1713356500419,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.740651882000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19209161439999994,
             "unit": "seconds"
           }
         ]
