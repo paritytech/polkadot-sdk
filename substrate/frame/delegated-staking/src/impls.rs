@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Implementations of public traits, namely [DelegationInterface] and [OnStakingUpdate].
+//! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
 use sp_staking::{DelegationInterface, OnStakingUpdate};

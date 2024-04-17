@@ -316,7 +316,7 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3, xcm::v3::Location>,
 		AssetIdForTrustBackedAssets,
 		xcm::v3::Location,
 	>,
@@ -333,6 +333,11 @@ pub type NativeAndAssets = fungible::UnionOf<
 	AccountId,
 >;
 
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	AssetConversionPalletId,
+	(xcm::v3::Location, xcm::v3::Location),
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -340,8 +345,12 @@ impl pallet_asset_conversion::Config for Runtime {
 	type AssetKind = xcm::v3::Location;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
-	type PoolLocator =
-		pallet_asset_conversion::WithFirstAsset<TokenLocationV3, AccountId, Self::AssetKind>;
+	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
+		TokenLocationV3,
+		AccountId,
+		Self::AssetKind,
+		PoolIdToAccountId,
+	>;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
@@ -360,6 +369,18 @@ impl pallet_asset_conversion::Config for Runtime {
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::v3::Location,
 	>;
+}
+
+impl pallet_asset_conversion_ops::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PriorAccountIdConverter = pallet_asset_conversion::AccountIdConverterNoSeed<
+		<Runtime as pallet_asset_conversion::Config>::PoolId,
+	>;
+	type AssetsRefund = <Runtime as pallet_asset_conversion::Config>::Assets;
+	type PoolAssetsRefund = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type PoolAssetsTeam = <Runtime as pallet_asset_conversion::Config>::PoolAssets;
+	type DepositAsset = Balances;
+	type WeightInfo = weights::pallet_asset_conversion_ops::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -934,6 +955,10 @@ construct_runtime!(
 
 		#[cfg(feature = "state-trie-version-1")]
 		StateTrieMigration: pallet_state_trie_migration = 70,
+
+		// TODO: the pallet instance should be removed once all pools have migrated
+		// to the new account IDs.
+		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );
 
@@ -961,6 +986,7 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Migrations to apply on runtime upgrade.
+#[allow(deprecated)]
 pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
@@ -1054,6 +1080,7 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWestend]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.

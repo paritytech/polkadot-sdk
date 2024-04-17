@@ -871,7 +871,7 @@ pub mod pallet {
 		CannotRestoreLedger,
 		/// Provided reward destination is not allowed.
 		RewardDestinationRestricted,
-		/// Not enough funds available to withdraw
+		/// Not enough funds available to withdraw.
 		NotEnoughFunds,
 	}
 
@@ -1308,7 +1308,9 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
-			ledger.set_payee(payee)?;
+			let _ = ledger
+				.set_payee(payee)
+				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
 			Ok(())
 		}
