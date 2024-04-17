@@ -41,6 +41,11 @@
 //! The pool admin may adjust the pool configuration such as reward rate per block, expiry block,
 //! and admin.
 //!
+//! ## Disambiguation
+//!
+//! While this pallet shares some terminology with the `staking-pool` and similar native staking
+//! related pallets, it is distinct and is entirely unrelated to native staking.
+//!
 //! ## Permissioning
 //!
 //! Currently, pool creation and management restricted to a configured Origin.
