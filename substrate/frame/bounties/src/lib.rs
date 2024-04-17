@@ -246,6 +246,9 @@ pub mod pallet {
 		/// The child bounty manager.
 		type ChildBountyManager: ChildBountyManager<BalanceOf<Self, I>>;
 
+		/// Origin from which approvals must come.
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Handler for the unbalanced decrease when slashing for a bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 	}

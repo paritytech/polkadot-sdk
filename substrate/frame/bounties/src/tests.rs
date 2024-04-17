@@ -146,6 +146,7 @@ parameter_types! {
 
 impl Config for Test {
 	type OnSlash = ();
+	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
@@ -162,6 +163,7 @@ impl Config for Test {
 
 impl Config<Instance1> for Test {
 	type OnSlash = ();
+	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
