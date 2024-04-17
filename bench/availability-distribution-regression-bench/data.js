@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713356225065,
+  "lastUpdate": 1713372565349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4939,6 +4939,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15773941326666646,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bfbf7f5d6f5c491a820bb0a4fb9508ce52192a06",
+          "message": "chainHead: Report unique hashes for pruned blocks (#3667)\n\nThis PR ensures that the reported pruned blocks are unique.\n\nWhile at it, ensure that the best block event is properly generated when\nthe last best block is a fork that will be pruned in the future.\n\nTo achieve this, the chainHead keeps a LRU set of reported pruned blocks\nto ensure the following are not reported twice:\n\n```bash\n\t finalized -> block 1 -> block 2 -> block 3\n\t\n\t                      -> block 2 -> block 4 -> block 5\n\t\n\t           -> block 1 -> block 2_f -> block 6 -> block 7 -> block 8\n```\n\nWhen block 7 is finalized the branch [block 2; block 3] is reported as\npruned.\nWhen block 8 is finalized the branch [block 2; block 4; block 5] should\nbe reported as pruned, however block 2 was already reported as pruned at\nthe previous step.\n\nThis is a side-effect of the pruned blocks being reported at level N -\n1. For example, if all pruned forks would be reported with the first\nencounter (when block 6 is finalized we know that block 3 and block 5\nare stale), we would not need the LRU cache.\n\ncc @paritytech/subxt-team  \n\nCloses https://github.com/paritytech/polkadot-sdk/issues/3658\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2024-04-17T15:29:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfbf7f5d6f5c491a820bb0a4fb9508ce52192a06"
+        },
+        "date": 1713372538553,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1551379109333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006031601866666661,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013205111066666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024163979933333333,
             "unit": "seconds"
           }
         ]
