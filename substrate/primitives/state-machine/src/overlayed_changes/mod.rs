@@ -22,9 +22,10 @@ mod offchain;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
+#[cfg(not(feature = "std"))]
+use alloc::collections::btree_map::BTreeMap as Map;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
-use hash_db::Hasher;
 pub use offchain::OffchainOverlayedChanges;
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -32,10 +33,8 @@ use sp_core::{
 };
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
-use sp_trie::{empty_child_trie_root, LayoutV1};
 
-#[cfg(not(feature = "std"))]
-use alloc::collections::btree_map::BTreeMap as Map;
+use sp_trie::{empty_child_trie_root, DBLocation, LayoutV1};
 #[cfg(feature = "std")]
 use std::collections::{hash_map::Entry as MapEntry, HashMap as Map};
 
@@ -44,6 +43,7 @@ use std::{
 	any::{Any, TypeId},
 	boxed::Box,
 };
+use trie_db::node_db::Hasher;
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
 
@@ -133,7 +133,9 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			transaction_index_ops: self.transaction_index_ops.clone(),
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
-			storage_transaction_cache: self.storage_transaction_cache.clone(),
+			storage_transaction_cache: None, /* TODO try tests with old code (very important).
+			                                  * storage_transaction_cache:
+			                                  * self.storage_transaction_cache.clone(), */
 		}
 	}
 }
@@ -190,9 +192,7 @@ pub struct StorageChanges<H: Hasher> {
 	/// [`main_storage_changes`](StorageChanges::main_storage_changes) and from
 	/// [`child_storage_changes`](StorageChanges::child_storage_changes).
 	/// [`offchain_storage_changes`](StorageChanges::offchain_storage_changes).
-	pub transaction: BackendTransaction<H>,
-	/// The storage root after applying the transaction.
-	pub transaction_storage_root: H::Out,
+	pub transaction: BackendTransaction<H::Out>,
 	/// Changes to the transaction index,
 	#[cfg(feature = "std")]
 	pub transaction_index_changes: Vec<IndexOperation>,
@@ -207,8 +207,7 @@ impl<H: Hasher> StorageChanges<H> {
 		StorageCollection,
 		ChildStorageCollection,
 		OffchainChangesCollection,
-		BackendTransaction<H>,
-		H::Out,
+		BackendTransaction<H::Out>,
 		Vec<IndexOperation>,
 	) {
 		(
@@ -216,7 +215,6 @@ impl<H: Hasher> StorageChanges<H> {
 			self.child_storage_changes,
 			self.offchain_storage_changes,
 			self.transaction,
-			self.transaction_storage_root,
 			self.transaction_index_changes,
 		)
 	}
@@ -228,8 +226,7 @@ impl<H: Hasher> Default for StorageChanges<H> {
 			main_storage_changes: Default::default(),
 			child_storage_changes: Default::default(),
 			offchain_storage_changes: Default::default(),
-			transaction: Default::default(),
-			transaction_storage_root: Default::default(),
+			transaction: BackendTransaction::unchanged(Default::default(), Default::default()),
 			#[cfg(feature = "std")]
 			transaction_index_changes: Default::default(),
 		}
@@ -241,35 +238,34 @@ impl<H: Hasher> Default for StorageChanges<H> {
 /// storage. So, we cache them to not require a recomputation of those transactions.
 struct StorageTransactionCache<H: Hasher> {
 	/// Contains the changes for the main and the child storages as one transaction.
-	transaction: BackendTransaction<H>,
-	/// The storage root after applying the transaction.
-	transaction_storage_root: H::Out,
+	pub(crate) transaction: BackendTransaction<H::Out>,
 }
 
 impl<H: Hasher> StorageTransactionCache<H> {
-	fn into_inner(self) -> (BackendTransaction<H>, H::Out) {
-		(self.transaction, self.transaction_storage_root)
+	fn into_inner(self) -> BackendTransaction<H::Out> {
+		self.transaction
 	}
 }
 
+/*
 impl<H: Hasher> Clone for StorageTransactionCache<H> {
 	fn clone(&self) -> Self {
 		Self {
 			transaction: self.transaction.clone(),
-			transaction_storage_root: self.transaction_storage_root,
 		}
 	}
 }
+*/
 
 impl<H: Hasher> core::fmt::Debug for StorageTransactionCache<H> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		let mut debug = f.debug_struct("StorageTransactionCache");
 
 		#[cfg(feature = "std")]
-		debug.field("transaction_storage_root", &self.transaction_storage_root);
+		debug.field("transaction_storage_root", &self.transaction.root_hash());
 
 		#[cfg(not(feature = "std"))]
-		debug.field("transaction_storage_root", &self.transaction_storage_root.as_ref());
+		debug.field("transaction_storage_root", &self.transaction.root_hash().as_ref());
 
 		debug.finish()
 	}
@@ -562,7 +558,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	where
 		H::Out: Ord + Encode + 'static,
 	{
-		let (transaction, transaction_storage_root) = match self.storage_transaction_cache.take() {
+		let transaction = match self.storage_transaction_cache.take() {
 			Some(cache) => cache.into_inner(),
 			// If the transaction does not exist, we generate it.
 			None => {
@@ -592,7 +588,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.collect(),
 			offchain_storage_changes,
 			transaction,
-			transaction_storage_root,
 			#[cfg(feature = "std")]
 			transaction_index_changes,
 		})
@@ -631,7 +626,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		H::Out: Ord + Encode,
 	{
 		if let Some(cache) = &self.storage_transaction_cache {
-			return (cache.transaction_storage_root, true)
+			return (cache.transaction.root_hash(), true)
 		}
 
 		let delta = self.changes().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
@@ -639,10 +634,11 @@ impl<H: Hasher> OverlayedChanges<H> {
 			(info, changes.map(|(k, v)| (&k[..], v.value().map(|v| &v[..]))))
 		});
 
-		let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
+		let transaction = backend.full_storage_root(delta, child_delta, state_version);
 
-		self.storage_transaction_cache =
-			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
+		let root = transaction.root_hash();
+
+		self.storage_transaction_cache = Some(StorageTransactionCache { transaction });
 
 		(root, false)
 	}
@@ -672,19 +668,20 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.flatten()
 				.and_then(|k| Decode::decode(&mut &k[..]).ok())
 				// V1 is equivalent to V0 on empty root.
-				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H>>);
+				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H, DBLocation>>);
 
 			return Ok((root, true))
 		}
 
-		let root = if let Some((changes, info)) = self.child_changes(storage_key) {
+		let commit = if let Some((changes, info)) = self.child_changes(storage_key) {
 			let delta = changes.map(|(k, v)| (k.as_ref(), v.value().map(AsRef::as_ref)));
 			Some(backend.child_storage_root(info, delta, state_version))
 		} else {
 			None
 		};
 
-		let root = if let Some((root, is_empty, _)) = root {
+		let root = if let Some((commit, is_empty)) = commit {
+			let root = commit.root_hash();
 			// We store update in the overlay in order to be able to use
 			// 'self.storage_transaction' cache. This is brittle as it rely on Ext only querying
 			// the trie backend for storage root.
@@ -701,7 +698,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.storage(prefixed_storage_key.as_slice())?
 				.and_then(|k| Decode::decode(&mut &k[..]).ok())
 				// V1 is equivalent to V0 on empty root.
-				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H>>);
+				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H, DBLocation>>);
 
 			root
 		};

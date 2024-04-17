@@ -184,17 +184,14 @@ where
 			)
 			.unwrap();
 
-		state_ext.backend.apply_transaction(
-			storage_changes.transaction_storage_root,
-			storage_changes.transaction,
-		);
+		state_ext.backend.apply_transaction(storage_changes.transaction);
 
 		log::info!(
 			target: LOG_TARGET,
 			"executed block {}, consumed weight {}, new storage root {:?}",
 			number,
 			consumed_weight,
-			state_ext.as_backend().root(),
+			state_ext.as_backend().unwrap().root(),
 		);
 	}
 
