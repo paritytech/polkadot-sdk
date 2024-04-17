@@ -6847,9 +6847,9 @@ mod staking_interface {
 	}
 }
 
-mod staking_unsafe {
+mod staking_unchecked {
 	use frame_support::traits::InspectLockableCurrency;
-	use sp_staking::{Stake, StakingInterface, StakingUnsafe};
+	use sp_staking::{Stake, StakingInterface, StakingUnchecked};
 
 	use super::*;
 
@@ -6860,7 +6860,7 @@ mod staking_unsafe {
 			assert_eq!(Balances::free_balance(10), 1);
 			// 10 can bond more than its balance amount since we do not require lock for virtual
 			// bonding.
-			assert_ok!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &15));
+			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &15));
 			// nothing is locked on 10.
 			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
 			// adding more balance does not lock anything as well.
@@ -6927,12 +6927,12 @@ mod staking_unsafe {
 		ExtBuilder::default().build_and_execute(|| {
 			// cannot set payee to self
 			assert_noop!(
-				<Staking as StakingUnsafe>::virtual_bond(&10, 100, &10),
+				<Staking as StakingUnchecked>::virtual_bond(&10, 100, &10),
 				Error::<Test>::RewardDestinationRestricted
 			);
 
 			// to another account works
-			assert_ok!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &11));
+			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &11));
 
 			// cannot set via set_payee as well.
 			assert_noop!(
@@ -6950,13 +6950,13 @@ mod staking_unsafe {
 
 			// Tries bonding again
 			assert_noop!(
-				<Staking as StakingUnsafe>::virtual_bond(&200, 200, &201),
+				<Staking as StakingUnchecked>::virtual_bond(&200, 200, &201),
 				Error::<Test>::AlreadyBonded
 			);
 
 			// And again with a different reward destination.
 			assert_noop!(
-				<Staking as StakingUnsafe>::virtual_bond(&200, 200, &202),
+				<Staking as StakingUnchecked>::virtual_bond(&200, 200, &202),
 				Error::<Test>::AlreadyBonded
 			);
 
@@ -6973,13 +6973,13 @@ mod staking_unsafe {
 		ExtBuilder::default().build_and_execute(|| {
 			// 101 is a nominator trying to virtual bond
 			assert_noop!(
-				<Staking as StakingUnsafe>::virtual_bond(&101, 200, &102),
+				<Staking as StakingUnchecked>::virtual_bond(&101, 200, &102),
 				Error::<Test>::AlreadyBonded
 			);
 
 			// validator 21 tries to virtual bond
 			assert_noop!(
-				<Staking as StakingUnsafe>::virtual_bond(&21, 200, &22),
+				<Staking as StakingUnchecked>::virtual_bond(&21, 200, &22),
 				Error::<Test>::AlreadyBonded
 			);
 		});
@@ -6996,7 +6996,7 @@ mod staking_unsafe {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
 
 			// migrate them to virtual staker
-			<Staking as StakingUnsafe>::migrate_to_virtual_staker(&200);
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
 			// payee needs to be updated to a non-stash account.
 			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
 
@@ -7017,7 +7017,7 @@ mod staking_unsafe {
 			// 101 is a nominator for 11
 			assert_eq!(initial_exposure.others.first().unwrap().who, 101);
 			// make 101 a virtual nominator
-			<Staking as StakingUnsafe>::migrate_to_virtual_staker(&101);
+			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
 			// set payee different to self.
 			assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
 

@@ -314,7 +314,7 @@ pub trait StakingInterface {
 ///
 /// These apis bypass some or all safety checks and should only be used if you know what you are
 /// doing.
-pub trait StakingUnsafe: StakingInterface {
+pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.

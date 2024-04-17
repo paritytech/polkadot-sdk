@@ -1942,7 +1942,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_staking::StakingUnsafe for Pallet<T> {
+impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_virtual_staker(who: &Self::AccountId) {
 		T::Currency::remove_lock(crate::STAKING_ID, who);
 		VirtualStakers::<T>::insert(who, ());

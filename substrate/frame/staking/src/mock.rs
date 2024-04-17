@@ -614,7 +614,7 @@ pub(crate) fn bond_virtual_nominator(
 	System::inc_providers(&who);
 
 	// Bond who virtually.
-	assert_ok!(<Staking as sp_staking::StakingUnsafe>::virtual_bond(&who, val, &payee));
+	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
