@@ -20,11 +20,12 @@ pub enum Priority {
 	/// Normal priority for things that do not require immediate response, but still need to be
 	/// done pretty quick.
 	///
-	/// Approvals and disputes fall into this category.
+	/// Backing falls into this category.
 	Normal,
 	/// This priority is used for requests that are required to be processed as soon as possible.
 	///
-	/// For example, backing is on a critical path and requires execution as soon as possible.
+	/// Disputes and approval are on a critical path and requires execution as soon as
+	/// possible to not delay finality.
 	Critical,
 }
 

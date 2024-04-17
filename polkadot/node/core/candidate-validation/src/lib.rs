@@ -657,7 +657,14 @@ async fn validate_candidate_exhaustive(
 				PrepareJobKind::Compilation,
 			);
 
-			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
+			validation_backend
+				.validate_candidate(
+					pvf,
+					exec_timeout,
+					params.encode(),
+					polkadot_node_core_pvf::Priority::Normal,
+				)
+				.await
 		},
 		PvfExecKind::Approval =>
 			validation_backend
@@ -749,6 +756,8 @@ trait ValidationBackend {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF for the approval subsystem. Will retry once if an error is encountered
@@ -776,8 +785,15 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		let mut validation_result =
-			self.validate_candidate(pvf.clone(), exec_timeout, params.encode()).await;
+		// Use `Priority::Critical` as finality trumps parachain liveliness.
+		let mut validation_result = self
+			.validate_candidate(
+				pvf.clone(),
+				exec_timeout,
+				params.encode(),
+				polkadot_node_core_pvf::Priority::Critical,
+			)
+			.await;
 		if validation_result.is_ok() {
 			return validation_result
 		}
@@ -851,8 +867,14 @@ trait ValidationBackend {
 
 				// Encode the params again when re-trying. We expect the retry case to be relatively
 				// rare, and we want to avoid unconditionally cloning data.
-				validation_result =
-					self.validate_candidate(pvf.clone(), new_timeout, params.encode()).await;
+				validation_result = self
+					.validate_candidate(
+						pvf.clone(),
+						new_timeout,
+						params.encode(),
+						polkadot_node_core_pvf::Priority::Critical,
+					)
+					.await;
 			}
 		}
 
@@ -870,11 +892,13 @@ impl ValidationBackend for ValidationHost {
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
 		encoded_params: Vec<u8>,
+		// The priority for the preparation job.
+		prepare_priority: polkadot_node_core_pvf::Priority,
 	) -> Result<WasmValidationResult, ValidationError> {
-		let priority = polkadot_node_core_pvf::Priority::Normal;
-
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self.execute_pvf(pvf, exec_timeout, encoded_params, priority, tx).await {
+		if let Err(err) =
+			self.execute_pvf(pvf, exec_timeout, encoded_params, prepare_priority, tx).await
+		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
 				err
