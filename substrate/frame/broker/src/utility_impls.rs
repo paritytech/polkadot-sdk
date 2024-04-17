@@ -127,12 +127,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn force_unpool_region(region_id: RegionId, region: &RegionRecordOf<T>) {
 		// We don't care if this fails or not, just that it is removed if present. This is to
 		// account for the case where a region is pooled provisionally and redispatched.
-		if let Some(_) = InstaPoolContribution::<T>::take(region_id) {
+		if InstaPoolContribution::<T>::take(region_id).is_some() {
 			let current_timeslice = Self::current_timeslice();
 			// Do no more for regions that have ended.
 			if region.end < current_timeslice {
 				return
-			};
+			}
 
 			// Account for this in `InstaPoolIo` from either the region begin or current timeslice
 			// if we are already part-way through the region.
