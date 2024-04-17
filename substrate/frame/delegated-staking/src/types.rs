@@ -47,7 +47,7 @@ impl<T: Config> Delegation<T> {
 	}
 
 	/// Create and return a new delegation instance.
-	pub(crate) fn from(agent: &T::AccountId, amount: BalanceOf<T>) -> Self {
+	pub(crate) fn new(agent: &T::AccountId, amount: BalanceOf<T>) -> Self {
 		Delegation { agent: agent.clone(), amount }
 	}
 
@@ -57,7 +57,7 @@ impl<T: Config> Delegation<T> {
 	/// Delegators are prevented from delegating to multiple agents at the same time.
 	pub(crate) fn can_delegate(delegator: &T::AccountId, agent: &T::AccountId) -> bool {
 		Delegation::<T>::get(delegator)
-			.map(|delegation| delegation.agent == agent.clone())
+			.map(|delegation| delegation.agent == *agent)
 			.unwrap_or(
 				// all good if it is a new delegator except it should not be an existing agent.
 				!<Agents<T>>::contains_key(delegator),
@@ -67,14 +67,14 @@ impl<T: Config> Delegation<T> {
 	/// Checked decrease of delegation amount. Consumes self and returns a new copy.
 	pub(crate) fn decrease_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
 		let updated_delegation = self.amount.checked_sub(&amount)?;
-		Some(Delegation::from(&self.agent, updated_delegation))
+		Some(Delegation::new(&self.agent, updated_delegation))
 	}
 
 	/// Checked increase of delegation amount. Consumes self and returns a new copy.
 	#[allow(unused)]
 	pub(crate) fn increase_delegation(self, amount: BalanceOf<T>) -> Option<Self> {
 		let updated_delegation = self.amount.checked_add(&amount)?;
-		Some(Delegation::from(&self.agent, updated_delegation))
+		Some(Delegation::new(&self.agent, updated_delegation))
 	}
 
 	/// Save self to storage. If the delegation amount is zero, remove the delegation.

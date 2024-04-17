@@ -462,7 +462,7 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 /// - `Delegator`: An account that delegates funds to a `Agent`.
 /// - `Agent`: An account that receives delegated funds from `Delegators`. It can then use these
 /// funds to participate in the staking system. It can never use its own funds to stake. They
-/// (virtually bond)[`StakingUnsafe::virtual_bond`] into the staking system and can also be termed
+/// (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system and can also be termed
 /// as `Virtual Nominators`.
 ///
 /// The `Agent` is responsible for managing rewards and slashing for all the `Delegators` that
