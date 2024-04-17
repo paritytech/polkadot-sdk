@@ -98,15 +98,13 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
-macro_rules! map_err {
-	($stream:expr, $worker_info:expr, $e:expr, $err_constructor:expr) => {
-		$e.map_err(|err| {
-			let err: WorkerError = $err_constructor(err.to_string()).into();
-			let io_err = io::Error::new(io::ErrorKind::Other, err.to_string());
-			let _ = send_result::<WorkerResponse, WorkerError>($stream, Err(err), $worker_info);
-			io_err
-		})
-	};
+macro_rules! map_and_send_err {
+	($error:expr, $err_constructor:expr, $stream:expr, $worker_info:expr) => {{
+		let err: WorkerError = $err_constructor($error.to_string()).into();
+		let io_err = io::Error::new(io::ErrorKind::Other, err.to_string());
+		let _ = send_result::<WorkerResponse, WorkerError>($stream, Err(err), $worker_info);
+		io_err
+	}};
 }
 
 /// The entrypoint that the spawned execute worker should start with.
@@ -137,23 +135,28 @@ pub fn worker_entrypoint(
 		|mut stream, worker_info, security_status| {
 			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
 
-			let Handshake { executor_params } = map_err!(
-				&mut stream,
-				worker_info,
-				recv_execute_handshake(&mut stream),
-				InternalValidationError::HostCommunication
-			)?;
+			let Handshake { executor_params } =
+				recv_execute_handshake(&mut stream).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::HostCommunication,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (params, execution_timeout) = map_err!(
-					&mut stream,
-					worker_info,
-					recv_request(&mut stream),
-					InternalValidationError::HostCommunication
-				)?;
+				let (params, execution_timeout) = recv_request(&mut stream).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::HostCommunication,
+						&mut stream,
+						worker_info
+					)
+				})?;
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -163,27 +166,34 @@ pub fn worker_entrypoint(
 				);
 
 				// Get the artifact bytes.
-				let compiled_artifact_blob = map_err!(
-					&mut stream,
-					worker_info,
-					std::fs::read(&artifact_path),
-					InternalValidationError::CouldNotOpenFile
-				)?;
+				let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotOpenFile,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
-				let (pipe_read_fd, pipe_write_fd) = map_err!(
-					&mut stream,
-					worker_info,
-					pipe2_cloexec(),
-					InternalValidationError::CouldNotCreatePipe
-				)?;
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::CouldNotCreatePipe,
+						&mut stream,
+						worker_info
+					)
+				})?;
 
-				let usage_before = map_err!(
-					&mut stream,
-					worker_info,
-					nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-						.map_err(|errno| stringify_errno("getrusage before", errno)),
-					InternalValidationError::Kernel
-				)?;
+				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+					.map_err(|errno| {
+						let e = stringify_errno("getrusage before", errno);
+						map_and_send_err!(
+							e,
+							InternalValidationError::Kernel,
+							&mut stream,
+							worker_info
+						)
+					})?;
 				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
