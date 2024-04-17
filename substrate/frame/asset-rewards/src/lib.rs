@@ -322,6 +322,20 @@ pub mod pallet {
 		Overflow,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			// The AccountId is at least 8 bytes to contain the unique PalletId.
+			match <frame_support::PalletId as AccountIdConversion<T::AccountId>>::try_into_account(
+				&T::PalletId::get(),
+			) {
+				// Some(_) => (),
+				Some(_) => (),
+				None => panic!("pallet_asset_rewards: PalletId must be at least 8 bytes"),
+			}
+		}
+	}
+
 	/// Pallet's callable functions.
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
