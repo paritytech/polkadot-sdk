@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as delegated_staking, types::Agent, HoldReason};
+use crate::{self as delegated_staking, types::Agent};
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{fungible::InspectHold, ConstU64, Currency},
+	traits::{ConstU64, Currency},
 	PalletId,
 };
 
@@ -296,11 +296,6 @@ pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool 
 
 pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
 	Agent::<T>::get(agent).expect("delegate should exist")
-}
-
-#[allow(unused)]
-pub(crate) fn held_balance(who: &AccountId) -> Balance {
-	Balances::balance_on_hold(&HoldReason::StakingDelegation.into(), who)
 }
 
 parameter_types! {

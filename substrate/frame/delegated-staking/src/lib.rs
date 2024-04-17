@@ -46,6 +46,11 @@
 //! primitive function: delegation of funds to an `agent` with the intent of staking. The agent can
 //! then stake the delegated funds to [`Config::CoreStaking`] on behalf of the delegators.
 //!
+//! #### Withdrawal Management
+//! Agent unbonding does not regulate ordering of consequent withdrawal for delegators. This is upto
+//! the consumer of this pallet to implement in what order unbondable funds from
+//! [`Config::CoreStaking`] can be withdrawn by the delegators.
+//!
 //! #### Reward and Slashing
 //! This pallet does not enforce any specific strategy for how rewards or slashes are applied. It
 //! is upto the `agent` account to decide how to apply the rewards and slashes.

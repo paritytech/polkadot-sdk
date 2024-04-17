@@ -21,6 +21,7 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_staking::Error as StakingError;
+use sp_staking::DelegationInterface;
 
 #[test]
 fn create_a_agent_with_first_delegator() {
@@ -195,7 +196,6 @@ fn agent_restrictions() {
 	});
 }
 
-use sp_staking::DelegationInterface;
 #[test]
 fn apply_pending_slash() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -239,7 +239,7 @@ fn apply_pending_slash() {
 			// balance before slash
 			let initial_pending_slash = get_agent(&agent).ledger.pending_slash;
 			assert!(initial_pending_slash > 0);
-			let unslashed_balance = held_balance(&i);
+			let unslashed_balance = DelegatedStaking::held_balance_of(&i);
 			let slash = unslashed_balance / 2;
 			// slash half of delegator's delegation.
 			assert_ok!(<DelegatedStaking as DelegationInterface>::delegator_slash(
@@ -250,7 +250,7 @@ fn apply_pending_slash() {
 			));
 
 			// balance after slash.
-			assert_eq!(held_balance(&i), unslashed_balance - slash);
+			assert_eq!(DelegatedStaking::held_balance_of(&i), unslashed_balance - slash);
 			// pending slash is reduced by the amount slashed.
 			assert_eq!(get_agent(&agent).ledger.pending_slash, initial_pending_slash - slash);
 			// reporter get 10% of the slash amount.
@@ -341,15 +341,16 @@ mod staking_integration {
 				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 301, 50, 0),
 				Error::<T>::NotEnoughFunds
 			);
-			// assert_noop!(DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(),
-			// 200, 50, 0), Error::<T>::NotAllowed); active and total stake remains same
+
 			assert!(eq_stake(agent, total_staked, total_staked));
 
 			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 50));
+
 			// 310 wants to unbond 100 in era 3, withdrawable in era 6.
 			start_era(3);
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 100));
+
 			// 320 wants to unbond 200 in era 4, withdrawable in era 7.
 			start_era(4);
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 200));
@@ -485,7 +486,7 @@ mod staking_integration {
 				0
 			));
 
-			assert_eq!(held_balance(&300), 100 - 80);
+			assert_eq!(DelegatedStaking::held_balance_of(&300), 100 - 80);
 		});
 	}
 
