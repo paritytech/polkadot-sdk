@@ -128,23 +128,25 @@ impl<T: Config> Pallet<T> {
 		// We don't care if this fails or not, just that it is removed if present. This is to
 		// account for the case where a region is pooled provisionally and redispatched.
 		if InstaPoolContribution::<T>::take(region_id).is_some() {
-			let current_timeslice = Self::current_timeslice();
-			// Do no more for regions that have ended.
-			if region.end < current_timeslice {
+			// `InstaPoolHistory` is calculated from the `InstaPoolIo` one timeslice in advance.
+			// Therefore we need to schedule this for the timeslice after that or it won't be be
+			// accounted for.
+			let end_timeslice = Self::current_timeslice() + 2;
+
+			// InstaPoolIo has already accounted for regions that have already ended. Regions ending
+			// this timeslice would have region.end == unpooled_at below.
+			if region.end <= end_timeslice {
 				return
 			}
 
-			// Account for this in `InstaPoolIo` from either the region begin or current timeslice
-			// if we are already part-way through the region.
+			// Account for the change in `InstaPoolIo` either from the start of the region or from
+			// the current timeslice if we are already part-way through the region.
 			let size = region_id.mask.count_ones() as i32;
-			let timeslice_removed_at = current_timeslice.max(region_id.begin);
-			InstaPoolIo::<T>::mutate(timeslice_removed_at, |a| a.private.saturating_reduce(size));
+			let unpooled_at = end_timeslice.max(region_id.begin);
+			InstaPoolIo::<T>::mutate(unpooled_at, |a| a.private.saturating_reduce(size));
 			InstaPoolIo::<T>::mutate(region.end, |a| a.private.saturating_accrue(size));
 
-			Self::deposit_event(Event::<T>::RegionUnpooled {
-				region_id,
-				when: timeslice_removed_at,
-			});
+			Self::deposit_event(Event::<T>::RegionUnpooled { region_id, when: unpooled_at });
 		};
 	}
 }
