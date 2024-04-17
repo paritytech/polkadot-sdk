@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TryStateSelect","UpgradeCheckSelect"],"trait":["TryRuntime"]};
+window.SIDEBAR_ITEMS = {"mod":["inner"]};

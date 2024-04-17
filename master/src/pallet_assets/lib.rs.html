@@ -1871,6 +1871,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1722" id="1722">1722</a>
 <a href="#1723" id="1723">1723</a>
 <a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3570,7 +3572,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>should_touch(asset: T::AssetId, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 			<span class="kw">match </span>Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>asset) {
-				<span class="prelude-val">Some</span>(info) <span class="kw">if </span>info.is_sufficient =&gt; <span class="bool-val">false</span>,
+				<span class="comment">// refer to the [`Self::new_account`] function for more details.
+				</span><span class="prelude-val">Some</span>(info) <span class="kw">if </span>info.is_sufficient =&gt; <span class="bool-val">false</span>,
+				<span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="kw">if </span>frame_system::Pallet::&lt;T&gt;::can_accrue_consumers(who, <span class="number">2</span>) =&gt; <span class="bool-val">false</span>,
 				<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; !Account::&lt;T, I&gt;::contains_key(asset, who),
 				<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
 			}

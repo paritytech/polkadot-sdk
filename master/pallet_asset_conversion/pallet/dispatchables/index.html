@@ -164,7 +164,10 @@ it’s possible to control the min amount of returned tokens you’re happy with
 <code>amount_out_min</code> param allows you to specify the min amount of the <code>asset2</code>
 you’re happy to receive.</div></li><li><div class="item-name"><a class="fn" href="fn.swap_tokens_for_exact_tokens.html" title="fn pallet_asset_conversion::pallet::dispatchables::swap_tokens_for_exact_tokens">swap_tokens_for_exact_tokens</a></div><div class="desc docblock-short">Swap any amount of <code>asset1</code> to get the exact amount of <code>asset2</code>.
 <code>amount_in_max</code> param allows to specify the max amount of the <code>asset1</code>
-you’re happy to provide.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+you’re happy to provide.</div></li><li><div class="item-name"><a class="fn" href="fn.touch.html" title="fn pallet_asset_conversion::pallet::dispatchables::touch">touch</a></div><div class="desc docblock-short">Touch an existing pool to fulfill prerequisites before providing liquidity, such as
+ensuring that the pool’s accounts are in place. It is typically useful when a pool
+creator removes the pool’s accounts and does not provide a liquidity. This action may
+involve holding assets from the caller as a deposit for creating the pool’s accounts.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>

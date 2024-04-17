@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BareCallBuilder","BareInstantiateBuilder","CallBuilder","InstantiateBuilder","InstantiateWithCodeBuilder"]};

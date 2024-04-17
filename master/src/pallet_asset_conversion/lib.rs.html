@@ -1409,6 +1409,63 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1260" id="1260">1260</a>
 <a href="#1261" id="1261">1261</a>
 <a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1509,7 +1566,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_support::{
+		pallet_prelude::{DispatchResult, <span class="kw-2">*</span>},
+		traits::fungibles::Refund,
+	};
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_arithmetic::{traits::Unsigned, Permill};
 
@@ -1541,7 +1601,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>Assets: Inspect&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::AssetKind, Balance = <span class="self">Self</span>::Balance&gt;
 			+ Mutate&lt;<span class="self">Self</span>::AccountId&gt;
 			+ AccountTouch&lt;<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AccountId, Balance = <span class="self">Self</span>::Balance&gt;
-			+ Balanced&lt;<span class="self">Self</span>::AccountId&gt;;
+			+ Balanced&lt;<span class="self">Self</span>::AccountId&gt;
+			+ Refund&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::AssetKind&gt;;
 
 		<span class="doccomment">/// Liquidity pool identifier.
 		</span><span class="kw">type </span>PoolId: Parameter + MaxEncodedLen + Ord;
@@ -1560,7 +1621,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>PoolAssets: Inspect&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::PoolAssetId, Balance = <span class="self">Self</span>::Balance&gt;
 			+ Create&lt;<span class="self">Self</span>::AccountId&gt;
 			+ Mutate&lt;<span class="self">Self</span>::AccountId&gt;
-			+ AccountTouch&lt;<span class="self">Self</span>::PoolAssetId, <span class="self">Self</span>::AccountId, Balance = <span class="self">Self</span>::Balance&gt;;
+			+ AccountTouch&lt;<span class="self">Self</span>::PoolAssetId, <span class="self">Self</span>::AccountId, Balance = <span class="self">Self</span>::Balance&gt;
+			+ Refund&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::PoolAssetId&gt;;
 
 		<span class="doccomment">/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
 		</span><span class="attr">#[pallet::constant]
@@ -1692,6 +1754,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			/// E.g. (A, amount_in) -&gt; (Dot, amount_out) -&gt; (B, amount_out)
 			</span>path: BalancePath&lt;T&gt;,
 		},
+		<span class="doccomment">/// Pool has been touched in order to fulfill operational requirements.
+		</span>Touched {
+			<span class="doccomment">/// The ID of the pool.
+			</span>pool_id: T::PoolId,
+			<span class="doccomment">/// The account initiating the touch.
+			</span>who: T::AccountId,
+		},
 	}
 
 	<span class="attr">#[pallet::error]
@@ -1802,7 +1871,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			NextPoolAssetId::&lt;T&gt;::set(<span class="prelude-val">Some</span>(next_lp_token_id));
 
 			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), <span class="bool-val">false</span>, <span class="number">1u32</span>.into())<span class="question-mark">?</span>;
-			T::PoolAssets::touch(lp_token.clone(), <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>sender)<span class="question-mark">?</span>;
+			<span class="kw">if </span>T::PoolAssets::should_touch(lp_token.clone(), <span class="kw-2">&amp;</span>pool_account) {
+				T::PoolAssets::touch(lp_token.clone(), <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>sender)<span class="question-mark">?
+			</span>};
 
 			<span class="kw">let </span>pool_info = PoolInfo { lp_token: lp_token.clone() };
 			Pools::&lt;T&gt;::insert(pool_id.clone(), pool_info);
@@ -2066,6 +2137,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				keep_alive,
 			)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Touch an existing pool to fulfill prerequisites before providing liquidity, such as
+		/// ensuring that the pool&#39;s accounts are in place. It is typically useful when a pool
+		/// creator removes the pool&#39;s accounts and does not provide a liquidity. This action may
+		/// involve holding assets from the caller as a deposit for creating the pool&#39;s accounts.
+		///
+		/// The origin must be Signed.
+		///
+		/// - `asset1`: The asset ID of an existing pool with a pair (asset1, asset2).
+		/// - `asset2`: The asset ID of an existing pool with a pair (asset1, asset2).
+		///
+		/// Emits `Touched` event when successful.
+		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
+		#[pallet::weight(T::WeightInfo::touch(<span class="number">3</span>))]
+		</span><span class="kw">pub fn </span>touch(
+			origin: OriginFor&lt;T&gt;,
+			asset1: Box&lt;T::AssetKind&gt;,
+			asset2: Box&lt;T::AssetKind&gt;,
+		) -&gt; DispatchResultWithPostInfo {
+			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>pool_id = T::PoolLocator::pool_id(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2)
+				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
+			<span class="kw">let </span>pool = Pools::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
+			<span class="kw">let </span>pool_account =
+				T::PoolLocator::address(<span class="kw-2">&amp;</span>pool_id).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
+
+			<span class="kw">let </span><span class="kw-2">mut </span>refunds_number: u32 = <span class="number">0</span>;
+			<span class="kw">if </span>T::Assets::should_touch(<span class="kw-2">*</span>asset1.clone(), <span class="kw-2">&amp;</span>pool_account) {
+				T::Assets::touch(<span class="kw-2">*</span>asset1, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+				refunds_number += <span class="number">1</span>;
+			}
+			<span class="kw">if </span>T::Assets::should_touch(<span class="kw-2">*</span>asset2.clone(), <span class="kw-2">&amp;</span>pool_account) {
+				T::Assets::touch(<span class="kw-2">*</span>asset2, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+				refunds_number += <span class="number">1</span>;
+			}
+			<span class="kw">if </span>T::PoolAssets::should_touch(pool.lp_token.clone(), <span class="kw-2">&amp;</span>pool_account) {
+				T::PoolAssets::touch(pool.lp_token, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+				refunds_number += <span class="number">1</span>;
+			}
+			<span class="self">Self</span>::deposit_event(Event::Touched { pool_id, who });
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::touch(refunds_number)).into())
 		}
 	}
 
