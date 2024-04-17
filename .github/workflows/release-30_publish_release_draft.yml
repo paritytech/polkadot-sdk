@@ -74,7 +74,7 @@ jobs:
 
           export REF1=$(get_latest_release_tag)
           if [[ -z "${{ inputs.version }}" ]]; then
-            export REF2="${{ github.ref }}"
+            export REF2="${{ github.ref_name }}"
           else
             export REF2="${{ inputs.version }}"
           fi
@@ -156,5 +156,5 @@ jobs:
           access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
           server: m.parity.io
           message: |
-            **New version of polkadot tagged**: ${{ github.ref }}<br/>
+            **New version of polkadot tagged**: ${{ github.ref_name }}<br/>
             Draft release created: ${{ needs.publish-release-draft.outputs.release_url }}
