@@ -459,7 +459,7 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 /// Trait to provide delegation functionality for stakers.
 ///
 /// Introduces two new terms to the staking system:
-/// - `Delegator`: An account that delegates funds to a `Agent`.
+/// - `Delegator`: An account that delegates funds to an `Agent`.
 /// - `Agent`: An account that receives delegated funds from `Delegators`. It can then use these
 /// funds to participate in the staking system. It can never use its own funds to stake. They
 /// (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system and can also be
@@ -525,7 +525,7 @@ pub trait DelegationInterface {
 	/// has an unbounded number of delegators, immediate slashing is not possible.
 	fn has_pending_slash(agent: &Self::AccountId) -> bool;
 
-	/// Apply a pending slash to a `Agent` by slashing `value` from `delegator`.
+	/// Apply a pending slash to an `Agent` by slashing `value` from `delegator`.
 	///
 	/// If a reporter is provided, the reporter will receive a fraction of the slash as reward.
 	fn delegator_slash(

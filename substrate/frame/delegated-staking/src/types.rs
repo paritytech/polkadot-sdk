@@ -78,7 +78,7 @@ impl<T: Config> Delegation<T> {
 	}
 
 	/// Save self to storage. If the delegation amount is zero, remove the delegation.
-	pub(crate) fn save_or_kill(self, key: &T::AccountId) {
+	pub(crate) fn update_or_kill(self, key: &T::AccountId) {
 		// Clean up if no delegation left.
 		if self.amount == Zero::zero() {
 			<Delegators<T>>::remove(key);
@@ -131,7 +131,7 @@ impl<T: Config> AgentLedger<T> {
 	}
 
 	/// Save self to storage with the given key.
-	pub(crate) fn save(self, key: &T::AccountId) {
+	pub(crate) fn update(self, key: &T::AccountId) {
 		<Agents<T>>::insert(key, self)
 	}
 
@@ -258,7 +258,7 @@ impl<T: Config> Agent<T> {
 	/// Save self to storage.
 	pub(crate) fn save(self) {
 		let key = self.key;
-		self.ledger.save(&key)
+		self.ledger.update(&key)
 	}
 
 	/// Save self and remove if no delegation left.
@@ -266,7 +266,7 @@ impl<T: Config> Agent<T> {
 	/// Returns:
 	/// - true if agent killed.
 	/// - error if the delegate is in an unexpected state.
-	pub(crate) fn save_or_kill(self) -> Result<bool, DispatchError> {
+	pub(crate) fn update_or_kill(self) -> Result<bool, DispatchError> {
 		let key = self.key;
 		// see if delegate can be killed
 		if self.ledger.total_delegated == Zero::zero() {
@@ -278,7 +278,7 @@ impl<T: Config> Agent<T> {
 			<Agents<T>>::remove(key);
 			return Ok(true)
 		}
-		self.ledger.save(&key);
+		self.ledger.update(&key);
 		Ok(false)
 	}
 
