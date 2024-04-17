@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713356526893,
+  "lastUpdate": 1713372866693,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3989,6 +3989,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19209161439999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bfbf7f5d6f5c491a820bb0a4fb9508ce52192a06",
+          "message": "chainHead: Report unique hashes for pruned blocks (#3667)\n\nThis PR ensures that the reported pruned blocks are unique.\n\nWhile at it, ensure that the best block event is properly generated when\nthe last best block is a fork that will be pruned in the future.\n\nTo achieve this, the chainHead keeps a LRU set of reported pruned blocks\nto ensure the following are not reported twice:\n\n```bash\n\t finalized -> block 1 -> block 2 -> block 3\n\t\n\t                      -> block 2 -> block 4 -> block 5\n\t\n\t           -> block 1 -> block 2_f -> block 6 -> block 7 -> block 8\n```\n\nWhen block 7 is finalized the branch [block 2; block 3] is reported as\npruned.\nWhen block 8 is finalized the branch [block 2; block 4; block 5] should\nbe reported as pruned, however block 2 was already reported as pruned at\nthe previous step.\n\nThis is a side-effect of the pruned blocks being reported at level N -\n1. For example, if all pruned forks would be reported with the first\nencounter (when block 6 is finalized we know that block 3 and block 5\nare stale), we would not need the LRU cache.\n\ncc @paritytech/subxt-team  \n\nCloses https://github.com/paritytech/polkadot-sdk/issues/3658\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2024-04-17T15:29:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfbf7f5d6f5c491a820bb0a4fb9508ce52192a06"
+        },
+        "date": 1713372839661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.658884640399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15859666359999997,
             "unit": "seconds"
           }
         ]
