@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713350354081,
+  "lastUpdate": 1713356225065,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -4887,6 +4887,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006582842399999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Muharem",
+            "username": "muharem",
+            "email": "ismailov.m.h@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4e10d3b0a6ec2eccf58c471e7739948c1a867acf",
+          "message": "Asset Conversion: Pool Account ID derivation with additional Pallet ID seed (#3250)\n\nIntroduce `PalletId` as an additional seed parameter for pool's account\nid derivation.\n\nThe PR also introduces the `pallet_asset_conversion_ops` pallet with a\ncall to migrate a given pool to thew new account. Additionally\n`fungibles::lifetime::ResetTeam` and `fungible::lifetime::Refund`\ntraits, to facilitate the migration of pools.\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-17T10:39:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e10d3b0a6ec2eccf58c471e7739948c1a867acf"
+        },
+        "date": 1713356198646,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024105996666666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012960267533333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006071174999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15773941326666646,
             "unit": "seconds"
           }
         ]
