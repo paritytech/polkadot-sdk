@@ -1,0 +1,10 @@
+title: "Amend chainspecs for people-westend and add IBP bootnodes"
+
+doc:
+  - audience: Node Operator
+    description: |
+      Fixes the people-westend chain spec.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: patch

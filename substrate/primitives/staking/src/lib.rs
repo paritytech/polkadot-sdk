@@ -314,16 +314,17 @@ pub trait StakingInterface {
 ///
 /// These apis bypass some or all safety checks and should only be used if you know what you are
 /// doing.
-pub trait StakingUnsafe: StakingInterface {
+pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.
 	fn migrate_to_virtual_staker(who: &Self::AccountId);
 
-	/// Book-keep a new bond for `who` without applying any locks (hence virtual).
+	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
 	///
-	/// It is important that who is a keyless account and therefore cannot interact with staking
-	/// pallet directly. Caller is responsible for ensuring the passed amount is locked and valid.
+	/// It is important that `keyless_who` is a keyless account and therefore cannot interact with
+	/// staking pallet directly. Caller is responsible for ensuring the passed amount is locked and
+	/// valid.
 	fn virtual_bond(
 		keyless_who: &Self::AccountId,
 		value: Self::Balance,
