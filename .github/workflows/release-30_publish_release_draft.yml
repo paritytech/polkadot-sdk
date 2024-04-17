@@ -42,11 +42,6 @@ jobs:
           URL=https://github.com/chevdor/tera-cli/releases/download/v0.2.4/tera-cli_linux_amd64.deb
           wget $URL -O tera.deb
           sudo dpkg -i tera.deb
-          #cargo install --git https://github.com/chevdor/tera-cli
-          #tera --version
-
-          #cargo install prdoc
-          #prdoc --version
 
       - name: Download artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
@@ -80,12 +75,10 @@ jobs:
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
           export VERSION=$(echo "$REF2" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
-          echo "VERSION: $VERSION"
 
           ./scripts/release/build-changelogs.sh
 
           echo "Checking the folder state"
-          pwd
           ls -la scripts/release
 
       - name: Archive artifact context.json
