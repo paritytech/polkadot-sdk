@@ -15,11 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! The [`CheckMetadataHash`] signed extension.
 //!
-//! The extension
-
-#![cfg_attr(not(feature = "std"), no_std)]
+//! The extension for optionally checking the metadata hash. For information how it works and what
+//! it does exactly, see the docs of [`CheckMetadataHash`].
+//!
+//! # Integration
+//!
+//! As any signed extension you will need to add it to your runtime signed extensions. As the
+//! extension requires the `RUNTIME_METADATA_HASH` environment variable to be present, it requires a
+//! little bit more setup. To pass this environment variable it is required to tell the
+//! `substrate-wasm-builder` to do so:
+#![doc = docify::embed!("src/tests.rs", enable_metadata_hash_in_wasm_builder)]
+//! As generating the metadata hash requires to compile the runtime twice, it is
+//! recommended to only enable the metadata hash generation when doing a build for a release.
 
 use codec::{Decode, Encode};
 use frame_support::DebugNoBound;
@@ -30,7 +41,11 @@ use sp_runtime::{
 	transaction_validity::{TransactionValidityError, UnknownTransaction},
 };
 
+#[cfg(test)]
+mod tests;
+
 /// Type that encodes `None` to an empty vec.
+#[derive(Debug, PartialEq)]
 pub struct EncodeNoneToEmpty(Option<[u8; 32]>);
 
 impl Encode for EncodeNoneToEmpty {

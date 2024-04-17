@@ -12,6 +12,9 @@ frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 docify = "0.2.8"
 
+[dev-dependencies]
+substrate-wasm-builder = { path = "../../utils/wasm-builder" }
+
 [features]
 default = ["std"]
 std = [
