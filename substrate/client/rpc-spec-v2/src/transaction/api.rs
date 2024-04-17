@@ -33,8 +33,8 @@ pub trait TransactionApi<Hash: Clone> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "transactionWatch_unstable_submitAndWatch" => "transactionWatch_unstable_watchEvent",
-		unsubscribe = "transactionWatch_unstable_unwatch",
+		name = "transactionWatch_v1_submitAndWatch" => "transactionWatch_v1_watchEvent",
+		unsubscribe = "transactionWatch_v1_unwatch",
 		item = TransactionEvent<Hash>,
 	)]
 	fn submit_and_watch(&self, bytes: Bytes);
