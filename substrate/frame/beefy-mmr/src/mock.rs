@@ -90,6 +90,8 @@ impl pallet_mmr::Config for Test {
 
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Test>;
 
+	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
+
 	type WeightInfo = ();
 }
 

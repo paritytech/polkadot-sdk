@@ -313,8 +313,8 @@ mod benches {
 		assert_last_event::<T>(
 			Event::Transferred {
 				region_id: region,
-				old_owner: caller,
-				owner: recipient,
+				old_owner: Some(caller),
+				owner: Some(recipient),
 				duration: 3u32.into(),
 			}
 			.into(),
@@ -914,6 +914,23 @@ mod benches {
 
 		let updated_status = Status::<T>::get().unwrap();
 		assert_eq!(status, updated_status);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn swap_leases() -> Result<(), BenchmarkError> {
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		// Add two leases in `Leases`
+		let n = (T::MaxLeasedCores::get() / 2) as usize;
+		let mut leases = vec![LeaseRecordItem { task: 1, until: 10u32.into() }; n];
+		leases.extend(vec![LeaseRecordItem { task: 2, until: 20u32.into() }; n]);
+		Leases::<T>::put(BoundedVec::try_from(leases).unwrap());
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, 1, 2);
 
 		Ok(())
 	}

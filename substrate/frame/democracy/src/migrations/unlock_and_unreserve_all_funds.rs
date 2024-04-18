@@ -321,40 +321,40 @@ mod test {
 	}
 
 	#[test]
-	fn unreserve_works_for_depositer() {
-		let depositer_0 = 10;
-		let depositer_1 = 11;
+	fn unreserve_works_for_depositor() {
+		let depositor_0 = 10;
+		let depositor_1 = 11;
 		let deposit = 25;
-		let depositer_0_initial_reserved = 0;
-		let depositer_1_initial_reserved = 15;
+		let depositor_0_initial_reserved = 0;
+		let depositor_1_initial_reserved = 15;
 		let initial_balance = 100_000;
 		new_test_ext().execute_with(|| {
 			// Set up initial state.
-			<Test as crate::Config>::Currency::make_free_balance_be(&depositer_0, initial_balance);
-			<Test as crate::Config>::Currency::make_free_balance_be(&depositer_1, initial_balance);
+			<Test as crate::Config>::Currency::make_free_balance_be(&depositor_0, initial_balance);
+			<Test as crate::Config>::Currency::make_free_balance_be(&depositor_1, initial_balance);
 			assert_ok!(<Test as crate::Config>::Currency::reserve(
-				&depositer_0,
-				depositer_0_initial_reserved + deposit
+				&depositor_0,
+				depositor_0_initial_reserved + deposit
 			));
 			assert_ok!(<Test as crate::Config>::Currency::reserve(
-				&depositer_1,
-				depositer_1_initial_reserved + deposit
+				&depositor_1,
+				depositor_1_initial_reserved + deposit
 			));
 			let depositors =
 				BoundedVec::<_, <Test as crate::Config>::MaxDeposits>::truncate_from(vec![
-					depositer_0,
-					depositer_1,
+					depositor_0,
+					depositor_1,
 				]);
 			DepositOf::<Test>::insert(0, (depositors, deposit));
 
 			// Sanity check: ensure initial reserved balance was set correctly.
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_0),
-				depositer_0_initial_reserved + deposit
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_0),
+				depositor_0_initial_reserved + deposit
 			);
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_1),
-				depositer_1_initial_reserved + deposit
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_1),
+				depositor_1_initial_reserved + deposit
 			);
 
 			// Run the migration.
@@ -365,12 +365,12 @@ mod test {
 
 			// Assert the reserved balance was reduced by the expected amount.
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_0),
-				depositer_0_initial_reserved
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_0),
+				depositor_0_initial_reserved
 			);
 			assert_eq!(
-				<Test as crate::Config>::Currency::reserved_balance(&depositer_1),
-				depositer_1_initial_reserved
+				<Test as crate::Config>::Currency::reserved_balance(&depositor_1),
+				depositor_1_initial_reserved
 			);
 		});
 	}

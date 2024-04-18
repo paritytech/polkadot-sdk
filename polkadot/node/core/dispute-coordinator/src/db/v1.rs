@@ -341,7 +341,7 @@ pub(crate) fn note_earliest_session(
 				let lower_bound = (new_earliest_session, CandidateHash(Hash::repeat_byte(0x00)));
 
 				let new_recent_disputes = recent_disputes.split_off(&lower_bound);
-				// Any remanining disputes are considered ancient and must be pruned.
+				// Any remaining disputes are considered ancient and must be pruned.
 				let pruned_disputes = recent_disputes;
 
 				if pruned_disputes.len() != 0 {

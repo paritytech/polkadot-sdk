@@ -187,7 +187,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	/// Start asynchronous runner for import queue.
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
-	/// influece the synchronization process.
+	/// influence the synchronization process.
 	async fn run(mut self, mut link: Box<dyn Link<B>>) {
 		loop {
 			if let Err(_) = self.result_port.next_action(&mut *link).await {
@@ -198,7 +198,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	}
 }
 
-/// Messages destinated to the background worker.
+/// Messages designated to the background worker.
 mod worker_messages {
 	use super::*;
 
@@ -632,7 +632,7 @@ mod tests {
 			let hash = Hash::random();
 			finality_sender
 				.unbounded_send(worker_messages::ImportJustification(
-					libp2p_identity::PeerId::random(),
+					sc_network_types::PeerId::random(),
 					hash,
 					1,
 					(*b"TEST", Vec::new()),

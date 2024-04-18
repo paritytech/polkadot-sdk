@@ -29,7 +29,7 @@ benchmarks! {
 		// NOTE: generated with the test below `test_generate_equivocation_report_blob`.
 		// the output should be deterministic since the keys we use are static.
 		// with the current benchmark setup it is not possible to generate this
-		// programatically from the benchmark setup.
+		// programmatically from the benchmark setup.
 		const EQUIVOCATION_PROOF_BLOB: [u8; 257] = [
 			1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 136, 220, 52, 23,
 			213, 5, 142, 196, 180, 80, 62, 12, 18, 234, 26, 10, 137, 190, 32,
