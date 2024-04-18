@@ -139,3 +139,69 @@ impl EnsureDelivery for Tuple {
 		(None, None)
 	}
 }
+
+/// A wrapper router that attempts to *encode* and *decode* passed XCM `message` to ensure that the
+/// receiving side will be able to decode, at least with the same XCM version.
+///
+/// This is designed to be at the top-level of any routers which do the real delivery. While other
+/// routers can manipulate the `message`, we cannot access the final XCM due to the generic
+/// `Inner::Ticket`. Therefore, this router aims to validate at least the passed `message`.
+///
+/// NOTE: For testing purposes.
+pub struct EnsureDecodableXcm<Inner>(sp_std::marker::PhantomData<Inner>);
+impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
+	type Ticket = Inner::Ticket;
+
+	fn validate(
+		destination: &mut Option<Location>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(msg) = message {
+			if let Some(e) = Self::ensure_encode_decode(msg) {
+				return Err(e)
+			}
+		}
+		Inner::validate(destination, message)
+	}
+
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Inner::deliver(ticket)
+	}
+}
+impl<Inner> EnsureDecodableXcm<Inner> {
+	fn ensure_encode_decode(xcm: &Xcm<()>) -> Option<SendError> {
+		use parity_scale_codec::Decode;
+		let encoded = xcm.encode();
+		match Xcm::<()>::decode(&mut &encoded[..]) {
+			Ok(decoded_xcm) => match decoded_xcm.eq(xcm) {
+				true => None,
+				false => {
+					log::error!(target: "xcm::test_utils", "EnsureDecodableXcm `decoded_xcm` does not match `xcm` - \ndecoded_xcm: {decoded_xcm:?} \nxcm:{xcm:?}");
+					Some(SendError::Transport("Decoded xcm does not match xcm!"))
+				},
+			},
+			Err(e) => {
+				log::error!(target: "xcm::test_utils", "EnsureDecodableXcm decode error: {e:?} occurred for xcm: {xcm:?}");
+				Some(SendError::Transport("Failed to encode/decode xcm!"))
+			},
+		}
+	}
+}
+
+#[test]
+fn ensure_encode_decode_works() {
+	let good_fun = vec![(Here, 10).into(), (Parent, 10).into()];
+	assert!(Assets::from_sorted_and_deduplicated(good_fun.clone()).is_ok());
+
+	let good_xcm = Xcm(vec![ReserveAssetDeposited(Assets::from(good_fun.clone()))]);
+	assert!(EnsureDecodableXcm::<()>::ensure_encode_decode(&good_xcm).is_none());
+
+	let bad_xcm = Xcm(vec![
+		ReserveAssetDeposited(Assets::from(good_fun));
+		(xcm::latest::MAX_INSTRUCTIONS_TO_DECODE + 1) as usize
+	]);
+	assert_eq!(
+		EnsureDecodableXcm::<()>::ensure_encode_decode(&bad_xcm),
+		Some(SendError::Transport("Failed to encode/decode xcm!"))
+	);
+}
