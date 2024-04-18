@@ -1513,7 +1513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Extract all reversion logs from a header in ascending order.
 //
-// Ignores logs with number &gt;= the block header number.
+// Ignores logs with number &gt; the block header number.
 </span><span class="kw">fn </span>extract_reversion_logs(header: <span class="kw-2">&amp;</span>Header) -&gt; Vec&lt;BlockNumber&gt; {
 	<span class="kw">let </span>number = header.number;
 	<span class="kw">let </span><span class="kw-2">mut </span>logs = header
@@ -1533,14 +1533,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="prelude-val">None
 			</span>},
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ConsensusLog::Revert(b))) <span class="kw">if </span>b &lt; number =&gt; <span class="prelude-val">Some</span>(b),
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ConsensusLog::Revert(b))) <span class="kw">if </span>b &lt;= number =&gt; <span class="prelude-val">Some</span>(b),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ConsensusLog::Revert(b))) =&gt; {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					revert_target = b,
 					block_number = number,
 					block_hash = <span class="question-mark">?</span>header.hash(),
-					<span class="string">"Block issued invalid revert digest targeting itself or future"
+					<span class="string">"Block issued invalid revert digest targeting future"
 				</span>);
 
 				<span class="prelude-val">None

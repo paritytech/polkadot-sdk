@@ -927,6 +927,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
 <a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1165,7 +1169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Imports a new block and applies any reversions to ancestors.
+<span class="doccomment">/// Imports a new block and applies any reversions to ancestors or the block itself.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>import_block(
 	backend: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="kw">impl </span>Backend&gt;,
 	block_hash: Hash,
@@ -1175,25 +1179,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weight: BlockWeight,
 	stagnant_at: Timestamp,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	add_block(backend, block_hash, block_number, parent_hash, weight, stagnant_at)<span class="question-mark">?</span>;
-	apply_ancestor_reversions(backend, block_hash, block_number, reversion_logs)<span class="question-mark">?</span>;
+	<span class="kw">let </span>block_entry =
+		add_block(backend, block_hash, block_number, parent_hash, weight, stagnant_at)<span class="question-mark">?</span>;
+	apply_reversions(backend, block_entry, reversion_logs)<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
 }
 
 <span class="comment">// Load the given ancestor's block entry, in descending order from the `block_hash`.
-// The ancestor_number must be at least one block less than the `block_number`.
+// The ancestor_number must be not higher than the `block_entry`'s.
 //
 // The returned entry will be `None` if the range is invalid or any block in the path had
 // no entry present. If any block entry was missing, it can safely be assumed to
 // be finalized.
 </span><span class="kw">fn </span>load_ancestor(
 	backend: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="kw">impl </span>Backend&gt;,
-	block_hash: Hash,
-	block_number: BlockNumber,
+	block_entry: <span class="kw-2">&amp;</span>BlockEntry,
 	ancestor_number: BlockNumber,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockEntry&gt;, Error&gt; {
-	<span class="kw">if </span>block_number &lt;= ancestor_number {
+	<span class="kw">let </span>block_hash = block_entry.block_hash;
+	<span class="kw">let </span>block_number = block_entry.block_number;
+	<span class="kw">if </span>block_number == ancestor_number {
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(block_entry.clone()))
+	} <span class="kw">else if </span>block_number &lt; ancestor_number {
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
 
@@ -1229,7 +1237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parent_hash: Hash,
 	weight: BlockWeight,
 	stagnant_at: Timestamp,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;BlockEntry, Error&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>leaves = backend.load_leaves()<span class="question-mark">?</span>;
 	<span class="kw">let </span>parent_entry = backend.load_block_entry(<span class="kw-2">&amp;</span>parent_hash)<span class="question-mark">?</span>;
 
@@ -1237,7 +1245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		parent_entry.as_ref().and_then(|parent| parent.non_viable_ancestor_for_child());
 
 	<span class="comment">// 1. Add the block to the DB assuming it's not reverted.
-	</span>backend.write_block_entry(BlockEntry {
+	</span><span class="kw">let </span>block_entry = BlockEntry {
 		block_hash,
 		block_number,
 		parent_hash,
@@ -1248,7 +1256,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			approval: Approval::Unapproved,
 		},
 		weight,
-	});
+	};
+	backend.write_block_entry(block_entry.clone());
 
 	<span class="comment">// 2. Update leaves if inherited viability is fine.
 	</span><span class="kw">if </span>inherited_viability.is_none() {
@@ -1273,26 +1282,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	stagnant_at_list.push(block_hash);
 	backend.write_stagnant_at(stagnant_at, stagnant_at_list);
 
-	<span class="prelude-val">Ok</span>(())
+	<span class="prelude-val">Ok</span>(block_entry)
 }
 
 <span class="doccomment">/// Assuming that a block is already imported, accepts the number of the block
 /// as well as a list of reversions triggered by the block in ascending order.
-</span><span class="kw">fn </span>apply_ancestor_reversions(
+</span><span class="kw">fn </span>apply_reversions(
 	backend: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="kw">impl </span>Backend&gt;,
-	block_hash: Hash,
-	block_number: BlockNumber,
+	block_entry: BlockEntry,
 	reversions: Vec&lt;BlockNumber&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="comment">// Note: since revert numbers are  in ascending order, the expensive propagation
 	// of unviability is only heavy on the first log.
 	</span><span class="kw">for </span>revert_number <span class="kw">in </span>reversions {
-		<span class="kw">let </span>maybe_block_entry = load_ancestor(backend, block_hash, block_number, revert_number)<span class="question-mark">?</span>;
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(block_entry) = <span class="kw-2">&amp;</span>maybe_block_entry {
+		<span class="kw">let </span>maybe_block_entry = load_ancestor(backend, <span class="kw-2">&amp;</span>block_entry, revert_number)<span class="question-mark">?</span>;
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="kw-2">&amp;</span>maybe_block_entry {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>revert_number,
-				revert_hash = <span class="question-mark">?</span>block_entry.block_hash,
+				revert_hash = <span class="question-mark">?</span>entry.block_hash,
 				<span class="string">"Block marked as reverted via scraped on-chain reversions"
 			</span>);
 		}
@@ -1301,8 +1309,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			maybe_block_entry,
 			<span class="prelude-val">None</span>,
 			revert_number,
-			<span class="prelude-val">Some</span>(block_hash),
-			<span class="prelude-val">Some</span>(block_number),
+			<span class="prelude-val">Some</span>(block_entry.block_hash),
+			<span class="prelude-val">Some</span>(block_entry.block_number),
 		)<span class="question-mark">?</span>;
 	}
 
