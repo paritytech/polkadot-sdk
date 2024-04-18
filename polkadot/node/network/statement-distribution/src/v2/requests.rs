@@ -553,6 +553,7 @@ impl UnhandledResponse {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
 		} = self;
+
 		// handle races if the candidate is no longer known.
 		// this could happen if we requested the candidate under two
 		// different identifiers at the same time, and received a valid
@@ -577,6 +578,7 @@ impl UnhandledResponse {
 			Ok(i) => i,
 			Err(_) => unreachable!("requested candidates always have a priority entry; qed"),
 		};
+
 		// Set the next retry time before clearing the `in_flight` flag.
 		entry.next_retry_time = Some(Instant::now() + REQUEST_RETRY_DELAY);
 		entry.in_flight = false;
