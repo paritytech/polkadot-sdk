@@ -55,11 +55,21 @@
 //! ./target/release/minimal-template-node --dev
 //! ```
 //!
-//! ### CLI Commands
+//! ### CLI Options
 //!
-//! The node exposes a few commands that can be used to interact with the node. To see the list of
-//! available commands, run the following command:
+//! The node exposes a few options that can be used to interact with the node. To see the list of
+//! available options, run the following command:
 //!
 //! ```bash
 //! ./target/release/minimal-template-node --help
+//! ```
+//!
+//! #### Consensus Algorithm
+//!
+//! In order to run the node with a specific consensus algorithm, use the `--consensus` flag. For
+//! example, to run the node with ManualSeal consensus with a block time of 5000ms, use the
+//! following command:
+//!
+//! ```bash
+//! ./target/release/minimal-template-node --dev --consensus manual-seal-5000
 //! ```
