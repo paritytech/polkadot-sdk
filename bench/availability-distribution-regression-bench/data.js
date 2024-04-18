@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713455727543,
+  "lastUpdate": 1713460851538,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -5303,6 +5303,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02434859886666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c891fdabf4d519b25829490723fb70b1a2ffc0e5",
+          "message": "tx: Remove tx_broadcast transaction from the pool (#4050)\n\nThis PR ensures that broadcast future cleans-up the submitted extrinsic\nfrom the pool, iff the `broadcast_stop` operation has been called.\n\nThis effectively cleans-up transactions from the pool when the\n`broadcast_stop` is called.\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-18T15:57:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c891fdabf4d519b25829490723fb70b1a2ffc0e5"
+        },
+        "date": 1713460827223,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012656718133333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006379927666666679,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15810337746666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0241669304,
             "unit": "seconds"
           }
         ]
