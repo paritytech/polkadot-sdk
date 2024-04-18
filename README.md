@@ -79,3 +79,4 @@ contribution, this project adheres to the [Contributor Covenant Code of Conduct]
 - For monitoring upcoming changes and current proposals related to the technical implementation of the Polkadot network,
   visit the [`Requests for Comment (RFC)`](https://github.com/polkadot-fellows/RFCs) repository. While it's maintained
   by the Polkadot Fellowship, the RFC process welcomes contributions from everyone.
+
