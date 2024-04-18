@@ -219,11 +219,11 @@ where
 	}
 
 	/// Generates an ancestry proof for the given ancestoring block's mmr root.
-	fn generate_ancestry_proof_opt(
+	fn try_generate_ancestry_proof(
 		&self,
 		best_block_hash: B::Hash,
 		prev_block_num: NumberFor<B>,
-	) -> Option<AncestryProof<sp_consensus_beefy::MmrRootHash>> {
+	) -> Option<AncestryProof<MmrRootHash>> {
 		match self.runtime.runtime_api().generate_ancestry_proof(
 			best_block_hash,
 			prev_block_num,
@@ -269,7 +269,7 @@ where
 		} else {
 			let canonical_hhp = self.canonical_hash_header_payload(number)?;
 			if vote.commitment.payload != canonical_hhp.payload {
-				let ancestry_proof = self.generate_ancestry_proof_opt(
+				let ancestry_proof = self.try_generate_ancestry_proof(
 					self.backend.blockchain().info().finalized_hash,
 					number,
 				);
@@ -333,7 +333,7 @@ where
 		} else {
 			let canonical_hhp = self.canonical_hash_header_payload(number)?;
 			if commitment.payload != canonical_hhp.payload {
-				let ancestry_proof = self.generate_ancestry_proof_opt(
+				let ancestry_proof = self.try_generate_ancestry_proof(
 					self.backend.blockchain().info().finalized_hash,
 					number,
 				);

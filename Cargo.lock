@@ -2674,7 +2674,7 @@ dependencies = [
 [[package]]
 name = "ckb-merkle-mountain-range"
 version = "0.6.0"
-source = "git+https://github.com/paritytech/merkle-mountain-range.git?branch=leaf-node-proof-split#7749d1ff5263f9bf1f56ea9193c0a357881695e6"
+source = "git+https://github.com/paritytech/merkle-mountain-range.git?branch=master#537f0e3f67c5adf7afff0800bbb81f02f17570a1"
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",

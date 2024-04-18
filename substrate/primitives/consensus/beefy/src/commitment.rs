@@ -131,7 +131,7 @@ struct CompactSignedCommitment<TBlockNumber, TSignature> {
 	/// A bitfield representing presence of a signature coming from a validator at some index.
 	///
 	/// The bit at index `0` is set to `1` in case we have a signature coming from a validator at
-	/// index `0` in in the original validator set. In case the [`SignedCommitment`] does not
+	/// index `0` in the original validator set. In case the [`SignedCommitment`] does not
 	/// contain that signature the `bit` will be set to `0`. Bits are packed into `Vec<u8>`
 	signatures_from: BitField,
 	/// Number of validators in the Validator Set and hence number of significant bits in the
