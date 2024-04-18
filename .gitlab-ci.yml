@@ -284,12 +284,6 @@ test-linux-stable-codecov:
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
     - |
-      cargo build \
-        --workspace \
-        --locked \
-        --release \
-        --features try-runtime,experimental,riscv,ci-only-tests
-    - |
       time cargo nextest run \
         --workspace \
         --locked \
