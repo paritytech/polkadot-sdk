@@ -2575,7 +2575,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = MmrLeaf;
 	type WeightInfo = ();
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
