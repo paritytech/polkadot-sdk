@@ -172,7 +172,7 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
-		/// Handler for the unbalanced decrease when slashing for a bounty.
+		/// Handler for the unbalanced decrease when slashing for a tip.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 	}
 
